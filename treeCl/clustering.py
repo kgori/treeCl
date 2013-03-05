@@ -33,8 +33,7 @@ class Clustering(object):
         self.distance_matrix = distance_matrix
 
     def __str__(self):
-        h = 'Clustering {0} distance matrix'.format(self.distance_matrix.metric)
-        return '\n'.join([h, str(self.distance_matrix)])
+        return str(self.distance_matrix)
 
     def kmedoids(self, nclusters, noise=False):
 

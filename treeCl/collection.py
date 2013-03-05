@@ -3,10 +3,11 @@
 import glob
 import re
 from copy import deepcopy
-from treeCl.sequence_record import TCSeqRec
-from treeCl.externals import runDV, runTC, runPhyml
+from treeCl.sequence_record import TCSeqRec, concatenate
+from treeCl.externals import runDV, runTC, runPhyml, simulate_from_tree
 from treeCl.distance_matrix import DistanceMatrix
-from errors import FileError, DirectoryError, optioncheck_and_raise
+from errors import FileError, DirectoryError, OptionError, \
+    optioncheck_and_raise, directorycheck_and_make, directorycheck_and_raise
 from utils import fileIO
 
 sort_key = lambda item: tuple((int(num) if num else alpha) for (num, alpha) in
@@ -33,25 +34,30 @@ class Collection(object):
 
     def __init__(
         self,
-        input_dir,
-        file_format,
-        datatype,
+        records=None,
+        input_dir=None,
+        file_format='fasta',
+        datatype=None,
         tmpdir='/tmp',
         calc_distances=False,
         ):
 
-        if not fileIO.can_open(input_dir):  # checks
-            raise DirectoryError(input_dir)
-        if not fileIO.can_open(tmpdir):
-            raise DirectoryError(tmpdir)
+        self.tmpdir = directorycheck_and_make(tmpdir)
 
-        self.file_format = file_format
-        self.datatype = datatype
-        self.tmpdir = tmpdir
+        if records:
+            self.records = records
+            self.datatype = datatype or records[0].datatype
+            optioncheck_and_raise(self.datatype, ['dna', 'protein'])
 
-        # files = self.read_files()
+        elif input_dir:
+            directorycheck_and_raise(input_dir)
+            self.datatype = optioncheck_and_raise(datatype, ['dna', 'protein'])
+            optioncheck_and_raise(file_format, ['fasta', 'phylip'])
+            self.records = self.read_files(input_dir, file_format)
 
-        self.records = input_dir
+        else:
+            print 'Provide a list of records, or the path to a set of alignments'
+
         if calc_distances:
             self.calc_distances()
 
@@ -65,36 +71,35 @@ class Collection(object):
         return [self._records[i] for i in range(len(self._records))]
 
     @records.setter
-    def records(self, input_dir):
-        files = self.read_files(input_dir)
-        records = [TCSeqRec(f, file_format=self.file_format,
-                   datatype=self.datatype, name=get_name(f),
-                   tmpdir=self.tmpdir) for f in files]
+    def records(self, records):
+
         for rec in records:
             rec.sanitise()
         self._records = dict(enumerate(records))
 
         # self.reverse_lookup = {v:k for (k,v) in self.records}
 
-    def read_files(self, input_dir):
+    def read_files(self, input_dir, file_format):
         """ Get list of alignment files from an input directory *.fa, *.fas and
         *.phy files only
         
         Stores in self.files """
 
-        if self.file_format == 'fasta':
+        if file_format == 'fasta':
             files = glob.glob('{0}/*.fa'.format(input_dir))
             if len(files) == 0:
                 files = glob.glob('{0}/*.fas'.format(input_dir))
-        elif self.file_format == 'phylip':
+        elif file_format == 'phylip':
             files = glob.glob('{0}/*.phy'.format(input_dir))
         else:
-            print 'Unrecognised file format %s' % self.file_format
+            print 'Unrecognised file format %s' % file_format
             files = None
         if not files:
             print 'No sequence files found in {0}'.format(input_dir)
             raise FileError(input_dir)
-        return sorted(files, key=sort_key)
+        files = sorted(files, key=sort_key)
+        return [TCSeqRec(f, file_format=file_format, datatype=self.datatype,
+                name=get_name(f), tmpdir=self.tmpdir) for f in files]
 
     def calc_distances(self, verbosity=0):
         for rec in self.records:
@@ -118,6 +123,13 @@ class Collection(object):
         trees = [rec.tree for rec in self.records]
         return DistanceMatrix(trees, metric, tmpdir=self.tmpdir)
 
+    def permuted_copy(self):
+        lengths, names = zip(*[(rec.seqlength, rec.name) for rec in self.records])
+        concat = concatenate(self.records)
+        concat.shuffle()
+        new_records = concat.split_by_lengths(lengths, names)
+        return self.__class__(new_records)
+
 
 class Scorer(object):
 
@@ -129,12 +141,18 @@ class Scorer(object):
         records,
         analysis,
         max_guidetrees=10,
+        tmpdir=None,
+        datatype=None,
         ):
-        optioncheck_and_raise(analysis, ['ml', 'nj', 'TreeCollection'])
-        self.concats = {}
-        self.records = records
-        self.analysis = analysis
+
+        self.analysis = optioncheck_and_raise(analysis, ['ml', 'nj',
+                'TreeCollection'])
         self.max_guidetrees = max_guidetrees
+        self.records = records
+        self.datatype = datatype or records[0].datatype
+        optioncheck_and_raise(self.datatype, ['protein', 'dna'])
+        self.tmpdir = tmpdir or records[0].tmpdir
+        self.concats = {}
 
     def add(self, index_list, verbosity=1):
         """ Takes a tuple of indices. Concatenates the records in the record
@@ -165,14 +183,13 @@ class Scorer(object):
         the first record, ensuring a new memory address for the concatenation,
         seems more robust. """
 
-        member_records = [self.records[n] for n in index_list]
-        first_rec = member_records.pop(0)
-        seed = deepcopy(first_rec)  # use of deepcopy here
-        seed.tmpdir = first_rec.tmpdir
-        for rec in member_records:  # is important
-            seed += rec
-        seed.name = '-'.join(str(x) for x in index_list)
-        return seed
+        member_records = self.members(index_list)
+        concat = concatenate(member_records)
+        concat.name = '-'.join(str(x) for x in index_list)
+        return concat
+
+    def members(self, index_list):
+        return [self.records[n] for n in index_list]
 
     def score(self, partition_object, **kwargs):
         """ Generates the index lists of the Partition object, gets the score
@@ -180,3 +197,50 @@ class Scorer(object):
 
         inds = partition_object.get_membership()
         return sum([self.add(ind, **kwargs).score for ind in inds])
+
+    def simulate(self, index_list, model=None):
+        """ Simulate a group of sequence alignments using ALF. Uses one of
+        {(GCB, JTT, LG, WAG - protein), (CPAM, ECM and ECMu - DNA)}, WAG by
+        default. TO DO: add parameterised models when I have a robust (probably
+        PAML) method of estimating them from alignment+tree """
+
+        if self.datatype == 'protein':  # set some defaults
+            model = model or 'WAG'
+            optioncheck_and_raise(model, [
+                'CPAM',
+                'ECM',
+                'ECMu',
+                'WAG',
+                'JTT',
+                'GCB',
+                'LG',
+                ])
+        else:
+            model = model or 'ECM'
+            try:
+                optioncheck_and_raise(model, ['CPAM', 'ECM', 'ECMu'])
+            except OptionError, e:
+                print 'Choose a DNA-friendly model for simulation:\n', e
+                return
+
+        member_records = self.members(index_list)
+        (lengths, names) = zip(*[(rec.seqlength, rec.name) for rec in
+                               member_records])
+        full_length = sum(lengths)
+        tree = self.add(index_list)
+
+        simulated_records = simulate_from_tree(
+            tree=tree,
+            length=full_length,
+            datatype=self.datatype,
+            tmpdir=self.tmpdir,
+            model=model,
+            split_lengths=lengths,
+            gene_names=names,
+            )
+
+        return simulated_records
+
+    def simulate_from_result(self, partition_object, **kwargs):
+        inds = partition_object.get_membership()
+        return [self.simulate(ind, **kwargs) for ind in inds]

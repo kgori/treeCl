@@ -1,15 +1,21 @@
 #!/usr/bin/env python
+import re
 
-def extract_gamma_parameter(self):
+"""
+TO DO: Add PAML class to estimate these kinds of parameters better then 
+can dispense with this
+"""
+
+def extract_gamma_parameter(tree):
         gamma_regex = re.compile(r'(?<=Gamma shape parameter: \t\t)[.\d+]+')
         try:
-            gamma = float(gamma_regex.search(self.output).group())
+            gamma = float(gamma_regex.search(tree.output).group())
         except AttributeError:
             print 'Couldn\'t extract parameters'
             return
         return gamma
 
-def extract_GTR_parameters(self):
+def extract_GTR_parameters(tree):
     Afreq_regex = re.compile(r'(?<=f\(A\)= )[.\d+]+')
     Cfreq_regex = re.compile(r'(?<=f\(C\)= )[.\d+]+')
     Gfreq_regex = re.compile(r'(?<=f\(G\)= )[.\d+]+')
@@ -22,16 +28,16 @@ def extract_GTR_parameters(self):
     GtoT_regex = re.compile(r'(?<=A <-> T    )[.\d+]+')
 
     try:
-        Afreq = float(Afreq_regex.search(self.output).group())
-        Cfreq = float(Cfreq_regex.search(self.output).group())
-        Gfreq = float(Gfreq_regex.search(self.output).group())
-        Tfreq = float(Tfreq_regex.search(self.output).group())
-        AtoC = float(AtoC_regex.search(self.output).group())
-        AtoG = float(AtoG_regex.search(self.output).group())
-        AtoT = float(AtoT_regex.search(self.output).group())
-        CtoG = float(CtoG_regex.search(self.output).group())
-        CtoT = float(CtoT_regex.search(self.output).group())
-        GtoT = float(GtoT_regex.search(self.output).group())
+        Afreq = float(Afreq_regex.search(tree.output).group())
+        Cfreq = float(Cfreq_regex.search(tree.output).group())
+        Gfreq = float(Gfreq_regex.search(tree.output).group())
+        Tfreq = float(Tfreq_regex.search(tree.output).group())
+        AtoC = float(AtoC_regex.search(tree.output).group())
+        AtoG = float(AtoG_regex.search(tree.output).group())
+        AtoT = float(AtoT_regex.search(tree.output).group())
+        CtoG = float(CtoG_regex.search(tree.output).group())
+        CtoT = float(CtoT_regex.search(tree.output).group())
+        GtoT = float(GtoT_regex.search(tree.output).group())
     except AttributeError:
         print 'Couldn\'t extract parameters'
         return

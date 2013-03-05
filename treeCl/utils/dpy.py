@@ -12,6 +12,12 @@ def bifurcate_base(newick):
     return newick_string
 
 
+def trifurcate_base(newick):
+    t = dendropy.Tree.get_from_string(newick, 'newick')
+    t.deroot()
+    return t.as_newick_string() + ';\n'
+
+
 def brlen_sum(dpy_tree):
     tot = 0
     for n in dpy_tree.preorder_node_iter():
@@ -59,13 +65,6 @@ def check_rooted(newick):
     return root_degree == 2
 
 
-def deroot(newick):
-    print '"dpy_utils.deroot" is deprecated, use "dpy_utils.trifurcate_base"'
-    t = dendropy.Tree.get_from_string(newick, 'newick')
-    t.deroot()
-    return t.as_newick_string() + ';\n'
-
-
 def get_rf_distance(dpy_tree1, dpy_tree2):
     return dpy_tree1.symmetric_difference(dpy_tree2)
 
@@ -81,8 +80,3 @@ def get_euc_distance(dpy_tree1, dpy_tree2):
 def print_plot(tree):
     return convert_to_dendropy_tree(tree).print_plot()
 
-
-def trifurcate_base(newick):
-    t = dendropy.Tree.get_from_string(newick, 'newick')
-    t.deroot()
-    return t.as_newick_string() + ';\n'

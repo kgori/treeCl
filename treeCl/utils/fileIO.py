@@ -5,6 +5,8 @@ __all__ = [
     'can_locate',
     'can_open',
     'delete',
+    'gpickle',
+    'gunpickle',
     'join_path',
     'locate_by_dir',
     'locate_by_env',
@@ -17,6 +19,8 @@ __all__ = [
 
 import os
 from subprocess import Popen, PIPE
+import cPickle
+import gzip
 
 def basename(filename):
     return os.path.basename(filename)
@@ -35,6 +39,17 @@ def delete(filename):
     else:
         raise FileError(filename)
 
+
+def gpickle(obj, filename):
+
+    if not filename.endswith('.gz'):
+        filename += '.gz'
+    cPickle.dump(obj, file=gzip.open(filename, 'wb'), protocol=-1)
+
+
+def gunpickle(filename):
+
+    return cPickle.load(gzip.open(filename, 'rb'))
 
 def join_path(*elements):
     return os.path.join(*elements)

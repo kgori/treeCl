@@ -17,6 +17,7 @@ class TreeManip(object):
                             , type(tree))
         self.tree = tree.copy()
 
+
     def __str__(self):
         return 'TreeManip object with tree:\n' + str(self.tree)
 
@@ -337,6 +338,9 @@ class Tree(object):
         self.name = name
         self.output = output
         self.rooted = utils.dpy.check_rooted(newick)
+
+    def __repr__(self):
+        return '{0}{1}'.format(self.__class__.__name__, (self.newick if self.newick else '(None)'))
 
     def __str__(self):
         """ Represents the object's information inside a newick comment, so is

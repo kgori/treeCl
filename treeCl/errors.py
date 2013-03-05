@@ -47,7 +47,7 @@ class DirectoryError(FileError):
 class OptionError(Exception):
 
     """
-    Reports on disallowed options passed to function
+    Reports on disallowed options passed to functions
     """
 
     def __init__(self, option, choices):
@@ -55,7 +55,7 @@ class OptionError(Exception):
         self.choices = choices
 
     def __str__(self):
-        return '{0} is not a valid option. Valid options are {1}'.format(self.value, self.choices)
+        return '\'{0}\' is not a valid option. Valid options are {1}'.format(self.value, self.choices)
 
 def filecheck_and_raise(filename):
     if not os.path.isfile(filename):
@@ -100,3 +100,4 @@ def directorycheck_and_make(directory, verbose=True):
 def optioncheck_and_raise(option, choices):
     if option not in choices:
         raise OptionError(option, choices)
+    return option

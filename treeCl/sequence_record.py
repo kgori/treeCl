@@ -6,6 +6,7 @@ from externals.dv_wrapper import DVWrapper
 from externals.tree_builders import Phyml, TreeCollection
 import hashlib
 from random import shuffle as shf
+from copy import deepcopy
 
 
 class SequenceRecord(object):
@@ -615,3 +616,9 @@ class TCSeqRec(SequenceRecord):
             for (i, newrec) in enumerate(newrecs):
                 newrec.name = 'record_{0}'.format(i + 1)
         return newrecs
+
+def concatenate(records):
+    seed = deepcopy(records[0])
+    for rec in records[1:]:
+        seed += rec
+    return seed
