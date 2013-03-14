@@ -1,4 +1,8 @@
-# Darwin Script to make TreeCollection work
+from ...remote.externals.darwin import Darwin
+
+
+def runDV(f):
+    cmd = '''# Darwin Script to make TreeCollection work
 # Need to create an MAlignment object from sequence alignment file
 # Then call RobustEstimateDistVarM on the MAlignment object,
 # RobustEstimateDistVarM calls EstimatePamNoGap, which in turn calls RemoveGaps
@@ -173,6 +177,7 @@ end:
 
 ####################################################################################################
 
+fil := ReadFastaWithNames('{0}')
 print(fil);
 alignedSeqs := CreateArray(1..length(fil[1])):
 labs := TrimLabels(fil[2]):
@@ -193,5 +198,6 @@ for i from 2 to length(tri) do
     line := ConcatStrings( tri[i], ' ');
     dv := ConcatStrings( [ dv, line ], '\n');
 od;
-WriteData(dv, ConcatStrings([fpath,'temp_distvar.txt']));
+WriteData(dv, outf);
 quit;
+'''.format(f)

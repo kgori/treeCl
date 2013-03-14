@@ -3,8 +3,8 @@
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib import cm as CM
-from externals import GTP
-import utils
+from lib.local.externals.gtp import GTP
+from lib.local import utils
 
 
 def get_dendropy_distances(dpy_trees, fn):

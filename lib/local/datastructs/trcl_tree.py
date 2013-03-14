@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 
-import  random
-import  re
-import  dendropy        as      dpy
-from    numpy.random    import  gamma
-from    errors          import  FileError, filecheck_and_raise
-import  utils.dpy
-from    externals       import  GTP
+import random
+import re
+import dendropy as dpy
+from numpy.random import gamma
+from ...remote.errors import FileError, filecheck_and_raise
+from ...remote.utils import dpy as utils_dpy
+from externals import GTP
+from ..remote.tree import Tree
 
 
 class TreeManip(object):
@@ -24,10 +25,10 @@ class TreeManip(object):
     def convert_to_dendropy_tree(self):
         """Takes Treee object, returns dendropy.Tree object"""
 
-        return utils.dpy.convert_to_dendropy_tree(self.tree)
+        return utils_dpy.convert_to_dendropy_tree(self.tree)
 
     def dendropy_as_newick(self, dpy_tree):
-        return utils.dpy.convert_dendropy_to_newick(dpy_tree)
+        return utils_dpy.convert_dendropy_to_newick(dpy_tree)
 
     def randomise_branch_lengths(
         self,
@@ -281,7 +282,7 @@ class TreeManip(object):
 
         # MAIN
         tree = self.convert_to_dendropy_tree()
-        tree.is_rooted = utils.dpy.check_rooted(self.tree.newick)
+        tree.is_rooted = utils_dpy.check_rooted(self.tree.newick)
 
         (blocks, dists) = _get_blocks(tree)
         if not time:
@@ -315,7 +316,7 @@ class TreeManip(object):
         return self.tree
 
 
-class Tree(object):
+class TrClTree(Tree):
 
     """ Class for storing the results of phylogenetic inference """
 
@@ -326,21 +327,20 @@ class Tree(object):
         self,
         newick=None,
         score=0,
+        output=None,
         program=None,
         name=None,
-        output=None,
         rooted=None,
         ):
 
-        self.newick = newick
-        self.score = score
-        self.program = program
-        self.name = name
-        self.output = output
-        self.rooted = utils.dpy.check_rooted(newick)
-
-    def __repr__(self):
-        return '{0}{1}'.format(self.__class__.__name__, (self.newick if self.newick else '(None)'))
+        self.rooted = utils_dpy.check_rooted(newick)
+        super(TrClTree, self).__init__(
+            newick=newick,
+            score=score,
+            output=output,
+            program=program,
+            name=name,
+            )
 
     def __str__(self):
         """ Represents the object's information inside a newick comment, so is
@@ -348,57 +348,16 @@ class Tree(object):
 
         s = '[Tree Object:\n'
         if self.name:
-            s += 'Name:\t' + self.name + '\n'
-        s += 'Program:\t{0}\n'.format(self.program) \
-            + 'Score:\t{0}\n'.format(self.score) \
-            + 'Rooted:\t{0}\n'.format(self.rooted) \
-            + 'Tree:\t]{0}\n'.format(self.newick)
+            s += 'Name:\t{0}\n'.format(self.name)
+
+        s += ('Program:\t{0}\n'
+              'Score:\t{1}\n'
+              'Rooted:\t{2}\n'
+              'Tree:\t]{3}\n'.format(self.program, self.score, 
+                    self.rooted, self.newick))
+
         return s
 
-    def __eq__(self, other):
-        equal = True
-        if not self.name == other.name:
-            return False
-        if not self.newick == other.newick:
-            return False
-        if not self.program == other.program:
-            return False
-        if not self.score == other.score:
-            return False
-        if not self.rooted == other.rooted:
-            return False
-        if not self.output == other.output:
-            return False
-        return equal
-
-    def copy(self):
-        copy = self.__new__(type(self))
-        copy.__dict__ = {key: value for (key, value) in self.__dict__.items()}
-        return copy
-
-    def read_from_file(self, infile, name=None):
-        """ This and the write_to_file function allow the class to be easily
-        stored and reconstituted without using a pickle or JSON """
-
-        program = None
-        tree = None
-        score = None
-        self.name = name
-        reader = open(infile)
-        try:
-            for line in reader:
-                line = [l.rstrip().replace(']', '') for l in line.split()]
-                if not name and line[0] == 'Name:':
-                    self.name = line[1]
-                elif line[0] == 'Program:':
-                    self.program = line[1]
-                elif line[0] == 'Tree:':
-                    self.newick = line[1]
-                elif line[0] == 'Score:':
-                    self.score = line[1]
-        except IndexError:
-            return
-        return self
 
     def write_to_file(
         self,
@@ -439,7 +398,7 @@ class Tree(object):
         self.output = stats
         self.score = score
         self.name = name
-        self.rooted = utils.dpy.check_rooted(tree)
+        self.rooted = utils_dpy.check_rooted(tree)
 
     def load_phyml_files(
         self,
@@ -501,22 +460,22 @@ class Tree(object):
         return TreeManip(self).strip()
 
     def print_plot(self):
-        utils.dpy.print_plot(self)
+        utils_dpy.print_plot(self)
 
     def rfdist(self, other):
-        s = utils.dpy.convert_to_dendropy_tree(self)
-        o = utils.dpy.convert_to_dendropy_tree(other)
-        return utils.dpy.get_rf_distance(s, o)
+        s = utils_dpy.convert_to_dendropy_tree(self)
+        o = utils_dpy.convert_to_dendropy_tree(other)
+        return utils_dpy.get_rf_distance(s, o)
 
     def wrfdist(self, other):
-        s = utils.dpy.convert_to_dendropy_tree(self)
-        o = utils.dpy.convert_to_dendropy_tree(other)
-        return utils.dpy.get_wrf_distance(s, o)
+        s = utils_dpy.convert_to_dendropy_tree(self)
+        o = utils_dpy.convert_to_dendropy_tree(other)
+        return utils_dpy.get_wrf_distance(s, o)
 
     def eucdist(self, other):
-        s = utils.dpy.convert_to_dendropy_tree(self)
-        o = utils.dpy.convert_to_dendropy_tree(other)
-        return utils.dpy.get_euc_distance(s, o)
+        s = utils_dpy.convert_to_dendropy_tree(self)
+        o = utils_dpy.convert_to_dendropy_tree(other)
+        return utils_dpy.get_euc_distance(s, o)
 
     def geodist(self, other):
         gtp = GTP()
@@ -581,7 +540,7 @@ class TreeGen(object):
     def coal(self):
         taxon_set = dpy.TaxonSet(self.names)
         tree = dpy.treesim.pure_kingman(taxon_set)
-        newick = '[&R] ' + utils.dpy.convert_dendropy_to_newick(tree)
+        newick = '[&R] ' + utils_dpy.convert_dendropy_to_newick(tree)
         return Tree(newick)
 
     def gene_tree(
@@ -602,7 +561,7 @@ class TreeGen(object):
         name """
 
         t = self.template or self.yule()
-        tree = utils.dpy.convert_to_dendropy_tree(t)
+        tree = utils_dpy.convert_to_dendropy_tree(t)
 
         for leaf in tree.leaf_iter():
             leaf.num_genes = 1
@@ -623,7 +582,7 @@ class TreeGen(object):
                 leaf.taxon.label = leaf.taxon.label.replace('\'', '').split('_'
                         )[0]
 
-        newick = '[&R] ' + utils.dpy.convert_dendropy_to_newick(gene_tree)
+        newick = '[&R] ' + utils_dpy.convert_dendropy_to_newick(gene_tree)
 
         return {'gene_tree': Tree(newick), 'species_tree': t}
 
@@ -635,7 +594,7 @@ class TreeGen(object):
     def yule(self):
         taxon_set = dpy.TaxonSet(self.names)
         tree = dpy.treesim.uniform_pure_birth(taxon_set)
-        newick = '[&R] ' + utils.dpy.convert_dendropy_to_newick(tree)
+        newick = '[&R] ' + utils_dpy.convert_dendropy_to_newick(tree)
         return Tree(newick)
 
 

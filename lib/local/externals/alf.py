@@ -2,9 +2,8 @@
 
 from . import ExternalSoftware
 from ..utils import dpy, phymlIO
-from ..errors import filecheck_and_raise, directorycheck_and_make, \
-    directorycheck_and_quit, optioncheck_and_raise, OptionError
-from ..sequence_record import TCSeqRec
+from ...remote.errors import filecheck, directorymake, directoryquit, optioncheck, OptionError
+from ..datastructs.trcl_seq import TrClSeq
 from textwrap import dedent
 import re
 import shutil
@@ -297,7 +296,7 @@ class Params(object):
         ECMu AA:    GCB,  JTT, LG,  WAG """
 
         try:
-            optioncheck_and_raise(model, [
+            optioncheck(model, [
                 'CPAM',
                 'ECM',
                 'ECMu',
@@ -461,11 +460,11 @@ class ALF(ExternalSoftware):
         self.tree = tree
         self.name = name
         self.seqlength = seqlength
-        self.datatype = optioncheck_and_raise(datatype, ['protein', 'dna'])
+        self.datatype = optioncheck(datatype, ['protein', 'dna'])
         self.param_dir = \
-            directorycheck_and_make('{0}/alfsim_param_dir'.format(self.tmpdir))
+            directorymake('{0}/alfsim_param_dir'.format(self.tmpdir))
         self.working_dir = \
-            directorycheck_and_make('{0}/alfsim_working_dir'.format(self.tmpdir))
+            directorymake('{0}/alfsim_working_dir'.format(self.tmpdir))
         
         if datatype == 'dna':               # Length correction as ALF assumes 
             seqlength = (seqlength / 3) + 1 # we mean amino acid sequences
@@ -502,7 +501,7 @@ class ALF(ExternalSoftware):
         with our own taxon labels, so this function reapplies our names. At the
         same time we check that the alignments are the correct length """
 
-        record = TCSeqRec(alignment_file)
+        record = TrClSeq(alignment_file)
         record.headers = [replacement_dict[x[:x.rindex('/')]] for x in
                           record.headers]
         record.sequences = [seq[:length] for seq in record.sequences]
@@ -513,7 +512,7 @@ class ALF(ExternalSoftware):
 
     def read(self):
         alf_tree_file = \
-            filecheck_and_raise('{0}/{1}/RealTree.nwk'.format(self.working_dir,
+            filecheck('{0}/{1}/RealTree.nwk'.format(self.working_dir,
                                 self.name))
         alf_tree = open(alf_tree_file).read()
         replacement_dict = dict(zip(re.findall(r'(\w+)(?=:)', alf_tree),
@@ -522,11 +521,11 @@ class ALF(ExternalSoftware):
         if self.datatype == 'dna':  # !!! ALF doesn't always write DNA
                                     # alignments
             alignment = \
-                filecheck_and_raise('{0}/{1}/MSA/MSA_1_dna.fa'.format(self.working_dir,
+                filecheck('{0}/{1}/MSA/MSA_1_dna.fa'.format(self.working_dir,
                                     self.name))
         else:
             alignment = \
-                filecheck_and_raise('{0}/{1}/MSA/MSA_1_aa.fa'.format(self.working_dir,
+                filecheck('{0}/{1}/MSA/MSA_1_aa.fa'.format(self.working_dir,
                                     self.name))
         rec = self.fix_alignment(alignment, replacement_dict, self.seqlength)
         rec.datatype = self.datatype
@@ -544,8 +543,8 @@ class ALF(ExternalSoftware):
         return record
 
     def write(self):
-        directorycheck_and_make(self.param_dir)
-        directorycheck_and_make(self.working_dir)
+        directorymake(self.param_dir)
+        directorymake(self.working_dir)
         params = self.params.write_parameters()
         self.tree.scale(100).write_to_file('{0}/{1}.nwk'.format(self.param_dir,
                 self.name), suppress_NHX=True)
@@ -565,13 +564,13 @@ def simulate_from_tree(
     gene_names=None,
     ):
 
-    directorycheck_and_quit(tmpdir)
-    optioncheck_and_raise(datatype, ['dna', 'protein'])
+    directoryquit(tmpdir)
+    optioncheck(datatype, ['dna', 'protein'])
     
     if datatype == 'dna':
-        optioncheck_and_raise(model, ['CPAM', 'ECM', 'ECMu'])
+        optioncheck(model, ['CPAM', 'ECM', 'ECMu'])
     else:
-        optioncheck_and_raise(model, [
+        optioncheck(model, [
                 'CPAM',
                 'ECM',
                 'ECMu',
@@ -612,7 +611,7 @@ def simulate_from_record_GTR(
 
     length = record.seqlength
     tree = record.tree
-    directorycheck_and_quit(tmpdir)
+    directoryquit(tmpdir)
     GTR_parameters = phymlIO.extract_GTR_parameters(tree)
     gamma = phymlIO.extract_gamma_parameter(tree)
 
@@ -1049,7 +1048,7 @@ def simulate_from_record_GTR(
 #                    name)), key=sort_key):
 #             gene_number = dna_alignment[dna_alignment.rindex('/')
 #                 + 1:].split('_')[1]
-#             record = TCSeqRec(dna_alignment)
+#             record = TrClSeq(dna_alignment)
 #             record.sort_by_name()
 #             record.headers = [replacement_dict[x[:x.rindex('/')]]
 #                               for x in record.headers]
@@ -1065,7 +1064,7 @@ def simulate_from_record_GTR(
 #                    name)), key=sort_key):
 #             gene_number = aa_alignment[aa_alignment.rindex('/')
 #                 + 1:].split('_')[1]
-#             record = TCSeqRec(aa_alignment)
+#             record = TrClSeq(aa_alignment)
 #             record.sort_by_name()
 #             record.headers = [replacement_dict[x[:x.rindex('/')]]
 #                               for x in record.headers]

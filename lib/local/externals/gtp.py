@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
-from . import ExternalSoftware
-from ..errors import FileError, filecheck_and_raise
-from ..utils.fileIO import *
+from ...remote.externals.external import ExternalSoftware
+from ...remote.errors import FileError, filecheck
+from ...remote.utils import fileIO
 import numpy as np
 
 local_dir = path_to(__file__)
@@ -52,7 +52,7 @@ class GTP(ExternalSoftware):
         inf = '{0}/geotrees.nwk > /dev/null'.format(self.tmpdir)
 
         cmd = ' '.join((bincall, flags, outf, inf))
-        syscall(cmd)
+        fileIO.syscall(cmd)
 
     def pairwise(self, tree1, tree2):
         return self.run((tree1, tree2))[0, 1]

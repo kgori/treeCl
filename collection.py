@@ -3,12 +3,14 @@
 import glob
 import re
 from copy import deepcopy
-from treeCl.sequence_record import TCSeqRec, concatenate
-from treeCl.externals import runDV, runTC, runPhyml, simulate_from_tree
-from treeCl.distance_matrix import DistanceMatrix
-from errors import FileError, DirectoryError, OptionError, \
-    optioncheck_and_raise, directorycheck_and_make, directorycheck_and_raise
-from utils import fileIO
+from lib.local.datastructs.trcl_seq import TrClSeq, concatenate
+# from treeCl.externals import runDV, simulate_from_tree
+from lib.remote.externals.phyml import runPhyml
+from lib.remote.externals.treecollection import runTC
+from distance_matrix import DistanceMatrix
+from lib.remote.errors import FileError, DirectoryError, OptionError, \
+    optioncheck, directorymake, directorycheck
+from lib.remote.utils import fileIO
 
 sort_key = lambda item: tuple((int(num) if num else alpha) for (num, alpha) in
                               re.findall(r'(\d+)|(\D+)', item))
@@ -47,12 +49,12 @@ class Collection(object):
         if records:
             self.records = records
             self.datatype = datatype or records[0].datatype
-            optioncheck_and_raise(self.datatype, ['dna', 'protein'])
+            optioncheck(self.datatype, ['dna', 'protein'])
 
         elif input_dir:
-            directorycheck_and_raise(input_dir)
-            self.datatype = optioncheck_and_raise(datatype, ['dna', 'protein'])
-            optioncheck_and_raise(file_format, ['fasta', 'phylip'])
+            directorycheck(input_dir)
+            self.datatype = optioncheck(datatype, ['dna', 'protein'])
+            optioncheck(file_format, ['fasta', 'phylip'])
             self.records = self.read_files(input_dir, file_format)
 
         else:
@@ -145,12 +147,12 @@ class Scorer(object):
         datatype=None,
         ):
 
-        self.analysis = optioncheck_and_raise(analysis, ['ml', 'nj',
+        self.analysis = optioncheck(analysis, ['ml', 'nj',
                 'TreeCollection'])
         self.max_guidetrees = max_guidetrees
         self.records = records
         self.datatype = datatype or records[0].datatype
-        optioncheck_and_raise(self.datatype, ['protein', 'dna'])
+        optioncheck(self.datatype, ['protein', 'dna'])
         self.tmpdir = tmpdir or records[0].tmpdir
         self.concats = {}
 
@@ -206,7 +208,7 @@ class Scorer(object):
 
         if self.datatype == 'protein':  # set some defaults
             model = model or 'WAG'
-            optioncheck_and_raise(model, [
+            optioncheck(model, [
                 'CPAM',
                 'ECM',
                 'ECMu',
@@ -218,7 +220,7 @@ class Scorer(object):
         else:
             model = model or 'ECM'
             try:
-                optioncheck_and_raise(model, ['CPAM', 'ECM', 'ECMu'])
+                optioncheck(model, ['CPAM', 'ECM', 'ECMu'])
             except OptionError, e:
                 print 'Choose a DNA-friendly model for simulation:\n', e
                 return
