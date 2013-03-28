@@ -23,15 +23,10 @@ class Collection(object):
     """ Call:
     
     c = Collection(inut_dir, file_format, datatype, tmpdir ...)
-    
     c.calc_distances(), c.calc_TC_trees(), ...
-    
     dm = c.distance_matrix('geo')
-    
     cl = Clustering(dm)
-    
     k = cl.spectral(4, prune='estimate', local_scale=7)
-    
     p = Partition(k) """
 
     def __init__(
@@ -44,7 +39,7 @@ class Collection(object):
         calc_distances=False,
         ):
 
-        self.tmpdir = directorycheck_and_make(tmpdir)
+        self.tmpdir = directorycheck(tmpdir)
 
         if records:
             self.records = records
@@ -100,7 +95,7 @@ class Collection(object):
             print 'No sequence files found in {0}'.format(input_dir)
             raise FileError(input_dir)
         files = sorted(files, key=sort_key)
-        return [TCSeqRec(f, file_format=file_format, datatype=self.datatype,
+        return [TrClSeq(f, file_format=file_format, datatype=self.datatype,
                 name=get_name(f), tmpdir=self.tmpdir) for f in files]
 
     def calc_distances(self, verbosity=0):

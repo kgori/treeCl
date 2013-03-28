@@ -5,7 +5,7 @@ from ...remote.errors import FileError, filecheck
 from ...remote.utils import fileIO
 import numpy as np
 
-local_dir = path_to(__file__)
+local_dir = fileIO.path_to(__file__)
 
 
 class GTP(ExternalSoftware):

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from ...remote.datastructs.seq import Seq, concatenate
+import re
 
 class TrClSeq(Seq):
 
@@ -17,6 +18,7 @@ class TrClSeq(Seq):
         sequences=[],
         dv=[],
         tree=None,
+        tmpdir='/tmp',
         ):
 
         self.TCfiles = {}
