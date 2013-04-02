@@ -1,7 +1,7 @@
-from ...remote.externals.darwin import Darwin
+from ...remote.externals.darwin import runDarwin
 
 
-def runDV(f):
+def runDV(f, **kwargs):
     cmd = '''# Darwin Script to make TreeCollection work
 # Need to create an MAlignment object from sequence alignment file
 # Then call RobustEstimateDistVarM on the MAlignment object,
@@ -177,7 +177,7 @@ end:
 
 ####################################################################################################
 
-fil := ReadFastaWithNames('{0}')
+fil := ReadFastaWithNames('%s')
 print(fil);
 alignedSeqs := CreateArray(1..length(fil[1])):
 labs := TrimLabels(fil[2]):
@@ -200,4 +200,5 @@ for i from 2 to length(tri) do
 od;
 WriteData(dv, outf);
 quit;
-'''.format(f)
+''' % f
+    return runDarwin(cmd)

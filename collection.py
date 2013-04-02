@@ -7,6 +7,7 @@ from lib.local.datastructs.trcl_seq import TrClSeq, concatenate
 # from treeCl.externals import runDV, simulate_from_tree
 from lib.remote.externals.phyml import runPhyml
 from lib.remote.externals.treecollection import runTC
+from lib.local.externals.DVscript import runDV
 from distance_matrix import DistanceMatrix
 from lib.remote.errors import FileError, DirectoryError, OptionError, \
     optioncheck, directorymake, directorycheck
@@ -100,7 +101,7 @@ class Collection(object):
 
     def calc_distances(self, verbosity=0):
         for rec in self.records:
-            runDV(rec, verbosity)
+            runDV(rec, verbosity=verbosity)
 
     def calc_TC_trees(self, verbosity=0):
         for rec in self.records:
