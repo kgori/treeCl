@@ -4,6 +4,7 @@ import glob
 import re
 from copy import deepcopy
 from lib.local.datastructs.trcl_seq import TrClSeq, concatenate
+from lib.local.datastructs.trcl_tree import TrClTree
 # from treeCl.externals import runDV, simulate_from_tree
 from lib.remote.externals.phyml import runPhyml
 from lib.remote.externals.treecollection import runTC
@@ -108,6 +109,7 @@ class Collection(object):
     def calc_TC_trees(self, verbosity=0):
         for rec in self.records:
             runTC(rec, verbosity=verbosity)
+            rec.tree = TrClTree.cast(rec.tree)
 
     def calc_ML_trees(self, verbosity=0):
         for rec in self.records:

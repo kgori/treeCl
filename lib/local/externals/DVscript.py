@@ -271,5 +271,5 @@ def runDV(record, tmpdir='/tmp', verbosity=0):
     dw = DV(record, tmpdir, verbosity)
     dv_string = dw.run()
     labels = ' '.join(record.headers)
-    record.dv = (dv_string, labels)
+    record.dv.append((dv_string, labels))
     return (dv_string, labels)

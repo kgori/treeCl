@@ -5,7 +5,7 @@ from ...remote.errors import FileError, filecheck
 from ...remote.utils import fileIO
 import numpy as np
 
-local_dir = fileIO.path_to(__file__)
+
 
 
 class GTP(ExternalSoftware):
@@ -16,6 +16,7 @@ class GTP(ExternalSoftware):
 
     default_binary = 'gtp.jar'
     default_env = 'GTP_PATH'
+    local_dir = fileIO.path_to(__file__)
 
     def __str__(self):
         desc = 'Wrapper for gtp.jar - geodesic distance calculator'

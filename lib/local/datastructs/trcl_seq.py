@@ -16,13 +16,13 @@ class TrClSeq(Seq):
         datatype=None,
         headers=[],
         sequences=[],
-        dv=[],
+        dv=None,
         tree=None,
         tmpdir='/tmp',
         ):
 
         self.TCfiles = {}
-        self.dv = dv
+        self.dv = dv or []
         if tree and isinstance(tree, Tree):
             self.tree = tree
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from . import ExternalSoftware
-from ..utils import dpy, phymlIO
+from ..utils import phymlIO
 from ...remote.errors import filecheck, directorymake, directoryquit, optioncheck, OptionError
 from ..datastructs.trcl_seq import TrClSeq
 from textwrap import dedent
