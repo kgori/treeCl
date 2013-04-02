@@ -104,7 +104,7 @@ class Collection(object):
 
     def calc_distances(self, verbosity=0):
         for rec in self.records:
-            runDV(rec, verbosity=verbosity)
+            runDV(rec, tmpdir=self.tmpdir, verbosity=verbosity)
 
     def calc_TC_trees(self, verbosity=0):
         for rec in self.records:
