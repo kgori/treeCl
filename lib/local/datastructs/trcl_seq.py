@@ -59,7 +59,7 @@ class TrClSeq(Seq):
             elif k in only_in_other:
                 d[k] = 'N' * self.seqlength + other.mapping[k]
         dvsum = self.dv + other.dv
-        return_object = TCSeqRec(headers=d.keys(), sequences=d.values(),
+        return_object = self.__class__(headers=d.keys(), sequences=d.values(),
                                  datatype=self.datatype).sort_by_name(in_place=False)
         return_object.dv = dvsum
         return return_object
@@ -133,7 +133,7 @@ class TrClSeq(Seq):
             self.headers = h
             self.sequences = s
         else:
-            return TCSeqRec(name=self.name, headers=h, sequences=s,
+            return self.__class__(name=self.name, headers=h, sequences=s,
                             datatype=self.datatype)
 
     def sort_by_name(self, in_place=True):
@@ -155,7 +155,7 @@ class TrClSeq(Seq):
             self.sequences = s
             return self
         else:
-            return TCSeqRec(name=self.name, headers=h, sequences=s,
+            return self.__class__(name=self.name, headers=h, sequences=s,
                             datatype=self.datatype)
 
     def split_by_lengths(self, lengths, names=None):
@@ -168,7 +168,7 @@ class TrClSeq(Seq):
         newrecs = []
         for col in newcols:
             newseqs = self._pivot(col)
-            newrec = TCSeqRec(headers=self.headers, sequences=newseqs,
+            newrec = self.__class__(headers=self.headers, sequences=newseqs,
                               datatype=self.datatype)
             newrecs.append(newrec)
         if names:
