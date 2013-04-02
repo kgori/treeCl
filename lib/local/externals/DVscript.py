@@ -1,8 +1,30 @@
-from ...remote.externals.darwin import runDarwin
+from ...remote.externals.darwin import Darwin
+from ...remote.utils import fileIO
+from ...remote.errors import filecheck
+from copy import copy
+import numpy as np
 
+def guess_seqtype(rec):
+    """ Looks at proportion of As, Cs, Gs and Ts across all 
+    sequences in the record, and guesses the data to be dna
+    if the proportion is > 0.8, else it guesses protein """
+    
+    newrec = copy(rec)
+    newrec.change_case('upper')
+    all_seqs = ''.join(newrec.sequences)
+    nuc_freqs = sum(all_seqs.count(x) for x in ['A','C', 'G', 'T'])
+    nuc_freqs /= float(len(all_seqs))
+    return 'dna' if nuc_freqs > 0.8 else 'protein'
 
-def runDV(f, **kwargs):
-    cmd = '''# Darwin Script to make TreeCollection work
+class DV(Darwin):
+
+    def __init__(self, record, tmpdir='/tmp', verbosity=0):
+        super(DV, self).__init__(tmpdir, verbosity)
+        self.record = record
+        if not self.record.datatype:
+            self.record.datatype = guess_seqtype(self.record)
+        self.recfile = ('{0}/rec.fas'.format(tmpdir))
+        self.cmd = '''# Darwin Script to make TreeCollection work
 # Need to create an MAlignment object from sequence alignment file
 # Then call RobustEstimateDistVarM on the MAlignment object,
 # RobustEstimateDistVarM calls EstimatePamNoGap, which in turn calls RemoveGaps
@@ -177,7 +199,7 @@ end:
 
 ####################################################################################################
 
-fil := ReadFastaWithNames('%s')
+fil := ReadFastaWithNames('%s');
 print(fil);
 alignedSeqs := CreateArray(1..length(fil[1])):
 labs := TrimLabels(fil[2]):
@@ -189,7 +211,7 @@ for i to length(fil[1]) do
     unalignedSeqs[i] := uppercase(ReplaceString('-','',fil[1][i])):
 od:
 MSA := MAlignment(unalignedSeqs,alignedSeqs,labs):
-dvm := RobustEstimateDistVarM(MSA,seqtype):
+dvm := RobustEstimateDistVarM(MSA,%s):
 tri := Tri(dvm[1],dvm[2]):
 # PRINT DistVar.txt ###########################################################
 print ('DistVar.txt');
@@ -200,5 +222,54 @@ for i from 2 to length(tri) do
 od;
 WriteData(dv, outf);
 quit;
-''' % f
-    return runDarwin(cmd)
+''' % (self.recfile, ('AA' if self.record.datatype == 'protein' else 'DNA'))
+    
+    @property
+    def record(self):
+        return self._record
+
+    @record.setter
+    def record(self, record):
+        newrec = copy(record)
+        newrec.change_case('upper')
+        self._record = newrec
+
+    def clean(self):
+        for f in (self.comfile, self.outfile, self.recfile):
+            try:
+                fileIO.delete(f)
+            except FileError:
+                continue
+
+    def run(self):
+        self.write()
+        (stdout, stderr) = self.execute(self.verbosity)
+        if self.verbosity > 0:
+            print stdout, stderr
+        result = self.read()
+        self.clean()
+        return result
+
+
+    def write(self):
+        if self.verbosity > 0:
+            print 'Running DV script on {0}'.format(self.record.name)
+        if self.verbosity > 1:
+            print 'Writing darwin command file to {0}'.format(self.comfile)
+        command_writer = fileIO.fwriter(self.comfile)
+        command_writer.write(self.cmd)
+        command_writer.close()
+        if self.verbosity > 1:
+            print 'Writing fasta file to {0}'.format(self.recfile)
+        self.record.write_fasta(self.recfile)
+        filecheck(self.comfile)
+        filecheck(self.recfile)
+        if self.verbosity > 1:
+            print '  (Tests pass.)'
+    
+def runDV(record, tmpdir='/tmp', verbosity=0):
+    dw = DV(record, tmpdir, verbosity)
+    dv_string = dw.run()
+    labels = ' '.join(record.headers)
+    record.dv = (dv_string, labels)
+    return (dv_string, labels)

@@ -38,6 +38,7 @@ class Collection(object):
         datatype=None,
         tmpdir='/tmp',
         calc_distances=False,
+        compression=None,
         ):
 
         self.tmpdir = directorycheck(tmpdir)
@@ -51,7 +52,7 @@ class Collection(object):
             directorycheck(input_dir)
             self.datatype = optioncheck(datatype, ['dna', 'protein'])
             optioncheck(file_format, ['fasta', 'phylip'])
-            self.records = self.read_files(input_dir, file_format)
+            self.records = self.read_files(input_dir, file_format, compression)
 
         else:
             print 'Provide a list of records, or the path to a set of alignments'
@@ -77,25 +78,26 @@ class Collection(object):
 
         # self.reverse_lookup = {v:k for (k,v) in self.records}
 
-    def read_files(self, input_dir, file_format):
+    def read_files(self, input_dir, file_format, compression=None):
         """ Get list of alignment files from an input directory *.fa, *.fas and
         *.phy files only
         
         Stores in self.files """
 
+        optioncheck(compression, [None, 'gz', 'bz2'])
+
         if file_format == 'fasta':
-            files = glob.glob('{0}/*.fa'.format(input_dir))
-            if len(files) == 0:
-                files = glob.glob('{0}/*.fas'.format(input_dir))
+            extensions = ['fa', 'fas', 'fasta']
+
         elif file_format == 'phylip':
-            files = glob.glob('{0}/*.phy'.format(input_dir))
-        else:
-            print 'Unrecognised file format %s' % file_format
-            files = None
-        if not files:
-            print 'No sequence files found in {0}'.format(input_dir)
-            raise FileError(input_dir)
-        files = sorted(files, key=sort_key)
+            extensions = ['phy']
+
+        if compression:
+            extensions = ['.'.join([x, compression]) for x in extensions]
+
+        files = fileIO.glob_by_extensions(input_dir, extensions)
+        files.sort(key=sort_key)
+        
         return [TrClSeq(f, file_format=file_format, datatype=self.datatype,
                 name=get_name(f), tmpdir=self.tmpdir) for f in files]
 
