@@ -108,16 +108,20 @@ class Collection(object):
 
     def calc_TC_trees(self, verbosity=0):
         for rec in self.records:
-            runTC(rec, verbosity=verbosity)
+            runTC(rec, verbosity=verbosity, tmpdir=self.tmpdir)
             rec.tree = TrClTree.cast(rec.tree)
 
     def calc_ML_trees(self, verbosity=0):
         for rec in self.records:
-            runPhyml(rec, analysis='ml', verbosity=verbosity)
+            runPhyml(rec, analysis='ml', verbosity=verbosity,
+                tmpdir=self.tmpdir)
+            rec.tree = TrClTree.cast(rec.tree)
 
     def calc_NJ_trees(self, verbosity=0):
         for rec in self.records:
-            runPhyml(rec, analysis='nj', verbosity=verbosity)
+            runPhyml(rec, analysis='nj', verbosity=verbosity,
+                tmpdir=self.tmpdir)
+            rec.tree = TrClTree.cast(rec.tree)
 
     def distance_matrix(self, metric):
         """ Generate a distance matrix from a fully-populated Collection """
