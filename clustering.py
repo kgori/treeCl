@@ -93,30 +93,35 @@ class Clustering(object):
             matrix = self.distance_matrix.add_noise()
         else:
             matrix = self.distance_matrix
+        kp = None
 
-        if prune == 'estimate':     # use binary search
+        if prune == 'estimate':       # use binary search
             (kp, mask) = matrix.binsearch_mask()
             print 'Pruning distances greater than {0} nearest-neighbour'.format(kp)
-        elif prune == -1:           # no pruning
+        
+        elif prune == -1:             # no pruning
             mask = None
             print 'No pruning applied'
-        else:                       # prune to chosen value
+        
+        else:                         # prune to chosen value
             kp = prune
             mask = matrix.kmask(k=kp)
             print 'Pruning connections beyond {0} nearest-neighbour'.format(kp)
 
-        if local_scale == 'estimate':
-            (ks, scale) = matrix.binsearch_dists()
-            print 'Local scale based on {0} nearest-neighbour'.format(ks)
-        elif local_scale == 'same':
+        if local_scale == 'estimate': # use same value as binary mask search 
+            if kp is None: 
+                kp = matrix.binsearch_mask()[0]
             scale = matrix.kdists(k=kp)
             print 'Local scale based on {0} nearest-neighbour'.format(kp)
-        elif local_scale == -1:
+        
+        elif local_scale == 'median': # use median vector
+            scale = np.median(matrix, axis=1)
+        
+        elif local_scale == -1:       # use maximum vector
             scale = matrix.kdists(k=matrix.shape[0])
             print 'Local scale based on {0} nearest-neighbour'.format(matrix.shape[0])
-        elif local_scale == -2:
-            scale = None
-        else:
+        
+        else:                         # use chosen value
             scale = matrix.kdists(k=local_scale)
             print 'Local scale based on {0} nearest-neighbour'.format(local_scale)
 
@@ -188,55 +193,6 @@ class Clustering(object):
         est.fit(coords)
         T = self.order(est.labels_)
         return Partition(T)
-
-    # NOT FIXED YET (26/02/13)
-
-    def plot_embedding(
-        self,
-        dm,
-        metric,
-        linkage,
-        nclasses,
-        dimensions=3,
-        embed='MDS',
-        standardize=False,
-        normalise=True,
-        ):
-
-        if not dimensions in [2, 3]:
-            print '2D or 3D only'
-            return
-
-        dm = self.distance_matrices[metric]
-        partition = self.partitions[(metric, linkage, nclasses)]
-
-        if embed == 'MDS':
-            dbc = dm.get_double_centre()
-            (eigvals, eigvecs, cve) = self.get_eigen(dbc,
-                    standardize=standardize)
-            (coords, varexp) = self.coords_by_dimension(eigvals, eigvecs, cve,
-                    dimensions, normalise=normalise)
-        elif embed == 'spectral':
-
-            laplacian = self.spectral(dm)
-            (eigvals, eigvecs, cve) = self.get_eigen(laplacian,
-                    standardize=standardize)
-            (coords, varexp) = self.coords_by_dimension(eigvals, eigvecs, cve,
-                    dimensions, normalise=normalise)
-        else:
-
-            print 'Embedding must be one of MDS or spectral (default=MDS)'
-            return
-
-        colors = 'bgrcmyk'
-        fig = plt.figure()
-        if dimensions == 3:
-            ax = fig.add_subplot(111, projection='3d')
-        else:
-            ax = fig.add_subplot(111)
-        for i in range(len(partition)):
-            ax.scatter(color=colors[partition[i] % len(colors)], *coords[i])
-        return fig
 
     # NOT FIXED YET (26/02/13)
 

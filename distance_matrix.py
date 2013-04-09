@@ -5,6 +5,7 @@ from matplotlib import pyplot as plt
 from matplotlib import cm as CM
 from lib.local.externals.gtp import GTP
 from lib.remote import utils
+from lib.remote.errors import optioncheck
 
 
 def get_dendropy_distances(dpy_trees, fn):
@@ -34,8 +35,12 @@ def get_distance_matrix(trees, metric, tmpdir):
         return get_geo_distances(trees, tmpdir=tmpdir)
 
     dpy_trees = utils.dpy.convert_to_dendropy_trees(trees)
+    
     if metric == 'rf':
+        n = utils.dpy.ntaxa(trees[0])
         matrix = get_dendropy_distances(dpy_trees, utils.dpy.get_rf_distance)
+        matrix /= (2*(n - 3))
+    
     elif metric == 'wrf':
 
         matrix = get_dendropy_distances(dpy_trees, utils.dpy.get_wrf_distance)
@@ -111,10 +116,13 @@ class DistanceMatrix(np.ndarray):
         dtype=float,
         ):
 
+        optioncheck(metric, ['euc', 'geo', 'rf', 'wrf'])
         input_array = get_distance_matrix(trees, metric, tmpdir)
         obj = np.asarray(input_array, dtype).view(cls)
         obj.metric = metric
         obj.tmpdir = tmpdir
+        if metric == 'rf':
+            obj = obj.add_noise()
         return obj
 
     def __array_finalize__(self, obj):
@@ -156,7 +164,7 @@ class DistanceMatrix(np.ndarray):
         ix = np.where(np.logical_not(mask))
         affinity_matrix = np.exp(-self ** 2 / scale)
         affinity_matrix[ix] = 0.  # mask
-        affinity_matrix.flat[::len(affinity_matrix) + 1] = 0.  # diagonal
+        affinity_matrix.flat[::len(affinity_matrix) + 1] = 0. # diagonal
         return affinity_matrix
 
     def binsearch_dists(self):
@@ -318,7 +326,7 @@ class DistanceMatrix(np.ndarray):
         L = (D^-1).A - `Shi-Malik` type, from Shi Malik paper"""
 
         diagonal = affinity_matrix.sum(axis=1) - affinity_matrix.diagonal()
-        if 0. in diagonal:
+        if (diagonal <= 1e-20).any(): # arbitrarily small value
             raise ZeroDivisionError
         if shi_malik_type:
             invD = np.diag(1 / diagonal).view(type(self))
@@ -336,7 +344,7 @@ class DistanceMatrix(np.ndarray):
         its maximum value is scaled to `scale` """
 
         zeroed = self - self.min()
-        scaled = scale * (zeroed / zeroed.max())
+        scaled = (scale - shift) * (zeroed / zeroed.max())
         return scaled + shift
 
     def get_permutation_matrix(self, input_ordering, desired_ordering):
