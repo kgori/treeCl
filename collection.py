@@ -20,6 +20,20 @@ sort_key = lambda item: tuple((int(num) if num else alpha) for (num, alpha) in
 get_name = lambda i: i[i.rindex('/') + 1:i.rindex('.')]
 
 
+class NoRecordsError(Exception):
+
+    def __init__(self, file_format, input_dir, compression):
+        self.file_format = file_format
+        self.input_dir = input_dir
+        self.compression = compression
+
+    def __str__(self):
+        msg = ('No records were found in {0} matching\n'
+            '\tfile_format = {1}\n'
+            '\tcompression = {2}'.format(self.input_dir,
+                self.file_format, self.compression))
+        return msg
+
 class Collection(object):
 
     """ Call:
@@ -57,6 +71,9 @@ class Collection(object):
 
         else:
             print 'Provide a list of records, or the path to a set of alignments'
+
+        if not self.records:
+            raise NoRecordsError(file_format, input_dir, compression)
 
         if calc_distances:
             self.calc_distances()
@@ -172,10 +189,11 @@ class Scorer(object):
         if self.analysis == 'TreeCollection':
             guidetrees = [self.records[n].tree for n in
                           index_list][:self.max_guidetrees]
-            tree = runTC(concat, guidetrees, verbosity=verbosity)
+            tree = TrClTree.cast(runTC(concat, guidetrees, verbosity=verbosity))
         else:
 
-            tree = runPhyml(concat, analysis=self.analysis, verbosity=verbosity)
+            tree = TrClTree.cast(runPhyml(concat, analysis=self.analysis, 
+                verbosity=verbosity))
 
         # concat local variable dies here and goes to garbage collect
 

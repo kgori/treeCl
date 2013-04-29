@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 
 from ...remote.datastructs.seq import Seq, concatenate
+from ...remote.externals.phyml import Phyml
+from ...remote.externals.treecollection import TreeCollection
+from trcl_tree import TrClTree
 import re
 
 class TrClSeq(Seq):
@@ -69,7 +72,7 @@ class TrClSeq(Seq):
         bioNJ tree for the current record """
 
         p = Phyml(self)
-        self.tree = p.run('nj')
+        self.tree = TrClTree.cast(p.run('nj'))
 
     def dv_matrix(self):
         """ Uses darwin (via treeCl.externals.DVWrapper) to calculate pairwise
@@ -83,7 +86,7 @@ class TrClSeq(Seq):
         full ML tree for the current record """
 
         p = Phyml(self)
-        self.tree = p.run('ml')
+        self.tree = TrClTree.cast(p.run('ml'))
 
     def tree_collection(self):
         """ Uses TreeCollection (via
@@ -93,7 +96,7 @@ class TrClSeq(Seq):
         if self.dv <= []:
             self.get_dv_matrix()
         tc = TreeCollection(self)
-        self.tree = tc.run()
+        self.tree = TrClTree.cast(tc.run())
 
     def _pivot(self, lst):
         new_lst = zip(*lst)
