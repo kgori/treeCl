@@ -27,7 +27,9 @@ class TrClSeq(Seq):
         self.TCfiles = {}
         self.dv = dv or []
         if tree and isinstance(tree, Tree):
-            self.tree = tree
+            self.tree = TrCltree.cast(tree)
+        else:
+            self.tree = None
 
         self.tmpdir = tmpdir
 
