@@ -37,6 +37,20 @@ Then the above packages can be installed by running this command:
 - [GTP](http://dl.acm.org/citation.cfm?id=1916603 "ACM digital library") - a java program for calculating geodesic distances - see [A Fast Algorithm for Computing Geodesic Distances in Tree Space](https://cs.uwaterloo.ca/~m2owen/pub/poly_geodesic.pdf "Owen and Provan, 2011") 
 
 ## Example Analysis
+```
+from treeCl.collection import Collection, Scorer
+from treeCl.clustering import Clustering, Partition
+
+c = Collection(input_dir='input_dir', file_format='phylip', datatype='protein') # add compression='gz' or 'bz2' if sequence alignments are compressed (zip not supported yet)
+c.calc_NJ_trees() #add verbosity=1 or higher to get progress messages
+dm = c.distance_matrix('euc')
+cl = Clustering(dm)
+p = cl.hierarchical(4, 'single') # should give fairly inaccurate clustering
+true = Partition(tuple([1]*15+[2]*15+[3]*15+[4]*15))
+sc = Scorer(c.records)
+score = sc.score(p)
+print score
+```
 
 
 
