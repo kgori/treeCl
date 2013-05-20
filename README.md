@@ -2,7 +2,7 @@
 
 TreeCl is a python package for clustering gene families by
 phylogenetic similarity. It takes a collection of alignments, infers their phylogenetic trees, 
-and clusters them based on a matrix of between-tree distances. Finally, it calculates a 
+and clusters them based on a matrix of between-tree distances. Finally, it calculates a single representative tree for each cluster.
 
 The purpose of this is to establish whether there is any underlying structure
 to the data.
@@ -35,5 +35,8 @@ Then the above packages can be installed by running this command:
 
 #### Other:
 - [GTP](http://dl.acm.org/citation.cfm?id=1916603 "ACM digital library") - a java program for calculating geodesic distances - see [A Fast Algorithm for Computing Geodesic Distances in Tree Space](https://cs.uwaterloo.ca/~m2owen/pub/poly_geodesic.pdf "Owen and Provan, 2011") 
+
+## Example Analysis
+
 
 
