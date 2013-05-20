@@ -16,7 +16,7 @@ class TrClTree(Tree):
         """ Copies Tree object as TrClTree object """
         cast = Tree.__new__(TrClTree)
         cast.__dict__ = {key: value for (key, value) in tree.__dict__.items()}
-        cast.rooted = dpy.check_rooted(tree.newick)
+        # cast.rooted = dpy.check_rooted(tree.newick)
         return cast
 
     @classmethod
