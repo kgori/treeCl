@@ -3,7 +3,12 @@
 import numpy as np
 from distance_matrix import DistanceMatrix
 from scipy.cluster.hierarchy import linkage, fcluster, dendrogram
-from Bio.Cluster import kmedoids
+try:
+    from Bio.Cluster import kmedoids
+    Biopython_Unavailable = False
+except ImportError:
+    print "Biopython unavailable - kmedoids clustering disabled"
+    Biopython_Unavailable = True
 import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
 from collections import defaultdict
@@ -37,6 +42,10 @@ class Clustering(object):
 
     def kmedoids(self, nclusters, noise=False):
 
+        if Biopython_Unavailable:
+            print 'kmedoids not available without Biopython'
+            return
+        
         if noise:
             matrix = self.distance_matrix.add_noise()
         else:
