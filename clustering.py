@@ -12,7 +12,7 @@ except ImportError:
 import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
 from collections import defaultdict
-import evrot
+#import evrot ## evrot not currently in use
 from copy import deepcopy
 
 
