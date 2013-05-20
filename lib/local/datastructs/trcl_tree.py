@@ -18,3 +18,33 @@ class TrClTree(Tree):
         cast.__dict__ = {key: value for (key, value) in tree.__dict__.items()}
         # cast.rooted = dpy.check_rooted(tree.newick)
         return cast
+
+    @classmethod
+    def new_yule(
+        cls,
+        nspecies,
+        names=None,
+        cf=False,
+        ):
+        t = super(TrClTree, cls).new_yule(nspecies, names, cf)
+        return cls.cast(t)
+
+    @classmethod
+    def new_coal(
+        cls,
+        nspecies,
+        names=None,
+        cf=False,
+        ):
+        t = super(TrClTree, cls).new_coal(nspecies, names, cf)
+        return cls.cast(t)
+
+    @classmethod
+    def new_rtree(
+        cls,
+        nspecies,
+        names=None,
+        cf=False,
+        ):
+        t = super(TrClTree, cls).new_rtree(nspecies, names, cf)
+        return cls.cast(t)

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from . import ExternalSoftware
+from ...remote.externals.external import ExternalSoftware
 from ..utils import phymlIO
 from ...remote.errors import filecheck, directorymake, directoryquit, optioncheck, OptionError
 from ..datastructs.trcl_seq import TrClSeq
