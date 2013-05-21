@@ -4,16 +4,17 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib import cm as CM
 from lib.local.externals.gtp import GTP
-from lib.remote import utils
+from lib.local.datastructs.trcl_tree import TrClTree
 from lib.remote.errors import optioncheck
 
 
-def get_dendropy_distances(dpy_trees, fn):
-    num_trees = len(dpy_trees)
+def get_dendropy_distances(trees, fn):
+    num_trees = len(trees)
     matrix = np.zeros((num_trees, num_trees))
     for i in range(num_trees):
+        dist_fn = getattr(trees[i], fn)
         for j in range(i + 1, num_trees):
-            distance = fn(dpy_trees[i], dpy_trees[j])
+            distance = dist_fn(trees[j])
             matrix[i, j] = matrix[j, i] = distance
     return matrix
 
@@ -33,20 +34,18 @@ def get_distance_matrix(trees, metric, tmpdir):
 
     if metric == 'geo':
         return get_geo_distances(trees, tmpdir=tmpdir)
-
-    dpy_trees = utils.dpy.convert_to_dendropy_trees(trees)
     
     if metric == 'rf':
-        n = utils.dpy.ntaxa(trees[0])
-        matrix = get_dendropy_distances(dpy_trees, utils.dpy.get_rf_distance)
+        n = len(trees[0])
+        matrix = get_dendropy_distances(trees, 'rfdist')
         matrix /= (2*(n - 3))
     
     elif metric == 'wrf':
 
-        matrix = get_dendropy_distances(dpy_trees, utils.dpy.get_wrf_distance)
+        matrix = get_dendropy_distances(trees, 'wrfdist')
     elif metric == 'euc':
 
-        matrix = get_dendropy_distances(dpy_trees, utils.dpy.get_euc_distance)
+        matrix = get_dendropy_distances(trees, 'eucdist')
     else:
 
         print 'Unrecognised distance metric'
@@ -144,7 +143,7 @@ class DistanceMatrix(np.ndarray):
     def add_noise(self):
         ix = np.triu_indices(len(self), 1)
         rev_ix = ix[::-1]
-        noise = np.random.normal(0, 0.001, len(ix[0]))
+        noise = np.random.normal(0, 0.0001, len(ix[0]))
         noisy = self.copy()
         noisy[ix] += noise
         noisy[rev_ix] += noise
@@ -243,7 +242,7 @@ class DistanceMatrix(np.ndarray):
         """ Double-centres the input matrix: From each element: Subtract the row
         mean Subtract the column mean Add the grand mean Divide by -2 Method
         from: Torgerson, W S (1952). Multidimensional scaling: I. Theory and
-        method. Alternatively F = -0.5 * (I - 1/n)D[^2](I - 1/n) """
+        method. Alternatively M = -0.5 * (I - 1/n)D[^2](I - 1/n) """
 
         M = (self * self if square_input else self.copy())
         (rows, cols) = M.shape

@@ -17,31 +17,16 @@ class TrClTree(Tree):
         return cast
 
     @classmethod
-    def new_yule(
-        cls,
-        nspecies,
-        names=None,
-        cf=False,
-        ):
-        t = super(TrClTree, cls).new_yule(nspecies, names, cf)
+    def new_yule(cls, nspecies, **kwargs):
+        t = super(TrClTree, cls).new_yule(nspecies, **kwargs)
         return cls.cast(t)
 
     @classmethod
-    def new_coal(
-        cls,
-        nspecies,
-        names=None,
-        cf=False,
-        ):
-        t = super(TrClTree, cls).new_coal(nspecies, names, cf)
+    def new_coal(cls, nspecies, **kwargs):
+        t = super(TrClTree, cls).new_coal(nspecies, **kwargs)
         return cls.cast(t)
 
     @classmethod
-    def new_rtree(
-        cls,
-        nspecies,
-        names=None,
-        cf=False,
-        ):
-        t = super(TrClTree, cls).new_rtree(nspecies, names, cf)
+    def new_rtree(cls, nspecies, **kwargs):
+        t = super(TrClTree, cls).new_rtree(nspecies, **kwargs)
         return cls.cast(t)
