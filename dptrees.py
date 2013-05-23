@@ -22,7 +22,13 @@ from treeCl.clustering import Partition
 
 class DP_trees(object):
 
-    """ Placeholder docstring """
+    """ Preparation: c = Collection(...), sc = Scorer(c.records, 
+    'Treecollection / nj / ml'). c.calc_distances(), etc...,
+    dm = c.distance_matrix('euc')
+    mean = dm[np.triu_indices(len(c), 1)].mean()        
+    dp = DP_trees(sc, lmbda=mean)
+    dp.maxiter=1
+    dp.run() """
 
     sumD_old = np.inf
     sumD_new = np.inf

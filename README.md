@@ -20,6 +20,7 @@ Clone the repo with submodules using
 - [scipy](http://www.scipy.org "SciPy") (v0.11.0)
 - [dendropy](http://pythonhosted.org/DendroPy/ "DendroPy is a Python library for phylogenetic computing.") (v3.12.0)
 - [scikit-learn](http://scikit-learn.org/stable/ "Machine learning in Python") (v0.12.1)
+- [biopython](http://www.biopython.org/‎ "Biopython") (v1.60) *optional - for k-medoids clustering only*
 
 The easiest way to install the dependencies is using pip. If you don't have pip,
 it can be installed by typing ```easy_install pip``` in a shell.
