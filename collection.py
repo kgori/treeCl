@@ -54,6 +54,7 @@ class Collection(object):
         tmpdir='/tmp',
         calc_distances=False,
         compression=None,
+        analysis=None,
         ):
 
         self.tmpdir = directorycheck(tmpdir)
@@ -124,17 +125,20 @@ class Collection(object):
             runDV(rec, tmpdir=self.tmpdir, verbosity=verbosity)
 
     def calc_TC_trees(self, verbosity=0):
+        self.analysis = 'TreeCollection'
         for rec in self.records:
             runTC(rec, verbosity=verbosity, tmpdir=self.tmpdir)
             rec.tree = TrClTree.cast(rec.tree)
 
     def calc_ML_trees(self, verbosity=0):
+        self.analysis = 'ml'
         for rec in self.records:
-            runPhyml(rec, analysis='ml', verbosity=verbosity,
+            runPhyml(rec, analysis=self.analysis, verbosity=verbosity,
                 tmpdir=self.tmpdir)
             rec.tree = TrClTree.cast(rec.tree)
 
     def calc_NJ_trees(self, verbosity=0):
+        self.analysis = 'nj'
         for rec in self.records:
             runPhyml(rec, analysis='nj', verbosity=verbosity,
                 tmpdir=self.tmpdir)
@@ -152,7 +156,6 @@ class Collection(object):
         concat.shuffle()
         new_records = concat.split_by_lengths(lengths, names)
         return self.__class__(new_records)
-
 
 class Scorer(object):
 
