@@ -1,0 +1,39 @@
+Input: 
+A set of N sequence alignments. # Hope to get randomly generated script
+
+Initialisation:
+Set epsilon = some very small value # Could test for repeated values
+Choose k, a number of clusters
+Set Likelihood L = 0
+For each alignment a from 1 to N:
+    Assign a to cluster rand(1, k)
+    Calculate tree(a)
+For each cluster c from 1 to k:
+    Calculate t=tree(c)
+    L += t.likelihood
+
+
+Algorithm:
+For each alignment a from 1 to N:
+    Initialise list dists
+    For each cluster c from 1 to k:
+        Measure some distance d=dist(a, c) # vary distance function
+        Append d to dists
+    Assign a to cluster min(dists)
+    # OPTIONALLY BREAK HERE IF ASSIGNMENT CHANGES
+
+Set new Likelihood newL = 0
+For each cluster c from 1 to k:
+    Calculate t=tree(c)
+    newL += t.likelihood
+
+If newL < L:
+    new assignment is worse than initial
+    END
+
+If abs(newL - L) < epsilon:
+    convergence
+    END
+
+Output:
+N sequence alignments clustered into k groups, and a likelihood score. 
