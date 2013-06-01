@@ -26,6 +26,7 @@ class emtrees(object):
         self.assign_clusters()
 
     def assign_clusters(self):
+        # Collapse equivalent trees?
         k = self.nclusters
         self.partition = Partition( [randint(1,k) for rec in self.scorer.records] )
         self.L = self.scorer.score(self.partition)
