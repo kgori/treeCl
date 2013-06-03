@@ -4,6 +4,7 @@ from collection import Collection, Scorer
 from random import randint
 from clustering import Partition
 from distance_matrix import DistanceMatrix
+from phyml import Phyml
 
 class emtrees(object): 
 
@@ -12,7 +13,7 @@ class emtrees(object):
 
     def __init__(
         self, 
-        Scorer, 
+        collection, 
         nclusters, 
         metric = 'euc',
         method='distance',
@@ -22,7 +23,9 @@ class emtrees(object):
             raise Exception('Need appropriate value for number of clusters.')
 
         self.nclusters = nclusters
-        self.scorer = Scorer # Could check for entries
+        self.scorer = Scorer(collection.records, collection.analysis) # Could check for entries
+        self.datatype = collection.datatype
+        self.tmpdir = collection.tmpdir
         self.metric = metric
         self.assign_clusters()
 
@@ -73,11 +76,23 @@ class emtrees(object):
         assignment = self.partition.partition_vector[:]
         
         for (index, record) in enumerate(self.scorer.records):
-            likelioods = [ self.phyml_likelihood(record.tree, clusters[n].tree) for n in range(self.nclusters) ]
+            likelioods = [ self.phyml_likelihood(record, clusters[n]) for n in range(self.nclusters) ]
             if assignment.count(assignment[index]) > 1:
                 assignment[index] = likelioods.index(min(likelioods)) + 1
 
         return(Partition(assignment))
+
+    def phyml_likelihood(self, record, cluster, verbose=0):
+        p = Phyml(record, tmpdir=self.tmpdir)
+        p.record.write_to_file('test_tree')
+        self.add_tempfile('test_tree')
+        p.add_flag('--inputtree', 'test_tree') # Need tempdir????
+        p.add_flag('-o', 'r') # Optimise only banch lengtha and substitutions`
+        p.add_flag('-a', 'e')
+        p.add_flag('-b', 0)
+        p.add_flag('-c', 4)
+        p.add_flag('-d', 'nt') # set data type - could inherit from Collection object?
+        p.run(verbosity=verbose)
 
     def dist(self, tree1, tree2):
         distance = DistanceMatrix( [tree1, tree2], self.metric)[0][1] 
