@@ -15,6 +15,7 @@ class emtrees(object):
         Scorer, 
         nclusters, 
         metric = 'euc',
+        method='distance',
         ): 
 
         if not isinstance(nclusters, int) or nclusters <= 1:
@@ -31,7 +32,7 @@ class emtrees(object):
         self.partition = Partition( [randint(1,k) for rec in self.scorer.records] )
         self.L = self.scorer.score(self.partition)
 
-    def maximise(self, method='distance'): # Needs to change
+    def maximise(self): # Needs to change
         count = 0
         # clusters = [ Cluster(self.partition.get_membership()[n], self.scorer,records, self.scorer.analysis) for n in range(self.clusters)]
         clusters = [0] * self.nclusters
@@ -44,7 +45,7 @@ class emtrees(object):
                     clusters[n] = Cluster(members, self.scorer.records, self.scorer.analysis)
 
 
-            assignment = getattr(self,method)(clusters)
+            assignment = getattr(self,self.method)(clusters)
             score = self.scorer.score(assignment)
 
             if score > self.L:
@@ -64,6 +65,17 @@ class emtrees(object):
             dists = [ self.dist(record.tree, clusters[n].tree) for n in range(self.nclusters) ]
             if assignment.count(assignment[index]) > 1:
                 assignment[index] = dists.index(min(dists)) + 1
+
+        return(Partition(assignment))
+
+    def ml(self,clusters):
+
+        assignment = self.partition.partition_vector[:]
+        
+        for (index, record) in enumerate(self.scorer.records):
+            likelioods = [ self.phyml_likelihood(record.tree, clusters[n].tree) for n in range(self.nclusters) ]
+            if assignment.count(assignment[index]) > 1:
+                assignment[index] = likelioods.index(min(likelioods)) + 1
 
         return(Partition(assignment))
 
