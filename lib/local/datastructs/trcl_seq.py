@@ -3,6 +3,7 @@
 from ...remote.datastructs.seq import Seq, concatenate
 from ...remote.externals.phyml import Phyml
 from ...remote.externals.treecollection import TreeCollection
+from ..externals.DVscript import runDV
 from trcl_tree import TrClTree
 import re
 
@@ -80,8 +81,7 @@ class TrClSeq(Seq):
         """ Uses darwin (via treeCl.externals.DVWrapper) to calculate pairwise
         distances and variances"""
 
-        dv = DVWrapper(self)
-        self.dv.append(dv.run())
+        runDV(self)
 
     def phyml(self):
         """ Uses phyml (via treeCl.externals.tree_builders.Phyml) to build a
@@ -96,7 +96,7 @@ class TrClSeq(Seq):
         tree for the current record """
 
         if self.dv <= []:
-            self.get_dv_matrix()
+            self.dv_matrix()
         tc = TreeCollection(self)
         self.tree = TrClTree.cast(tc.run())
 
