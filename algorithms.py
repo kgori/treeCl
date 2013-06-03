@@ -4,7 +4,7 @@ from collection import Collection, Scorer
 from random import randint
 from clustering import Partition
 from distance_matrix import DistanceMatrix
-from phyml import Phyml
+from lib.remote.externals.phyml import Phyml
 
 class emtrees(object): 
 
@@ -26,6 +26,7 @@ class emtrees(object):
         self.scorer = Scorer(collection.records, collection.analysis) # Could check for entries
         self.datatype = collection.datatype
         self.tmpdir = collection.tmpdir
+        self.method = method
         self.metric = metric
         self.assign_clusters()
 
@@ -84,7 +85,7 @@ class emtrees(object):
 
     def phyml_likelihood(self, record, cluster, verbose=0):
         p = Phyml(record, tmpdir=self.tmpdir)
-        p.record.write_to_file('test_tree')
+        cluster.tree.write_to_file('test_tree')
         self.add_tempfile('test_tree')
         p.add_flag('--inputtree', 'test_tree') # Need tempdir????
         p.add_flag('-o', 'r') # Optimise only banch lengtha and substitutions`
