@@ -15,8 +15,7 @@ class emtrees(object):
         self, 
         collection, 
         nclusters, 
-        metric = 'euc',
-        method='distance',
+        metric = 'euc', 
         ): 
 
         if not isinstance(nclusters, int) or nclusters <= 1:
@@ -26,30 +25,40 @@ class emtrees(object):
         self.scorer = Scorer(collection.records, collection.analysis) # Could check for entries
         self.datatype = collection.datatype
         self.tmpdir = collection.tmpdir
-        self.method = method
         self.metric = metric
-        self.assign_clusters()
 
-    def assign_clusters(self):
+    def assign_partition(self):
         # Collapse equivalent trees?
         k = self.nclusters
         self.partition = Partition( [randint(1,k) for rec in self.scorer.records] )
         self.L = self.scorer.score(self.partition)
 
-    def maximise(self): # Needs to change
+    def assign_clusters(self,clusters,partition):
+        for n in range(self.nclusters):
+            members = partition.get_membership()[n]
+            if not clusters[n] or clusters[n].members != members:
+                clusters[n] = Cluster(members, self.scorer.records, self.scorer.analysis)
+
+        return(clusters)
+
+    def maximise(self, method): # Needs to change
+        self.assign_partition()
+        clusters = [0] * self.nclusters
+        alg = getattr(self,method)
         count = 0
         # clusters = [ Cluster(self.partition.get_membership()[n], self.scorer,records, self.scorer.analysis) for n in range(self.clusters)]
-        clusters = [0] * self.nclusters
 
         while True:
+            self.assign_clusters(clusters,self.partition)
+            assignment = list(self.partition.partition_vector)
 
-            for n in range(self.nclusters):
-                members = self.partition.get_membership()[n]
-                if not clusters[n] or clusters[n].members != members:
-                    clusters[n] = Cluster(members, self.scorer.records, self.scorer.analysis)
+            for (index, record) in enumerate(self.scorer.records):
+                scores = [ alg(record, clusters[n]) for n in range(self.nclusters) ]
+                print scores
+                if assignment.count(assignment[index]) > 1:
+                    assignment[index] = scores.index(max(scores)) + 1
 
-
-            assignment = getattr(self,self.method)(clusters)
+            assignment = Partition(assignment)
             score = self.scorer.score(assignment)
 
             if score > self.L:
@@ -58,46 +67,27 @@ class emtrees(object):
 
             else: 
                 count += 1
-                if count > 1: # Algorithm is deterministic so no need for more iterations
-                    break
+                if count > 1: break # Algorithm is deterministic so no need for more iterations
 
-    def distance(self,clusters): # need better name once we figure out what it does
+    def dist(self, obj1, obj2):
+        distance = DistanceMatrix( [obj1.tree, obj2.tree], self.metric)[0][1] 
+        return(-distance)
 
-        assignment = self.partition.partition_vector[:]
-        
-        for (index, record) in enumerate(self.scorer.records):
-            dists = [ self.dist(record.tree, clusters[n].tree) for n in range(self.nclusters) ]
-            if assignment.count(assignment[index]) > 1:
-                assignment[index] = dists.index(min(dists)) + 1
-
-        return(Partition(assignment))
-
-    def ml(self,clusters):
-
-        assignment = self.partition.partition_vector[:]
-        
-        for (index, record) in enumerate(self.scorer.records):
-            likelioods = [ self.phyml_likelihood(record, clusters[n]) for n in range(self.nclusters) ]
-            if assignment.count(assignment[index]) > 1:
-                assignment[index] = likelioods.index(min(likelioods)) + 1
-
-        return(Partition(assignment))
-
-    def phyml_likelihood(self, record, cluster, verbose=0):
+    def ml(self, record, cluster, verbose=1):
         p = Phyml(record, tmpdir=self.tmpdir)
         cluster.tree.write_to_file('test_tree')
-        self.add_tempfile('test_tree')
+        p.add_tempfile('test_tree')
         p.add_flag('--inputtree', 'test_tree') # Need tempdir????
-        p.add_flag('-o', 'r') # Optimise only banch lengtha and substitutions`
+        p.add_flag('-o', 'r') # Optimise only on substitutions`
         p.add_flag('-a', 'e')
         p.add_flag('-b', 0)
         p.add_flag('-c', 4)
-        p.add_flag('-d', 'nt') # set data type - could inherit from Collection object?
-        p.run(verbosity=verbose)
-
-    def dist(self, tree1, tree2):
-        distance = DistanceMatrix( [tree1, tree2], self.metric)[0][1] 
-        return(distance)
+        if self.datatype == 'protein':
+            p.add_flag('-d', 'aa') # set data type - could inherit from Collection object?
+        elif self.datatype == 'dna':
+            p.add_flag('-d', 'nt')
+        tree = p.run(verbosity=verbose)
+        return(tree.score)
 
 class Cluster(object):
     def __init__(self, members, records, analysis):
