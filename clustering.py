@@ -54,8 +54,7 @@ class Clustering(object):
         p = [kmedoids(matrix, nclusters=nclusters, npass=100) for _ in
              range(100)]
         p.sort(key=lambda x: x[1])
-        T = self.order(p[0][0])
-        return Partition(T)
+        return Partition(p[0][0])
 
     def hierarchical(
         self,
@@ -81,7 +80,6 @@ class Clustering(object):
             br_bottom = linkmat[linkmat_size - nclusters][2]
         threshold = 0.5 * (br_top + br_bottom)
         T = fcluster(linkmat, threshold, criterion='distance')
-        T = self.order(T)
         return Partition(T)
 
     def spectral_decomp(
@@ -174,34 +172,13 @@ class Clustering(object):
         P = self.kmeans(nclusters, coords)
         return P
 
-    def order(self, l):
-        """ The clustering returned by the hcluster module gives group
-        membership without regard for numerical order This function preserves
-        the group membership, but sorts the labelling into numerical order """
-
-        list_length = len(l)
-
-        d = defaultdict(list)
-        for (i, element) in enumerate(l):
-            d[element].append(i)
-
-        l2 = [None] * list_length
-
-        for (name, index_list) in enumerate(sorted(d.values(), key=min),
-                start=1):
-            for index in index_list:
-                l2[index] = name
-
-        return tuple(l2)
-
     def kmeans(self, nclusters, coords=None, noise=False):
         coords = coords if coords is not None else self.distance_matrix
         if noise:
             coords.add_noise()
         est = KMeans(n_clusters=nclusters, n_init=50, max_iter=500)
         est.fit(coords)
-        T = self.order(est.labels_)
-        return Partition(T)
+        return Partition(est.labels_)
 
     # NOT FIXED YET (26/02/13)
 
@@ -273,7 +250,7 @@ class Clustering(object):
                 no_of_empty_clusters += 1
             for index in group_membership:
                 translate_clustering[index - 1] = group_number
-        clustering = self.order(translate_clustering)
+        clustering = Partition(translate_clustering)
         if no_of_empty_clusters > 0:
             print 'Subtracting {0} empty {1}'.format(no_of_empty_clusters,
                     ('cluster' if no_of_empty_clusters == 1 else 'clusters'))
@@ -352,28 +329,34 @@ class Partition(object):
     def __repr__(self):
         return self.__class__.__name__ + str(self)
 
-    def flatten(self, list_of_lists):
-        """ This is faster than the one-liner version:-
-        
-        def(flatten): return list(itertools.chain(*list_of_lists))
-        
-        """
+    @property
+    def partition_vector(self):
+        return self._partition_vector
 
-        res = []
-        x = res.extend
-        for sublist in list_of_lists:
-            x(sublist)
-        return res
+    @partition_vector.setter
+    def partition_vector(self, vec):
+        self._partition_vector = self.order(vec)
 
-    def get_membership(self, partition_vector=None, flatten=False):
+    @classmethod
+    def order(self, l):
+        """ The clustering returned by the hcluster module gives group
+        membership without regard for numerical order This function preserves
+        the group membership, but sorts the labelling into numerical order """
 
-        pvec = partition_vector or self.partition_vector
-        result = defaultdict(list)
-        for (position, value) in enumerate(pvec):
-            result[value].append(position)
-        result = [tuple(x) for x in sorted(result.values(), key=len,
-                  reverse=True)]
-        return (self.flatten(result) if flatten else result)
+        list_length = len(l)
+
+        d = defaultdict(list)
+        for (i, element) in enumerate(l):
+            d[element].append(i)
+
+        l2 = [None] * list_length
+
+        for (name, index_list) in enumerate(sorted(d.values(), key=min),
+                start=1):
+            for index in index_list:
+                l2[index] = name
+
+        return tuple(l2)
 
     def entropies(self, partition_1, partition_2):
         """ parameters: partition_1 (list / array) - a partitioning of a dataset
@@ -425,6 +408,38 @@ class Partition(object):
 
         return (entropy_1, entropy_2, mut_inf)
 
+    def flatten(self, list_of_lists):
+        """ This is faster than the one-liner version:-
+        
+        def(flatten): return list(itertools.chain(*list_of_lists))
+        
+        """
+
+        res = []
+        x = res.extend
+        for sublist in list_of_lists:
+            x(sublist)
+        return res
+
+    def get_membership(self, partition_vector=None, flatten=False):
+
+        pvec = partition_vector or self.partition_vector
+        result = defaultdict(list)
+        for (position, value) in enumerate(pvec):
+            result[value].append(position)
+        result = [tuple(x) for x in sorted(result.values(), key=len,
+                  reverse=True)]
+        return (self.flatten(result) if flatten else result)
+
+    def normalised_mutual_information(self, other):
+        partition_1 = self.partition_vector
+        partition_2 = other.partition_vector    
+
+        (entropy_1, entropy_2, mut_inf) = self.entropies(partition_1,
+                partition_2)
+
+        return 2 * mut_inf / (entropy_1 + entropy_2)
+
     def variation_of_information(self, other):
         """ calculates Variation of Information Metric between two clusterings
         of the same data - SEE Meila, M. (2007). Comparing clusterings: an
@@ -437,12 +452,3 @@ class Partition(object):
                 partition_2)
 
         return entropy_1 + entropy_2 - 2 * mut_inf
-
-    def normalised_mutual_information(self, other):
-        partition_1 = self.partition_vector
-        partition_2 = other.partition_vector    
-
-        (entropy_1, entropy_2, mut_inf) = self.entropies(partition_1,
-                partition_2)
-
-        return 2 * mut_inf / (entropy_1 + entropy_2)
