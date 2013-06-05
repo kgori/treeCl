@@ -8,9 +8,6 @@ from lib.remote.externals.phyml import Phyml
 
 class emtrees(object): 
 
-    # Not sure if scorer required
-    # Possible end criteria?
-
     def __init__(
         self, 
         collection, 
@@ -77,15 +74,18 @@ class emtrees(object):
         p = Phyml(record, tmpdir=self.tmpdir)
         cluster.tree.write_to_file('test_tree')
         p.add_tempfile('test_tree')
-        p.add_flag('--inputtree', 'test_tree') # Need tempdir????
+        p.add_flag('--inputtree', 'test_tree')
         p.add_flag('-o', 'r') # Optimise only on substitutions`
         p.add_flag('-a', 'e')
         p.add_flag('-b', 0)
         p.add_flag('-c', 4)
+        p.add_flag('--quite', '')
+
         if self.datatype == 'protein':
-            p.add_flag('-d', 'aa') # set data type - could inherit from Collection object?
+            p.add_flag('-d', 'aa') 
         elif self.datatype == 'dna':
             p.add_flag('-d', 'nt')
+            
         tree = p.run(verbosity=verbose)
         return(tree.score)
 
