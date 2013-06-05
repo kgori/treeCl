@@ -13,6 +13,7 @@ class emtrees(object):
         collection, 
         nclusters, 
         metric = 'euc', 
+        tmpdir = None,
         ): 
 
         if not isinstance(nclusters, int) or nclusters <= 1:
@@ -21,8 +22,10 @@ class emtrees(object):
         self.nclusters = nclusters
         self.scorer = Scorer(collection.records, collection.analysis) # Could check for entries
         self.datatype = collection.datatype
-        self.tmpdir = collection.tmpdir
         self.metric = metric
+
+        if not self.tmpdir:
+            self.tmpdir = collection.tmpdir
 
     def assign_partition(self):
         # Collapse equivalent trees?
