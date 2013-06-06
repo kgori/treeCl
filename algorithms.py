@@ -5,6 +5,7 @@ from random import randint
 from clustering import Partition
 from distance_matrix import DistanceMatrix
 from lib.remote.externals.phyml import Phyml
+import os
 
 class emtrees(object): 
 
@@ -24,7 +25,9 @@ class emtrees(object):
         self.datatype = collection.datatype
         self.metric = metric
 
-        if not self.tmpdir:
+        try:
+            self.tmpdir
+        except:
             self.tmpdir = collection.tmpdir
 
     def assign_partition(self):
@@ -75,14 +78,15 @@ class emtrees(object):
 
     def ml(self, record, cluster, verbose=1):
         p = Phyml(record, tmpdir=self.tmpdir)
-        cluster.tree.write_to_file('test_tree')
-        p.add_tempfile('test_tree')
-        p.add_flag('--inputtree', 'test_tree')
+        input_tree = os.path.join(self.tmpdir, 'input_tree')
+        cluster.tree.write_to_file(input_tree)
+        p.add_tempfile(input_tree)
+        p.add_flag('--inputtree', input_tree)
         p.add_flag('-o', 'r') # Optimise only on substitutions`
         p.add_flag('-a', 'e')
         p.add_flag('-b', 0)
         p.add_flag('-c', 4)
-        p.add_flag('--quite', '')
+        p.add_flag('--quiet', '')
 
         if self.datatype == 'protein':
             p.add_flag('-d', 'aa') 
