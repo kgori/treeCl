@@ -84,7 +84,7 @@ class Clustering(object):
 
     def spectral_decomp(
         self,
-        prune,
+        prune='estimate',
         local_scale=7,
         sigma=2,
         noise=False,
@@ -126,9 +126,19 @@ class Clustering(object):
         
         elif local_scale == -1:       # use maximum vector
             scale = matrix.kdists(k=matrix.shape[0])
-            print 'Local scale based on {0} nearest-neighbour'.format(matrix.shape[0])
+            print 'Local scale based on {0} nearest-neighbour'.format(
+                matrix.shape[0])
         
         else:                         # use chosen value
+            try:
+                print type(local_scale) == type(1)
+                assert type(local_scale) == type(1)
+            except AssertionError:
+                print ('Unrecognised option "{0}".\n'
+                    'Allowed options are integers, -1 (=maximum), '
+                    '"estimate" and "median'.format(local_scale))
+                raise
+            print local_scale, type(local_scale)
             scale = matrix.kdists(k=local_scale)
             print 'Local scale based on {0} nearest-neighbour'.format(local_scale)
 
@@ -328,6 +338,9 @@ class Partition(object):
 
     def __repr__(self):
         return self.__class__.__name__ + str(self)
+
+    def __len__(self):
+        return len(self.partition_vector)
 
     @property
     def partition_vector(self):

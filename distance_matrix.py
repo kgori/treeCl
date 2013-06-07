@@ -356,29 +356,3 @@ class DistanceMatrix(np.ndarray):
             j = desired_ordering.index(input_ordering[i])
             P[i, j] = 1
         return P
-
-    def plot_heatmap(self, sort_partition=None):
-        """ Sort partition should be a flatlist of the clusters as returned by
-        Partition().get_memberships(..., flatten=True) """
-
-        length = self.shape[0]
-        datamax = float(np.abs(self).max())
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-        ticks_at = [0, 0.5 * datamax, datamax]
-        if sort_partition:
-            p = self.get_permutation_matrix(range(len(sort_partition)),
-                    sort_partition)
-            self = np.dot(p.T, np.dot(self, p))
-        cax = ax.imshow(
-            np.array(self),
-            interpolation='nearest',
-            origin='lower',
-            extent=[0., length, 0., length],
-            vmin=0,
-            vmax=datamax,
-            cmap=CM.Blues,
-            )
-        cbar = fig.colorbar(cax, ticks=ticks_at, format='%1.2g')
-        cbar.set_label('Distance')
-        return fig

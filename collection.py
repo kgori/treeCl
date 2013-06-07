@@ -139,6 +139,8 @@ class Collection(object):
             runPhyml(rec, analysis='nj', verbosity=verbosity,
                 tmpdir=self.tmpdir)
             rec.tree = TrClTree.cast(rec.tree)
+        if verbosity == 1:
+            print
 
     def distance_matrix(self, metric):
         """ Generate a distance matrix from a fully-populated Collection """
