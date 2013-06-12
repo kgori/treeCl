@@ -5,7 +5,7 @@ from random import randint
 from clustering import Partition
 from distance_matrix import DistanceMatrix
 from lib.remote.externals.phyml import Phyml
-import os
+from os.path import join
 
 class emtrees(object): 
 
@@ -39,17 +39,16 @@ class emtrees(object):
     def assign_clusters(self,clusters,partition):
         for n in range(self.nclusters):
             members = partition.get_membership()[n]
-            if not clusters[n] or clusters[n].members != members:
+            if clusters[n].members != members:
                 clusters[n] = Cluster(members, self.scorer.records, self.scorer.analysis)
 
         return(clusters)
 
-    def maximise(self, method): # Needs to change
+    def maximise(self, method):
         self.assign_partition()
         clusters = [0] * self.nclusters
         alg = getattr(self,method)
         count = 0
-        # clusters = [ Cluster(self.partition.get_membership()[n], self.scorer,records, self.scorer.analysis) for n in range(self.clusters)]
 
         while True:
             self.assign_clusters(clusters,self.partition)
@@ -57,7 +56,7 @@ class emtrees(object):
 
             for (index, record) in enumerate(self.scorer.records):
                 scores = [ alg(record, clusters[n]) for n in range(self.nclusters) ]
-                print scores
+                # print scores
                 if assignment.count(assignment[index]) > 1:
                     assignment[index] = scores.index(max(scores)) + 1
 
@@ -67,6 +66,41 @@ class emtrees(object):
             if score > self.L:
                 self.L = score
                 self.partition = assignment
+
+            else: 
+                count += 1
+                if count > 1: break # Algorithm is deterministic so no need for more iterations
+
+    def maximise_test(self, method):
+        self.assign_partition()
+        clusters = [0] * self.nclusters
+        alg = getattr(self,method)
+        count = 0
+        sampled = []
+
+        while True:
+            self.assign_clusters(clusters,self.partition)
+            assignment = list(self.partition.partition_vector)
+
+            record_index = randint(0,len(self.records))
+
+            if record_index in sampled:
+                continue
+            else:
+                sampled.append(record_index)
+
+            scores = [ alg(record, clusters[n]) for n in range(self.nclusters) ]
+
+            if assignment.count(assignment[index]) > 1:
+                assignment[index] = scores.index(max(scores)) + 1
+
+            assignment = Partition(assignment)
+            score = self.scorer.score(assignment)
+
+            if score > self.L:
+                self.L = score
+                self.partition = assignment
+                sampled = []
 
             else: 
                 count += 1
