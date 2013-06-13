@@ -82,11 +82,12 @@ class emtrees(object):
             self.assign_clusters(clusters,self.partition)
             assignment = list(self.partition.partition_vector)
 
-            record_index = randint(0,len(self.records))
+            record_index = randint(0,len(self.scorer.records))
 
             if record_index in sampled:
                 continue
             else:
+                record = self.scorer.records[record_index]
                 sampled.append(record_index)
 
             scores = [ alg(record, clusters[n]) for n in range(self.nclusters) ]
