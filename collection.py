@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import glob
+import os
 import re
 from copy import deepcopy
 from lib.local.datastructs.trcl_seq import TrClSeq, concatenate
@@ -179,6 +180,7 @@ class Scorer(object):
         optioncheck(self.datatype, ['protein', 'dna'])
         self.tmpdir = tmpdir or records[0].tmpdir
         self.concats = {}
+        self._history = []
 
     def add(self, index_list, verbosity=1):
         """ Takes a tuple of indices. Concatenates the records in the record
@@ -215,6 +217,19 @@ class Scorer(object):
         concat.name = '-'.join(str(x) for x in index_list)
         return concat
 
+    def update_history(self, score, index_list):
+        time = sum(os.times()[:4])
+        self._history.append([time, score, index_list])
+
+    def print_history(self):
+        for iteration, (time, score, index_list) in enumerate(self._history):
+            print str(iteration) + "\t"
+            print str(time) + "\t"
+            print str(score) + "\n"
+
+    def history(self):
+        return(self._history)
+
     def members(self, index_list):
         return [self.records[n] for n in index_list]
 
@@ -223,7 +238,9 @@ class Scorer(object):
         for each one, and returns the sum """
 
         inds = partition_object.get_membership()
-        return sum([self.add(ind, **kwargs).score for ind in inds])
+        likelihood = sum([self.add(index_list, **kwargs).score for index_list in inds])
+        self.update_history(likelihood, inds)
+        return(likelihood)
 
     def simulate(self, index_list, model=None):
         """ Simulate a group of sequence alignments using ALF. Uses one of
