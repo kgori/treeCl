@@ -81,14 +81,15 @@ class emtrees(object):
         while True:
             self.assign_clusters(clusters,self.partition)
             assignment = list(self.partition.partition_vector)
+            count = 0
 
-            index = randint(0,len(self.scorer.records))
+            index = randint(0,len(self.scorer.records) - 1)
 
             if index in sampled:
                 continue
             else:
-                record = self.scorer.records[record_index]
-                sampled.append(record_index)
+                record = self.scorer.records[index]
+                sampled.append(index)
 
             scores = [ alg(record, clusters[n]) for n in range(self.nclusters) ]
 
@@ -102,9 +103,10 @@ class emtrees(object):
                 self.L = score
                 self.partition = assignment
                 sampled = []
+                count = 0
             else: 
                 count += 1
-                if count > 10: break 
+                if count == len(assignment): break 
 
     def dist(self, obj1, obj2):
         distance = DistanceMatrix( [obj1.tree, obj2.tree], self.metric)[0][1] 
