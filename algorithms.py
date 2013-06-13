@@ -39,7 +39,7 @@ class emtrees(object):
     def assign_clusters(self,clusters,partition):
         for n in range(self.nclusters):
             members = partition.get_membership()[n]
-            if clusters[n].members != members:
+            if not clusters[n] or clusters[n].members != members:
                 clusters[n] = Cluster(members, self.scorer.records, self.scorer.analysis)
 
         return(clusters)
@@ -82,12 +82,13 @@ class emtrees(object):
             self.assign_clusters(clusters,self.partition)
             assignment = list(self.partition.partition_vector)
 
-            record_index = randint(0,len(self.records))
+            index = randint(0,len(self.scorer.records))
 
-            if record_index in sampled:
+            if index in sampled:
                 continue
             else:
-                sampled.append(record_index)
+                record = self.scorer.records[index]
+                sampled.append(index)
 
             scores = [ alg(record, clusters[n]) for n in range(self.nclusters) ]
 
@@ -101,10 +102,9 @@ class emtrees(object):
                 self.L = score
                 self.partition = assignment
                 sampled = []
-
             else: 
                 count += 1
-                if count > 1: break # Algorithm is deterministic so no need for more iterations
+                if count > 10: break 
 
     def dist(self, obj1, obj2):
         distance = DistanceMatrix( [obj1.tree, obj2.tree], self.metric)[0][1] 
