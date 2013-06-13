@@ -332,6 +332,9 @@ class Partition(object):
     def __repr__(self):
         return self.__class__.__name__ + str(self)
 
+    def __len__(self):
+        return len(self.partition_vector)
+
     @property
     def partition_vector(self):
         return self._partition_vector
