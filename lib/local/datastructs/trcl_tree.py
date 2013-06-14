@@ -6,9 +6,16 @@ from ...remote.datastructs.tree import Tree
 
 class TrClTree(Tree):
 
-    def geodist(self, other):
-        gtp = GTP()
-        return gtp.pairwise(self, other)
+    def geodist(self, other, tmpdir=None, normalise=False):
+        tmpdir = tmpdir or '/tmp'
+        gtp = GTP(tmpdir=tmpdir)
+        if self ^ other:
+            t1, t2 = self.__class__.pruned_pair(self, other)
+        else:
+            t1, t2 = self, other
+        if normalise:
+            t1, t2 = self.__class__.normalised_pair(t1, t2)
+        return gtp.pairwise(t1, t2)
 
     @classmethod
     def cast(cls, tree):
