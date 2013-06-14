@@ -6,6 +6,13 @@ from ...remote.externals.treecollection import TreeCollection
 from ..externals.DVscript import runDV
 from trcl_tree import TrClTree
 import re
+import random
+
+def sample_wr(population, k):
+    _int = int
+    _random = random.random
+    n = len(population)
+    return [population[_int(_random() * n)] for _ in range(k)]
 
 class TrClSeq(Seq):
 
@@ -76,6 +83,14 @@ class TrClSeq(Seq):
 
         p = Phyml(self)
         self.tree = TrClTree.cast(p.run('nj'))
+
+    def bootstrap_sample(self):
+        """ Samples with replacement from the columns of the alignment """
+        columns = self._pivot(self.sequences)
+        bootstrap_columns = sample_wr(columns, len(columns))
+        bootstrap_sequences = self._pivot(bootstrap_columns)
+        return self.__class__(headers=self.headers, sequences=bootstrap_sequences,
+                        datatype=self.datatype)
 
     def dv_matrix(self):
         """ Uses darwin (via treeCl.externals.DVWrapper) to calculate pairwise
