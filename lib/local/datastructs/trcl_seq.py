@@ -68,9 +68,9 @@ class TrClSeq(Seq):
             if k in intersection:
                 d[k] = self.mapping[k] + other.mapping[k]
             elif k in only_in_self:
-                d[k] = self.mapping[k] + 'N' * other.seqlength
+                d[k] = self.mapping[k] + 'X' * other.seqlength
             elif k in only_in_other:
-                d[k] = 'N' * self.seqlength + other.mapping[k]
+                d[k] = 'X' * self.seqlength + other.mapping[k]
         dvsum = self.dv + other.dv
         return_object = self.__class__(headers=d.keys(), sequences=d.values(),
                                  datatype=self.datatype).sort_by_name(in_place=False)
