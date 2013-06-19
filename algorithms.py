@@ -7,7 +7,7 @@ from distance_matrix import DistanceMatrix
 from lib.remote.externals.phyml import Phyml
 from os.path import join
 
-class emtrees(object): 
+class EMTrees(object): 
 
     def __init__(
         self, 

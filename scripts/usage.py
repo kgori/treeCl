@@ -3,7 +3,7 @@ import sys
 sys.path.append('/home/malcolm/Documents/EBi/Git/')
 from treeCl.collection import Collection, Scorer
 from treeCl.clustering import Clustering, Partition
-from treeCl.algorithms import emtrees
+from treeCl.algorithms import EMTrees
 
 # Collection Usage:
 
@@ -20,6 +20,6 @@ c.calc_NJ_trees() #add verbosity=1 or higher to get progress messages
 
 # emtrees usage:
 
-e = emtrees(c,4)
+e = EMTrees(c,4)
 e.maximise_test('dist')
 print e.L
