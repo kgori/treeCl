@@ -15,7 +15,7 @@ class EMTrees(object):
         nclusters,
         metric='euc',
         tmpdir=None,
-        ):
+    ):
 
         if not isinstance(nclusters, int) or nclusters <= 1:
             raise Exception('Need appropriate value for number of clusters.')
@@ -30,7 +30,13 @@ class EMTrees(object):
         except:
             self.tmpdir = collection.tmpdir
 
-    def assign_partition(self):
+    def clusters_init(self):
+        k = self.nclusters
+        self.partition = [0] * len(self.scorer.records)
+        for i in range(k):
+            self.partition[randint(0, len(self.partition))] = i + 1
+
+    def random_partition(self):
         # Collapse equivalent trees?
         k = self.nclusters
         self.partition = Partition([randint(1, k) for rec in self.scorer.records])
@@ -45,7 +51,6 @@ class EMTrees(object):
         return(clusters)
 
     def maximise(self, method):
-        self.assign_partition()
         clusters = [0] * self.nclusters
         alg = getattr(self, method)
         count = 0
@@ -57,7 +62,7 @@ class EMTrees(object):
             for (index, record) in enumerate(self.scorer.records):
                 scores = [alg(record, clusters[n]) for n in range(self.nclusters)]
                 # print scores
-                if assignment.count(assignment[index]) > 1:
+                if assignment.count(assignment[index]) > 1 or assignment[index] == 0:
                     assignment[index] = scores.index(max(scores)) + 1
 
             assignment = Partition(assignment)
@@ -72,7 +77,6 @@ class EMTrees(object):
                 if count > 1: break  # Algorithm is deterministic so no need for more iterations
 
     def maximise_random(self, method):
-        self.assign_partition()
         clusters = [0] * self.nclusters
         alg = getattr(self, method)
         count = 0
