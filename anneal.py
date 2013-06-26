@@ -1,5 +1,8 @@
 # Original Author: Travis Oliphant 2002
 # Bug-fixes in 2006 by Tim Leslie
+# Modified from 18/4/2013 version by mgperry
+# Added cluster_sa class
+# Removed scipy.lib.six.moves import of xrange (not needed for 2.7.3 and breaks cluster)
 
 from __future__ import division, print_function, absolute_import
 
@@ -8,7 +11,6 @@ import warnings
 from numpy import asarray, tan, exp, ones, squeeze, sign, \
     all, log, sqrt, pi, shape, array, minimum, where, random
 from scipy.optimize import Result
-from scipy.lib.six.moves import xrange
 from random import randint
 
 __all__ = ['anneal']
@@ -96,6 +98,14 @@ class base_schedule(object):
 
 # Custo schedule for clusters
 class cluster_sa(base_schedule):
+    def init(self, **options):
+        self.__dict__.update(options)
+        if self.m is None:
+            self.m = 1.0
+        if self.n is None:
+            self.n = 1.0
+        self.c = self.m * exp(-self.n * self.quench)
+       
     def update_guess(self, partition):
         partition = asarray(partition)  # Needs redoing
         pnew = self.peturb(partition)
