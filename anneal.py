@@ -8,7 +8,6 @@ import warnings
 from numpy import asarray, tan, exp, ones, squeeze, sign, \
     all, log, sqrt, pi, shape, array, minimum, where, random
 from scipy.optimize import Result
-from scipy.lib.six.moves import xrange
 from random import randint
 
 __all__ = ['anneal']
