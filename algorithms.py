@@ -32,9 +32,20 @@ class EMTrees(object):
 
     def clusters_init(self):
         k = self.nclusters
-        self.partition = [0] * len(self.scorer.records)
+        assignment = [0] * len(self.scorer.records)
         for i in range(k):
-            self.partition[randint(0, len(self.partition))] = i + 1
+            assignment[randint(0, len(assignment))] = i + 1
+        partition = Partition(assignment)
+        clusters = [0] * k
+        members = partition.get_membership()[1:]
+        self.assign_clusters(clusters, members)
+        for (index, record) in enumerate(self.scorer.records):
+            scores = [self.ml(record, clusters[n]) for n in range(self.nclusters)]
+            # print scores
+            if assignment.count(assignment[index]) > 1 or assignment[index] == 0:
+                assignment[index] = scores.index(max(scores)) + 1
+        self.partition = Partition(assignment)
+        self.L = self.scorer.score(self.partition)
 
     def random_partition(self):
         # Collapse equivalent trees?
@@ -42,11 +53,10 @@ class EMTrees(object):
         self.partition = Partition([randint(1, k) for rec in self.scorer.records])
         self.L = self.scorer.score(self.partition)
 
-    def assign_clusters(self, clusters, partition):
+    def assign_clusters(self, clusters, members):
         for n in range(self.nclusters):
-            members = partition.get_membership()[n]
-            if not clusters[n] or clusters[n].members != members:
-                clusters[n] = Cluster(members, self.scorer.records, self.scorer.analysis)
+            if not clusters[n] or clusters[n].members != members[n]:
+                clusters[n] = Cluster(members[n], self.scorer.records, self.scorer.analysis)
 
         return(clusters)
 
@@ -56,7 +66,7 @@ class EMTrees(object):
         count = 0
 
         while True:
-            self.assign_clusters(clusters, self.partition)
+            self.assign_clusters(clusters, self.partition.get_membership())
             assignment = list(self.partition.partition_vector)
 
             for (index, record) in enumerate(self.scorer.records):
@@ -83,9 +93,8 @@ class EMTrees(object):
         sampled = []
 
         while True:
-            self.assign_clusters(clusters, self.partition)
+            self.assign_clusters(clusters, self.partition.get_membership)
             assignment = list(self.partition.partition_vector)
-            count = 0
 
             index = randint(0, len(self.scorer.records) - 1)
 
@@ -97,7 +106,7 @@ class EMTrees(object):
 
             scores = [alg(record, clusters[n]) for n in range(self.nclusters)]
 
-            if assignment.count(assignment[index]) > 1:
+            if assignment.count(assignment[index]) > 1 or assignment[index] == 0:
                 assignment[index] = scores.index(max(scores)) + 1
 
             assignment = Partition(assignment)
@@ -129,7 +138,7 @@ class EMTrees(object):
         p.add_flag('--quiet', '')
 
         if self.datatype == 'protein':
-            p.add_flag('-d', 'aa') 
+            p.add_flag('-d', 'aa')
         elif self.datatype == 'dna':
             p.add_flag('-d', 'nt')
 
