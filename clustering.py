@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 try:
     from sklearn.cluster import KMeans
 except ImportError:
-    print "sklearn unavailable: KMeans unavailable"
+    print "sklearn unavailable: KMeans disabled"
 from collections import defaultdict
 #import evrot ## evrot not currently in use
 from copy import deepcopy

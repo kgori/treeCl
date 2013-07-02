@@ -4,6 +4,7 @@ from collection import Collection, Scorer
 from clustering import Partition
 from random import randint
 from anneal import *
+import pickle
 
 c = Collection(input_dir='/home/malcolm/Documents/EBi/Data/easy_case', compression='gz', file_format='phylip', datatype='protein')
 
@@ -24,7 +25,7 @@ opts = {'func': likelihood,
         'x0': partition,
         'args': [scorer],
         'schedule': 'cluster',
-        'full_output': 0,
+        'full_output': 1,
         'T0': 100000,
         'Tf': 1,
         'maxeval': None,
@@ -43,3 +44,7 @@ opts = {'func': likelihood,
         }
 
 res = anneal(**opts)
+
+pickle.dumps(res, 'SA_results')
+history = scorer.history()
+pickle.dumps(history, 'SA_history')
