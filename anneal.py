@@ -117,7 +117,7 @@ class cluster_sa(base_schedule):
         return
 
     def peturb(self, partition):
-        partition[randint(0, len(partition))] = randint(1, max(partition)+1)
+        partition[randint(0, len(partition)-1)] = randint(1, max(partition))
         return(partition)
 
 
@@ -610,7 +610,7 @@ def _minimize_anneal(func, x0, args=(),
             retval = 4
             break
 
-    result = Result(x=best_state.x, fun=best_state.cost,
+    res = Result(x=best_state.x, fun=best_state.cost,
                     T=schedule.T, nfev=schedule.feval, nit=iters,
                     accept=schedule.accepted, status=retval,
                     success=(retval <= 1),
@@ -621,7 +621,11 @@ def _minimize_anneal(func, x0, args=(),
                              4: 'Maximum accepted query locations reached',
                              5: 'Final point not the minimum amongst '
                                 'encountered points'}[retval])
-    return result
+
+    print(res['x'], res['fun'], res['T'], res['nfev'], res['nit'], \
+        res['accept'], res['status'])
+
+    return res
 
 
 class OptimizeWarning(UserWarning):
