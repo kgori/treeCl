@@ -85,7 +85,6 @@ class EMTrees(object):
         while True:
             self.assign_clusters(clusters, self.partition)
             assignment = list(self.partition.partition_vector)
-            count = 0
 
             index = randint(0, len(self.scorer.records) - 1)
 
