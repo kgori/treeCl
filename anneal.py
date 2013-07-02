@@ -105,7 +105,7 @@ class cluster_sa(base_schedule):
         if self.n is None:
             self.n = 1.0
         self.c = self.m * exp(-self.n * self.quench)
-       
+
     def update_guess(self, partition):
         partition = asarray(partition)  # Needs redoing
         pnew = self.peturb(partition)
@@ -611,6 +611,7 @@ def _minimize_anneal(func, x0, args=(),
             break
 
     res = Result(x=best_state.x, fun=best_state.cost,
+<<<<<<< HEAD
                     T=schedule.T, nfev=schedule.feval, nit=iters,
                     accept=schedule.accepted, status=retval,
                     success=(retval <= 1),
@@ -624,6 +625,21 @@ def _minimize_anneal(func, x0, args=(),
 
     print(res['x'], res['fun'], res['T'], res['nfev'], res['nit'], \
         res['accept'], res['status'])
+=======
+                 T=schedule.T, nfev=schedule.feval, nit=iters,
+                 accept=schedule.accepted, status=retval,
+                 success=(retval <= 1),
+                 message={0: 'Points no longer changing',
+                          1: 'Cooled to final temperature',
+                          2: 'Maximum function evaluations',
+                          3: 'Maximum cooling iterations reached',
+                          4: 'Maximum accepted query locations reached',
+                          5: 'Final point not the minimum amongst '
+                             'encountered points'}[retval])
+
+    print(res['x'], res['fun'], res['T'], res['nfev'], res['nit'],
+          res['accept'], res['status'])
+>>>>>>> 4e42c8cc59ab70aee8d1300514e7642e4117d26d
 
     return res
 

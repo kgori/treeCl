@@ -7,19 +7,21 @@ from treeCl.algorithms import EMTrees
 
 # Collection Usage:
 
-c = Collection(input_dir='/home/malcolm/Documents/EBi/Data/easy_case', compression='gz', file_format='phylip', datatype='protein')
+c = Collection(input_dir='/home/malcolm/Documents/EBi/Data/easy_case', 
+    compression='gz', file_format='phylip', datatype='protein')
 c.calc_NJ_trees() #add verbosity=1 or higher to get progress messages
-#dm = c.distance_matrix('euc')
-#cl = Clustering(dm)
-#p = cl.hierarchical(4, 'single') # should give fairly inaccurate clustering
-#true = Partition(tuple([1]*15+[2]*15+[3]*15+[4]*15))
-#sc = Scorer(c.records,c.analysis)
+dm = c.distance_matrix('euc')
+# cl = Clustering(dm)
+# p = cl.hierarchical(4, 'single') # should give fairly inaccurate clustering
+true = Partition(tuple([1]*15+[2]*15+[3]*15+[4]*15))
+sc = Scorer(c.records, c.analysis)
 
-#sc.score(true)
-#sc.score(p)
+# sc.score(true)
+# sc.score(p)
 
 # emtrees usage:
 
-e = EMTrees(c,4)
-e.maximise_test('dist')
-print e.L
+e = EMTrees(c, 4)
+# e.maximise_test('dist')
+# print e.L
+

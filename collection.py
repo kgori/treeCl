@@ -2,6 +2,7 @@
 
 import glob
 import os
+import sys
 import re
 from copy import deepcopy
 from lib.local.datastructs.trcl_seq import TrClSeq, concatenate
@@ -38,7 +39,7 @@ class NoRecordsError(Exception):
 class Collection(object):
 
     """ Call:
-    
+
     c = Collection(inut_dir, file_format, datatype, tmpdir ...)
     c.calc_distances(), c.calc_TC_trees(), ...
     dm = c.distance_matrix('geo')
@@ -101,7 +102,7 @@ class Collection(object):
     def read_files(self, input_dir, file_format, compression=None):
         """ Get list of alignment files from an input directory *.fa, *.fas and
         *.phy files only
-        
+
         Stores in self.files """
 
         optioncheck(compression, [None, 'gz', 'bz2'])
@@ -117,7 +118,7 @@ class Collection(object):
 
         files = fileIO.glob_by_extensions(input_dir, extensions)
         files.sort(key=sort_key)
-        
+
         return [TrClSeq(f, file_format=file_format, datatype=self.datatype,
                 name=get_name(f), tmpdir=self.tmpdir) for f in files]
 
@@ -197,7 +198,7 @@ class Scorer(object):
             tree = TrClTree.cast(runTC(concat, guidetrees, verbosity=verbosity))
         else:
 
-            tree = TrClTree.cast(runPhyml(concat, analysis=self.analysis, 
+            tree = TrClTree.cast(runPhyml(concat, analysis=self.analysis,
                 verbosity=verbosity))
 
         # concat local variable dies here and goes to garbage collect
@@ -221,11 +222,11 @@ class Scorer(object):
         time = sum(os.times()[:4])
         self._history.append([time, score, index_list])
 
-    def print_history(self):
+    def print_history(self, fh=sys.stdout):
         for iteration, (time, score, index_list) in enumerate(self._history):
-            print str(iteration) + "\t"
-            print str(time) + "\t"
-            print str(score) + "\n"
+            fh.write(str(iteration) + "\t")
+            fh.write(str(time) + "\t")
+            fh.write(str(score) + "\n")
 
     def history(self):
         return(self._history)
