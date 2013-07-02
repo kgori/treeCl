@@ -6,7 +6,7 @@ from random import randint
 from anneal import *
 import pickle
 
-c = Collection(input_dir='/home/malcolm/Documents/EBi/Data/easy_case', compression='gz', file_format='phylip', datatype='protein')
+c = Collection(input_dir='/homes/mgperry/treeCl_data/easy_case/', compression='gz', file_format='phylip', datatype='protein')
 
 scorer = Scorer(c.records, 'nj')
 
