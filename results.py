@@ -23,7 +23,7 @@ class Result(object):
     def by_iteration(self):
         return([(i, rec[1]) for i, rec in enumerate(self.history)])
 
-    def table(self, file=sys.stdout):
+    def print_table(self, file=sys.stdout):
         for i, rec in enumerate(self.history):
             print(i, rec[0], rec[1], sep='\t', end='\n')
 
@@ -41,8 +41,7 @@ class Result(object):
 
     def print_plot(self, name, type='png'):
         filename = name + '.' + extension
-        pass
-        # Need to know how to control muliple plots, where plot objects are stored etc - need to copy plot???
+        self._plot.savefig(filename)
 
 
 def fileparser(f):
