@@ -39,8 +39,8 @@ class Result(object):
             data = np.asarray(self.by_iteration())
         self._plot = plt.plot(data[:, 0], data[:, 1], xlab='System Time', ylab='Log Likelihood of Partition')
 
-    def print_plot(self, name, type='png'):
-        filename = name + '.' + extension
+    def print_plot(self, name, ext='png'):
+        filename = name + '.' + ext
         self._plot.savefig(filename)
 
 
