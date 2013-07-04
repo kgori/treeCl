@@ -8,13 +8,13 @@ from lib.local.datastructs.trcl_tree import TrClTree
 from lib.remote.errors import optioncheck
 
 
-def get_dendropy_distances(trees, fn):
+def get_dendropy_distances(trees, fn, **kwargs):
     num_trees = len(trees)
     matrix = np.zeros((num_trees, num_trees))
     for i in range(num_trees):
         dist_fn = getattr(trees[i], fn)
         for j in range(i + 1, num_trees):
-            distance = dist_fn(trees[j])
+            distance = dist_fn(trees[j], **kwargs)
             matrix[i, j] = matrix[j, i] = distance
     return matrix
 
@@ -25,7 +25,7 @@ def get_geo_distances(trees, tmpdir=None):
     return g.run(trees)
 
 
-def get_distance_matrix(trees, metric, tmpdir):
+def get_distance_matrix(trees, metric, tmpdir, **kwargs):
     """ Generates pairwise distance matrix between trees Uses one of the
     following distance metrics: Robinson-Foulds distance - topology only (='rf')
     Robinson-Foulds distance - branch lengths (='wrf') Euclidean distance -
@@ -37,15 +37,14 @@ def get_distance_matrix(trees, metric, tmpdir):
     
     if metric == 'rf':
         n = len(trees[0])
-        matrix = get_dendropy_distances(trees, 'rfdist')
-        matrix /= (2*(n - 3))
+        matrix = get_dendropy_distances(trees, 'rfdist', **kwargs)
     
     elif metric == 'wrf':
 
-        matrix = get_dendropy_distances(trees, 'wrfdist')
+        matrix = get_dendropy_distances(trees, 'wrfdist', **kwargs)
     elif metric == 'euc':
 
-        matrix = get_dendropy_distances(trees, 'eucdist')
+        matrix = get_dendropy_distances(trees, 'eucdist', **kwargs)
     else:
 
         print 'Unrecognised distance metric'
@@ -113,14 +112,16 @@ class DistanceMatrix(np.ndarray):
         metric,
         tmpdir='/tmp',
         dtype=float,
+        add_noise=False,
+        normalise=False,
         ):
-
         optioncheck(metric, ['euc', 'geo', 'rf', 'wrf'])
-        input_array = get_distance_matrix(trees, metric, tmpdir)
+        input_array = get_distance_matrix(trees, metric, tmpdir, 
+            normalise=normalise)
         obj = np.asarray(input_array, dtype).view(cls)
         obj.metric = metric
         obj.tmpdir = tmpdir
-        if metric == 'rf':
+        if add_noise:
             obj = obj.add_noise()
         return obj
 
@@ -267,7 +268,7 @@ class DistanceMatrix(np.ndarray):
         vals_ = vals.copy()
         vals_[vals_ < 0] = 0.
         cum_var_exp = np.cumsum(vals_ / vals_.sum())
-        return Decomp(self.copy, vals, vecs, cum_var_exp)
+        return Decomp(self.copy(), vals, vecs, cum_var_exp)
 
     def normalise_rows(self):
         """ Scales all rows to length 1. Fails when row is 0-length, so it

@@ -65,7 +65,7 @@ def evqual(X, ndata, dim):
     sums = np.sum(Xsq_div_maxvals)
     J = 1 - (sums/ndata - 1)/dim
 
-    return J
+    return float(J)
 
 def cluster_assign(X):#, ik, jk, dim, ndata):
 
