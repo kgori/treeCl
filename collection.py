@@ -167,6 +167,7 @@ class Scorer(object):
         max_guidetrees=10,
         tmpdir=None,
         datatype=None,
+        verbosity=0,
         ):
 
         self.analysis = optioncheck(analysis, ['ml', 'nj',
@@ -174,11 +175,12 @@ class Scorer(object):
         self.max_guidetrees = max_guidetrees
         self.records = records
         self.datatype = datatype or records[0].datatype
+        self.verbosity=verbosity
         optioncheck(self.datatype, ['protein', 'dna'])
         self.tmpdir = tmpdir or records[0].tmpdir
         self.concats = {}
 
-    def add(self, index_list, verbosity=1):
+    def add(self, index_list):
         """ Takes a tuple of indices. Concatenates the records in the record
         list at these indices, and builds a tree. Returns the tree """
 
@@ -190,11 +192,12 @@ class Scorer(object):
         if self.analysis == 'TreeCollection':
             guidetrees = [self.records[n].tree for n in
                           index_list][:self.max_guidetrees]
-            tree = TrClTree.cast(runTC(concat, guidetrees, verbosity=verbosity))
+            tree = TrClTree.cast(runTC(concat, guidetrees, 
+                verbosity=self.verbosity))
         else:
 
             tree = TrClTree.cast(runPhyml(concat, analysis=self.analysis, 
-                verbosity=verbosity))
+                verbosity=self.verbosity))
 
         # concat local variable dies here and goes to garbage collect
 

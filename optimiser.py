@@ -45,17 +45,6 @@ class Optimiser(object):
         return Partition(tuple(np.random.randint(nclusters, 
                 size=len(self.Collection))))
 
-    def get_cluster_trees(self, assignment):
-        pvec = assignment.partition_vector
-        index_dict = defaultdict(list)
-        for (position, value) in enumerate(pvec):
-            index_dict[value].append(position)
-        tree_dict = {}
-        for (k,v) in index_dict.items():
-            tree_dict[k] = self.Scorer.concats[v]
-        # trees = [self.Scorer.concats[i] for i in index_list]
-        return tree_dict
-
     def move__(self, sample_size, assignment, nreassign=1, choose='max'):
         """
         MAKES A NEW PARTITION BY REASSIGNING RECORDS BETWEEN CLUSTERS
@@ -101,12 +90,12 @@ class Optimiser(object):
                 itself), and j is the cluster it best fits.
         """
         sample = random.sample(range(len(self.Collection)), sample_size)
-        cluster_trees = self.get_cluster_trees(assignment)
+        cluster_trees = assignment.get_cluster_trees()
         scores = np.zeros((sample_size, self.nclusters))
         for i, record_index in enumerate(sample):
             rec = self.Collection.records[record_index]
-            for j, tree in enumerate(cluster_trees):
-                scores[i,j] = self.test(rec, tree)
+            for j, tree in cluster_trees.items():
+                scores[i,j-1] = self.test(rec, tree)
         
         new_clusters = scores.argmax(axis=1)
         M=scores/scores.sum(axis=1)[:, np.newaxis]
@@ -186,7 +175,7 @@ class Optimiser(object):
 
 
 if __name__ == '__main__':
-
+    #UNFINISHED RUNNER
     import argparse
     parser = argparse.ArgumentParser(prog=fileIO.basename(__file__),
         description='Clustering optimiser')
