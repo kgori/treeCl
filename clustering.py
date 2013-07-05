@@ -425,17 +425,6 @@ class Partition(object):
             x(sublist)
         return res
 
-    def get_cluster_trees(self, partition_vector=None):
-        pvec = partition_vector or self.partition_vector
-        index_dict = defaultdict(list)
-        for (position, value) in enumerate(pvec):
-            index_dict[value].append(position)
-        tree_dict = {}
-        for (k,v) in index_dict.items():
-            tree_dict[k] = self.Scorer.concats[tuple(v)]
-        # trees = [self.Scorer.concats[i] for i in index_list]
-        return tree_dict
-
     def get_membership(self, partition_vector=None, flatten=False):
 
         pvec = partition_vector or self.partition_vector
