@@ -17,6 +17,7 @@ class Result(object):
     def __init__(self, likelihood, clusters, history, uniq_id=None, info=None):
         self.likelihood = likelihood
         self.clusters = clusters
+        self.cputime = history[-1][0]
         self.history = history
         self.id = uniq_id
         self.info = info
@@ -53,7 +54,6 @@ class Result(object):
 
 
 def fileparser(f):
-    print(f.name)
     uniq_id = PATTERNS['uniq'].search(f.name).group(0)
     likelihood = eval(PATTERNS['ll'].match(f.readline()).group(1))
     clusters = []
@@ -82,8 +82,9 @@ def fileparser(f):
 def foldersearch(folderpath, info=None):
     filenames = os.listdir(folderpath)
     results = []
-    print(filenames)
     for fn in filenames:
+        if not re.match('output_', fn):
+            continue
         f = open(os.path.join(folderpath, fn))
         result = fileparser(f)
         if info:

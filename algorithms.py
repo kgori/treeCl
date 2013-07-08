@@ -6,6 +6,9 @@ from random import randint
 from clustering import Partition
 from distance_matrix import DistanceMatrix
 from lib.remote.externals.phyml import Phyml
+from math import exp
+from numpy import random as r
+from numpy import log10 as log
 
 
 class EMTrees(object):
@@ -93,7 +96,7 @@ class EMTrees(object):
         sampled = []
 
         while True:
-            self.assign_clusters(clusters, self.partition.get_membership)
+            self.assign_clusters(clusters, self.partition.get_membership())
             assignment = list(self.partition.partition_vector)
 
             index = randint(0, len(self.scorer.records) - 1)
@@ -120,6 +123,48 @@ class EMTrees(object):
             else:
                 count += 1
                 if count == len(assignment): break
+
+    def maximise_heuristic(self):
+        clusters = [0] * self.nclusters
+        count = 0
+        sampled = []
+
+        for i in range(1000):
+            self.assign_clusters(clusters, self.partition.get_membership())
+            assignment = list(self.partition.partition_vector)
+
+            index = randint(0, len(self.scorer.records) - 1)
+
+            record = self.scorer.records[index]
+            sampled.append(index)
+
+            lls = [self.ml(record, clusters[n]) for n in range(self.nclusters)]
+
+            a = {'ll': max(lls)}
+            a['n'] = lls.index(a['ll'])
+            lls.pop(a['n'])
+
+            b = {'ll': max(lls)}
+            b['n'] = lls.index(b['ll'])
+
+            a['p'] = exp(a['ll'] - logsum(a['ll'], b['ll']))
+
+            if r.uniform > a['p']:
+                choice = a['n']
+            else:
+                choice = b['n']
+
+            if assignment.count(assignment[index]) > 1 or assignment[index] == 0:
+                assignment[index] = choice + 1
+
+            assignment = Partition(assignment)
+
+            if i%10 == 0:
+                score = self.scorer.score(assignment)
+
+                if score > self.L:
+                    self.max_L = score
+                    self.max_partition = assignment
 
     def dist(self, obj1, obj2):
         distance = DistanceMatrix([obj1.tree, obj2.tree], self.metric)[0][1]
@@ -152,3 +197,9 @@ class Cluster(object):
         self.records = [records[i] for i in self.members]
         self.scorer = Scorer(records, analysis)
         self.tree = self.scorer.add(self.members)
+
+
+def logsum(loga, logb):
+    # loga should be the larger
+    b_a = 10**(logb - loga)
+    return(loga + log(1 + b_a))

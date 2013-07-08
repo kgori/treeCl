@@ -19,10 +19,10 @@ for r in results:
     r.plot(plotname, 'png')
 
 lls = [r.likelihood for r in results]
-lengths = [len(r) for r in results]
+times = [r.cputime for r in results]
 
 print 'Mean Likelihood:' + str(mean(lls))
-print 'Mean time:' + str(mean(lengths))
+print 'Mean time:' + str(mean(times))
 
-plt.scatter(lengths, lls)
-plt.savefig('scatterplott')
+plt.scatter(times, lls)
+plt.savefig('scatterplot')
