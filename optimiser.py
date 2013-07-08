@@ -45,60 +45,28 @@ class Optimiser(object):
         return Partition(tuple(np.random.randint(nclusters, 
                 size=len(self.Collection))))
 
-    def get_cluster_trees(self, assignment):
+    def get_clusters(self, assignment):
         pvec = assignment.partition_vector
         index_dict = defaultdict(list)
         for (position, value) in enumerate(pvec):
             index_dict[value].append(position)
+        return index_dict
+
+    def get_cluster_trees(self, assignment, index_dict=None):
+        index_dict = (index_dict or self.get_clusters(assignment))
         tree_dict = {}
         for (k,v) in index_dict.items():
+            if not tuple(v) in self.Scorer.concats:
+                self.Scorer.add(tuple(v))
             tree_dict[k] = self.Scorer.concats[tuple(v)]
-        # trees = [self.Scorer.concats[i] for i in index_list]
         return tree_dict
-
-    def move__(self, sample_size, assignment, nreassign=1, choose='max'):
-        """
-        MAKES A NEW PARTITION BY REASSIGNING RECORDS BETWEEN CLUSTERS
-        How the ravel / unravel bit works:
-        1:scores.ravel converts 2D scores array into 1D array
-        2:argsort gives the indices that would sort the 1D array (ascending)
-        3:np.unravel_index converts the 1D indices back into 2D indices,
-          with 2D array size specified by scores.shape
-        Result: list of n (i,j) pairs, where i is the sample index of the 
-                test record (so Collection.records[sample[i]] is the record 
-                itself), and j is the cluster it best fits.
-        """
-        sample = random.sample(range(len(self.Collection)), sample_size)
-        cluster_trees = self.get_cluster_trees(assignment)
-        scores = np.zeros((sample_size, self.nclusters))
-        for i, record_index in enumerate(sample):
-            rec = self.Collection.records[record_index]
-            for j, tree in enumerate(cluster_trees):
-                scores[i,j] = self.test(rec, tree)
-        if choose=='max':
-            moves = [np.unravel_index(i, scores.shape) 
-                        for i in scores.ravel().argsort()[-nreassign:]]
-        elif choose=='min':
-            moves = [np.unravel_index(i, scores.shape) 
-                        for i in scores.ravel().argsort()[:nreassign]]
-        new_assignment = list(assignment.partition_vector)
-        print moves
-        for i,j in moves:
-            new_assignment[sample[i]] = j+1 #because cluster number is in range
-                                            # [1,x], and j is in range [0,x-1]
-        return Partition(tuple(new_assignment)) 
         
-    def move(self, sample_size, assignment, nreassign=1, choose='max'):
+    def score_sample(self, sample_size, assignment):
         """
-        MAKES A NEW PARTITION BY REASSIGNING RECORDS BETWEEN CLUSTERS
-        How the ravel / unravel bit works:
-        1:scores.ravel converts 2D scores array into 1D array
-        2:argsort gives the indices that would sort the 1D array (ascending)
-        3:np.unravel_index converts the 1D indices back into 2D indices,
-          with 2D array size specified by scores.shape
-        Result: list of n (i,j) pairs, where i is the sample index of the 
-                test record (so Collection.records[sample[i]] is the record 
-                itself), and j is the cluster it best fits.
+        sample_size:int, assignment:Partition object
+        Calculates score m*n score matrix, where m is number of alignments
+        in the sample, and n in the number of clusters encoded in the
+        assignment (==Partition object)
         """
         sample = random.sample(range(len(self.Collection)), sample_size)
         cluster_trees = self.get_cluster_trees(assignment)
@@ -107,17 +75,53 @@ class Optimiser(object):
             rec = self.Collection.records[record_index]
             for j, tree in cluster_trees.items():
                 scores[i,j-1] = self.test(rec, tree)
+        return (sample, scores)
+
+    def make_new_assignment(self, sample, scores, assignment, nreassign=1, choose='max'):
+        """
+        MAKES A NEW PARTITION BY REASSIGNING RECORDS BETWEEN CLUSTERS
+        """
         
         new_clusters = scores.argmax(axis=1)
         M=scores/scores.sum(axis=1)[:, np.newaxis]
-        reassignments = M.max(axis=1).argsort()[-nreassign:]
+        if choose == 'max':
+            reassignments = M.max(axis=1).argsort()[-nreassign:]
+        elif choose == 'min':
+            reassignments = M.min(axis=1).argsort()[:nreassign]
 
         new_assignment = list(assignment.partition_vector)
 
         for i in reassignments:
             new_assignment[sample[i]] = new_clusters[i]+1 #because cluster number is in range
                                             # [1,x], and new_clusters is in range [0,x-1]
-        return Partition(tuple(new_assignment))     
+        return Partition(tuple(new_assignment))   
+
+    def move(self, sample_size, assignment, nreassign=1, choose='max'):
+        """
+        wraps self.score_sample + self.new_assignment
+        """
+        sample, scores = self.score_sample(sample_size, assignment)
+        return self.make_new_assignment(sample, scores, assignment, nreassign, 
+            choose)
+
+    def merge(self, assignment, label1, label2):
+        pvec = ( (x if x!=label1 else label2)
+                    for x in assignment.partition_vector)
+        return Partition(tuple(pvec))
+
+    def split(self, assignment, label):
+        clusters = self.get_clusters(assignment)
+        cluster_trees = self.get_cluster_trees(assignment, index_dict=clusters)
+        M = []
+        for k in clusters:
+            scores = []
+            member_trees = [self.Collection.records[i].tree for i in clusters[k]]
+            cluster_record = self.Scorer.concatenate(clusters[k])
+            for tree in member_trees:
+                scores.append(self.test(cluster_record, tree))
+            M.append(scores)
+        M = np.array(M)
+        return M
 
     def test(self, record, tree, model='WAG'):
         """
@@ -147,7 +151,6 @@ class Optimiser(object):
         print 'Optimising - iter, best_score, partition'
         print self.__status()
 
-        i = 0
         current_assignment = self.global_best_assignment
         while self.stayed_put < max_stayed_put:
             if self.resets == max_resets:
@@ -158,7 +161,7 @@ class Optimiser(object):
                 self.resets += 1
                 self.done_worse = 0
                 current_assignment = self.global_best_assignment
-            if i == max_iter:
+            if self.i == max_iter:
                 print 'max iterations reached'
                 break
 
@@ -179,7 +182,7 @@ class Optimiser(object):
                 self.stayed_put = 0
                 self.done_worse += 1
             print self.__status()
-            i += 1
+            self.i += 1
 
         print self.__status()
         self.__reset_counts()
