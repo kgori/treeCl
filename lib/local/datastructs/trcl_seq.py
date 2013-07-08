@@ -3,8 +3,16 @@
 from ...remote.datastructs.seq import Seq, concatenate
 from ...remote.externals.phyml import Phyml
 from ...remote.externals.treecollection import TreeCollection
+from ..externals.DVscript import runDV
 from trcl_tree import TrClTree
 import re
+import random
+
+def sample_wr(population, k):
+    _int = int
+    _random = random.random
+    n = len(population)
+    return [population[_int(_random() * n)] for _ in range(k)]
 
 class TrClSeq(Seq):
 
@@ -60,9 +68,9 @@ class TrClSeq(Seq):
             if k in intersection:
                 d[k] = self.mapping[k] + other.mapping[k]
             elif k in only_in_self:
-                d[k] = self.mapping[k] + 'N' * other.seqlength
+                d[k] = self.mapping[k] + 'X' * other.seqlength
             elif k in only_in_other:
-                d[k] = 'N' * self.seqlength + other.mapping[k]
+                d[k] = 'X' * self.seqlength + other.mapping[k]
         dvsum = self.dv + other.dv
         return_object = self.__class__(headers=d.keys(), sequences=d.values(),
                                  datatype=self.datatype).sort_by_name(in_place=False)
@@ -76,12 +84,19 @@ class TrClSeq(Seq):
         p = Phyml(self)
         self.tree = TrClTree.cast(p.run('nj'))
 
+    def bootstrap_sample(self):
+        """ Samples with replacement from the columns of the alignment """
+        columns = self._pivot(self.sequences)
+        bootstrap_columns = sample_wr(columns, len(columns))
+        bootstrap_sequences = self._pivot(bootstrap_columns)
+        return self.__class__(headers=self.headers, sequences=bootstrap_sequences,
+                        datatype=self.datatype)
+
     def dv_matrix(self):
         """ Uses darwin (via treeCl.externals.DVWrapper) to calculate pairwise
         distances and variances"""
 
-        dv = DVWrapper(self)
-        self.dv.append(dv.run())
+        runDV(self)
 
     def phyml(self):
         """ Uses phyml (via treeCl.externals.tree_builders.Phyml) to build a
@@ -96,7 +111,7 @@ class TrClSeq(Seq):
         tree for the current record """
 
         if self.dv <= []:
-            self.get_dv_matrix()
+            self.dv_matrix()
         tc = TreeCollection(self)
         self.tree = TrClTree.cast(tc.run())
 

@@ -546,8 +546,8 @@ class ALF(ExternalSoftware):
         directorymake(self.param_dir)
         directorymake(self.working_dir)
         params = self.params.write_parameters()
-        self.tree.scale(100).write_to_file('{0}/{1}.nwk'.format(self.param_dir,
-                self.name), suppress_NHX=True)
+        self.tree.write_to_file('{0}/{1}.nwk'.format(
+            self.param_dir, self.name), internal_labels=False, scale=100)
         self.add_flag('', params)
         return params
 

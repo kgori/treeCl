@@ -6,8 +6,6 @@ from ...remote.utils import fileIO
 import numpy as np
 
 
-
-
 class GTP(ExternalSoftware):
 
     """
@@ -17,6 +15,8 @@ class GTP(ExternalSoftware):
     default_binary = 'gtp.jar'
     default_env = 'GTP_PATH'
     local_dir = fileIO.path_to(__file__)
+    get_safe_newick_string = lambda self, tree: tree.as_string('newick', 
+                internal_labels=False, suppress_rooting=True).rstrip()
 
     def __str__(self):
         desc = 'Wrapper for gtp.jar - geodesic distance calculator'
@@ -94,6 +94,6 @@ class GTP(ExternalSoftware):
 
     def write(self, trees):
         with open('{0}/geotrees.nwk'.format(self.tmpdir), 'w') as tmpf:
-            tmpf.write('\n'.join(tree.newick.rstrip() for tree in
+            tmpf.write('\n'.join(self.get_safe_newick_string(tree) for tree in
                        trees))
         self.add_tempfile('{0}/geotrees.nwk'.format(self.tmpdir))

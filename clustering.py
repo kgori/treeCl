@@ -15,7 +15,10 @@ try:
 except ImportError:
     print "sklearn unavailable: KMeans disabled"
 from collections import defaultdict
-#import evrot ## evrot not currently in use
+try:
+    import evrot ## evrot not currently in use
+except ImportError:
+    print 'evrot is not currently in use'
 from copy import deepcopy
 
 
@@ -87,7 +90,7 @@ class Clustering(object):
 
     def spectral_decomp(
         self,
-        prune,
+        prune='estimate',
         local_scale=7,
         sigma=2,
         noise=False,
@@ -129,9 +132,19 @@ class Clustering(object):
         
         elif local_scale == -1:       # use maximum vector
             scale = matrix.kdists(k=matrix.shape[0])
-            print 'Local scale based on {0} nearest-neighbour'.format(matrix.shape[0])
+            print 'Local scale based on {0} nearest-neighbour'.format(
+                matrix.shape[0])
         
         else:                         # use chosen value
+            try:
+                print type(local_scale) == type(1)
+                assert type(local_scale) == type(1)
+            except AssertionError:
+                print ('Unrecognised option "{0}".\n'
+                    'Allowed options are integers, -1 (=maximum), '
+                    '"estimate" and "median'.format(local_scale))
+                raise
+            print local_scale, type(local_scale)
             scale = matrix.kdists(k=local_scale)
             print 'Local scale based on {0} nearest-neighbour'.format(local_scale)
 
@@ -212,38 +225,26 @@ class Clustering(object):
 
     def spectral_rotate(
         self,
-        prune=True,
+        decomp=None,
         KMeans=True,
-        recalculate=False,
         max_groups=None,
         min_groups=2,
         verbose=True,
+        **kwargs
         ):
 
-        if dm.metric == 'rf':
-            noise = True
-        else:
-            noise = False
-        if recalculate or not 'spectral_decomp' in self.cache:
-            laplacian = self.spectral(dm, prune=prune, add_noise=noise)
-
-            (eigvals, eigvecs, cve) = self.get_eigen(laplacian,
-                    standardize=False)
-            self.cache['spectral_decomp'] = (eigvals, eigvecs, cve)
-            self.cache['laplacian'] = laplacian
-        else:
-
-            (eigvals, eigvecs, cve) = self.cache['spectral_decomp']
+        if decomp is None:
+            decomp = self.spectral_decomp(**kwargs)
 
         # ######################
         # CLUSTER_ROTATE STUFF HERE
 
-        M = dm.matrix
+        M = decomp.matrix
         if not max_groups:
             max_groups = int(np.sqrt(M.shape[0]) + np.power(M.shape[0], 1.0
                              / 3))
         (nclusters, clustering, quality_scores, rotated_vectors) = \
-            self.cluster_rotate(eigvecs, max_groups=max_groups,
+            self.cluster_rotate(decomp.vecs, max_groups=max_groups,
                                 min_groups=min_groups)
 
         translate_clustering = [None] * len(M)
