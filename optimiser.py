@@ -6,6 +6,7 @@ from collections import defaultdict
 from analysis import Result
 # This should probably change - separate module?
 from algorithms import Cluster
+import operator
 import numpy as np
 import random
 # import sys
@@ -18,6 +19,11 @@ class Optimiser(object):
     def __init__(self, nclusters, collection, tmpdir='/tmp',
                  initial_assignment=None):
         self.Collection = collection
+
+        if not self.Collection.records[0].tree:
+            print 'Calculating NJ trees for collection...'
+            self.Collection.calc_NJ_trees()
+
         self.datatype = collection.datatype
         self.Scorer = Scorer(self.Collection.records, analysis='nj',
                              datatype=self.datatype,
@@ -66,21 +72,22 @@ class Optimiser(object):
             tree_dict[k] = self.Scorer.concats[tuple(v)]
         return tree_dict
 
-    def score_sample(self, sample_size, assignment):
+    def score_sample(self, sample, assignment):
         """
+        !! changed to simple SCORE a PRE-MADE SAMPLE
         sample_size:int, assignment:Partition object
         Calculates score m*n score matrix, where m is number of alignments
         in the sample, and n in the number of clusters encoded in the
         assignment (==Partition object)
         """
-        sample = random.sample(range(len(self.Collection)), sample_size)
+        # sample = random.sample(range(len(self.Collection)), sample_size)
         cluster_trees = self.get_cluster_trees(assignment)
-        scores = np.zeros((sample_size, self.nclusters))
+        scores = np.zeros((len(sample), self.nclusters))
         for i, record_index in enumerate(sample):
             rec = self.Collection.records[record_index]
             for j, tree in cluster_trees.items():
                 scores[i, j-1] = self.test(rec, tree)
-        return (sample, scores)
+        return (scores)
 
     def make_new_assignment(self, sample, scores, assignment, nreassign=1, choose='max'):
         """
@@ -103,9 +110,11 @@ class Optimiser(object):
 
     def move(self, sample_size, assignment, nreassign=1, choose='max'):
         """
+        !! now generates own sample and passes to scores
         wraps self.score_sample + self.new_assignment
         """
-        sample, scores = self.score_sample(sample_size, assignment)
+        sample = random.sample(range(len(self.Collection)), sample_size)
+        scores = self.score_sample(sample, assignment)
         return self.make_new_assignment(sample, scores, assignment, nreassign,
                                         choose)
 
@@ -114,19 +123,27 @@ class Optimiser(object):
                 for x in assignment.partition_vector)
         return Partition(tuple(pvec))
 
-    def split(self, assignment, label):
+    def split(self, assignment, k):
+        """
+        Function to split cluster based on least representative alignment
+        """
         clusters = self.get_clusters(assignment)
-        cluster_trees = self.get_cluster_trees(assignment, index_dict=clusters)
-        M = []
-        for k in clusters:
-            scores = []
-            member_trees = [self.Collection.records[i].tree for i in clusters[k]]
-            cluster_record = self.Scorer.concatenate(clusters[k])
-            for tree in member_trees:
-                scores.append(self.test(cluster_record, tree))
-            M.append(scores)
-        M = np.array(M)
-        return M
+        members = clusters[k]
+        tree_scores = []
+
+        member_trees = [self.Collection.records[i].tree for i in clusters[k]]
+        cluster_record = self.Scorer.concatenate(clusters[k])
+
+        for tree in member_trees:
+            tree_scores.append(self.test(cluster_record, tree))
+
+        seed, min_score = min(enumerate(tree_scores), key=operator.itemgetter(1))
+        new_assignment = list(assignment.partition_vector)
+        self.nclusters += 1
+        new_assignment[seed] = self.nclusters
+        new_assignment = Partition(new_assignment)
+        scores = self.score_sample(members, new_assignment)[1]
+        return self.make_new_assignment(members, scores, new_assignment, nreassign=len(members), choose='max')
 
     def test(self, record, tree, model='WAG'):
         """
@@ -147,14 +164,10 @@ class Optimiser(object):
         return p.run().score
 
     def var(self, members):
-        # if not cluster_trees:
-        #     cluster_trees = self.get_cluster_trees(partition)
-
-        cl = Cluster(members, self.Collection.records, analysis='nj')
-        # [get r.seqlength for all]
-        total_length = [rec.seqlength for rec in cl]
-        # c.score or something
-        return(c.scorer.add(members).score / total_length)
+        score = self.Scorer.add(tuple(members)).score
+        records = [self.Collection.records[i] for i in members]
+        total_length = sum([r.seqlength for r in records])
+        return(score / total_length)
 
     def optimise(self,
                  sample_size=10,
@@ -231,7 +244,7 @@ if __name__ == '__main__':
     o = Optimiser(args.nclusters, c)
     o.optimise(nreassign=args.nreassign, sample_size=args.sample)
     r = Result(o.global_best_score, o.global_best_assignment, o.Scorer.history)
-    r.print_history()
+    r.print_table()
 
 
 """
