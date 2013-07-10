@@ -26,7 +26,7 @@ class Result(object):
         return(len(self.history))
 
     def timeseries(self):
-        return(self.history)
+        return([(r[0], r[1]) for r in self.history])
 
     def by_iteration(self):
         return([(i, rec[1]) for i, rec in enumerate(self.history)])
