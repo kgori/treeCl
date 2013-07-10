@@ -1,14 +1,12 @@
 #!/usr/bin/env python
 
 import os
+import numpy as np
 from collection import Collection, Scorer
 from random import randint
 from clustering import Partition
 from distance_matrix import DistanceMatrix
 from lib.remote.externals.phyml import Phyml
-from math import exp
-from numpy import random as r
-from numpy import log10 as log
 
 
 class EMTrees(object):
@@ -37,7 +35,7 @@ class EMTrees(object):
         k = self.nclusters
         assignment = [0] * len(self.scorer.records)
         for i in range(k):
-            assignment[randint(0, len(assignment))] = i + 1
+            assignment[numpy.random.randint(0, len(assignment))] = i + 1
         partition = Partition(assignment)
         clusters = [0] * k
         members = partition.get_membership()[1:]
@@ -50,10 +48,9 @@ class EMTrees(object):
         self.partition = Partition(assignment)
         self.L = self.scorer.score(self.partition)
 
-    def random_partition(self):
-        # Collapse equivalent trees?
-        k = self.nclusters
-        self.partition = Partition([randint(1, k) for rec in self.scorer.records])
+    def random_partition(self, nclusters):
+        self.partition = Partition(tuple(np.random.randint(nclusters,
+                                    size=len(self.Collection))))
         self.L = self.scorer.score(self.partition)
 
     def assign_clusters(self, clusters, members):
@@ -126,7 +123,6 @@ class EMTrees(object):
 
     def maximise_heuristic(self):
         clusters = [0] * self.nclusters
-        count = 0
         sampled = []
 
         for i in range(1000):
@@ -147,9 +143,9 @@ class EMTrees(object):
             b = {'ll': max(lls)}
             b['n'] = lls.index(b['ll'])
 
-            a['p'] = exp(a['ll'] - logsum(a['ll'], b['ll']))
+            a['p'] = np.maths.exp(a['ll'] - logsum(a['ll'], b['ll']))
 
-            if r.uniform > a['p']:
+            if np.random.uniform() > a['p']:
                 choice = a['n']
             else:
                 choice = b['n']
@@ -159,7 +155,7 @@ class EMTrees(object):
 
             assignment = Partition(assignment)
 
-            if i%10 == 0:
+            if i % 10 == 0:
                 score = self.scorer.score(assignment)
 
                 if score > self.L:
@@ -187,8 +183,8 @@ class EMTrees(object):
         elif self.datatype == 'dna':
             p.add_flag('-d', 'nt')
 
-        tree = p.run(verbosity=verbose)
-        return(tree.score)
+        score = p.run(verbosity=verbose).score
+        return(score)
 
 
 class Cluster(object):
@@ -202,4 +198,4 @@ class Cluster(object):
 def logsum(loga, logb):
     # loga should be the larger
     b_a = 10**(logb - loga)
-    return(loga + log(1 + b_a))
+    return(loga + np.log10(1 + b_a))
