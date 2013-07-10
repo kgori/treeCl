@@ -184,7 +184,7 @@ class Scorer(object):
         optioncheck(self.datatype, ['protein', 'dna'])
         self.tmpdir = tmpdir or records[0].tmpdir
         self.concats = {}
-        self._history = []
+        self.history = []
 
     def add(self, index_list):
         """ Takes a tuple of indices. Concatenates the records in the record
@@ -198,11 +198,11 @@ class Scorer(object):
         if self.analysis == 'TreeCollection':
             guidetrees = [self.records[n].tree for n in
                           index_list][:self.max_guidetrees]
-            tree = TrClTree.cast(runTC(concat, guidetrees, 
+            tree = TrClTree.cast(runTC(concat, guidetrees,
                 verbosity=self.verbosity))
         else:
 
-            tree = TrClTree.cast(runPhyml(concat, analysis=self.analysis, 
+            tree = TrClTree.cast(runPhyml(concat, analysis=self.analysis,
                 verbosity=self.verbosity))
 
         # concat local variable dies here and goes to garbage collect
@@ -224,16 +224,13 @@ class Scorer(object):
 
     def update_history(self, score, index_list):
         time = sum(os.times()[:4])
-        self._history.append([time, score, index_list])
+        self.history.append([time, score, index_list])
 
     def print_history(self, fh=sys.stdout):
         for iteration, (time, score, index_list) in enumerate(self._history):
             fh.write(str(iteration) + "\t")
             fh.write(str(time) + "\t")
             fh.write(str(score) + "\n")
-
-    def history(self):
-        return(self._history)
 
     def members(self, index_list):
         return [self.records[n] for n in index_list]
