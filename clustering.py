@@ -10,7 +10,10 @@ except ImportError:
     print "Biopython unavailable - kmedoids clustering disabled"
     Biopython_Unavailable = True
 import matplotlib.pyplot as plt
-from sklearn.cluster import KMeans
+try:
+    from sklearn.cluster import KMeans
+except ImportError:
+    print "sklearn unavailable: KMeans disabled"
 from collections import defaultdict
 try:
     import evrot ## evrot not currently in use
