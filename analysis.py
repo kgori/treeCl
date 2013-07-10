@@ -47,8 +47,8 @@ class Result(object):
             data = np.asarray(self.by_iteration())
         plt.plot(data[:, 0], data[:, 1]) # WHERE IS PLOT OBJECT STORED
         filename = name + '.' + ext
-        plt.xlabel='System Time'
-        plt.ylabel='Log Likelihood'
+        plt.xlabel = 'System Time'
+        plt.ylabel = 'Log Likelihood'
         plt.savefig(filename)
         # self._plot = plt.plot(data[:, 0], data[:, 1], , ylab='Log Likelihood of Partition')
 

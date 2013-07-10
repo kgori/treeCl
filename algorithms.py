@@ -35,7 +35,7 @@ class EMTrees(object):
         k = self.nclusters
         assignment = [0] * len(self.scorer.records)
         for i in range(k):
-            assignment[numpy.random.randint(0, len(assignment))] = i + 1
+            assignment[np.random.randint(0, len(assignment))] = i + 1
         partition = Partition(assignment)
         clusters = [0] * k
         members = partition.get_membership()[1:]
@@ -48,9 +48,9 @@ class EMTrees(object):
         self.partition = Partition(assignment)
         self.L = self.scorer.score(self.partition)
 
-    def random_partition(self, nclusters):
-        self.partition = Partition(tuple(np.random.randint(nclusters,
-                                    size=len(self.Collection))))
+    def random_partition(self):
+        self.partition = Partition(tuple(np.random.randint(self.nclusters,
+                                   size=len(self.scorer.records))))
         self.L = self.scorer.score(self.partition)
 
     def assign_clusters(self, clusters, members):

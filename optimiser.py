@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 from treeCl import Collection, Scorer, Partition
 from treeCl.lib.remote.utils import fileIO
 from treeCl.lib.remote.externals.phyml import Phyml
