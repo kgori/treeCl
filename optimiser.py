@@ -73,7 +73,7 @@ class Optimiser(object):
 
     def score_sample(self, sample, assignment):
         """
-        !! changed to simple SCORE a PRE-MADE SAMPLE
+        !! changed to simply SCORE a PRE-MADE SAMPLE
         sample_size:int, assignment:Partition object
         Calculates score m*n score matrix, where m is number of alignments
         in the sample, and n in the number of clusters encoded in the
@@ -127,27 +127,30 @@ class Optimiser(object):
         Function to split cluster based on least representative alignment
         """
         assignment = assignment or self.global_best_assignment
-        clusters = self.get_clusters(assignment)
-        members = clusters[k]
-        tree_scores = []
+        members = self.get_clusters(assignment)[k]
+        tree_scores = {}
+        cluster_record = self.Scorer.concatenate(members)
+        print cluster_record
 
-        member_trees = [self.Collection.records[i].tree for i in clusters[k]]
-        cluster_record = self.Scorer.concatenate(clusters[k])
+        for i in members:
+            tree = self.Collection.records[i].tree
+            tree_scores[i] = self.test(cluster_record, tree)
 
-        for tree in member_trees:
-            tree_scores.append(self.test(cluster_record, tree))
+        print tree_scores
 
-        seed, min_score = min(enumerate(tree_scores), key=operator.itemgetter(1))
+        seed, min_score = min(tree_scores.iteritems(), key=operator.itemgetter(1))
         print 'Splitting on {0}.'.format(seed)
+
         new_assignment = list(assignment.partition_vector)
         self.nclusters += 1
         new_assignment[seed] = self.nclusters
         print 'New Partition: {0}'.format(new_assignment)
+
         new_assignment = Partition(new_assignment)
         scores = self.score_sample(members, new_assignment)
         assignment = self.make_new_assignment(members, scores, new_assignment, nreassign=len(members), choose='max')
         print 'Returning: {0}'.format(assignment)
-        print
+
         return assignment
 
     def split_max_var(self, assignment):
@@ -195,7 +198,7 @@ class Optimiser(object):
 
         current_assignment = self.global_best_assignment
         while True:
-            if self.stayed_put < max_stayed_put:
+            if self.stayed_put > max_stayed_put:
                 print 'stayed put too many times ({0})'.format(max_stayed_put)
                 break
             if self.resets == max_resets:
