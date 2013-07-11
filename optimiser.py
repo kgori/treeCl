@@ -194,7 +194,10 @@ class Optimiser(object):
         print self._status()
 
         current_assignment = self.global_best_assignment
-        while self.stayed_put < max_stayed_put:
+        while True:
+            if self.stayed_put < max_stayed_put:
+                print 'stayed put too many times ({0})'.format(max_stayed_put)
+                break
             if self.resets == max_resets:
                 print 'Reset limit reached ({0})'.format(max_resets)
                 break
