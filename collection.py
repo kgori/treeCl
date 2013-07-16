@@ -176,11 +176,11 @@ class Scorer(object):
         ):
 
         self.analysis = optioncheck(analysis, ['ml', 'nj',
-                'TreeCollection'])
+                        'TreeCollection'])
         self.max_guidetrees = max_guidetrees
         self.records = records
         self.datatype = datatype or records[0].datatype
-        self.verbosity=verbosity
+        self.verbosity = verbosity
         optioncheck(self.datatype, ['protein', 'dna'])
         self.tmpdir = tmpdir or records[0].tmpdir
         self.concats = {}
@@ -199,11 +199,11 @@ class Scorer(object):
             guidetrees = [self.records[n].tree for n in
                           index_list][:self.max_guidetrees]
             tree = TrClTree.cast(runTC(concat, guidetrees,
-                verbosity=self.verbosity))
+                                 verbosity=self.verbosity))
         else:
 
             tree = TrClTree.cast(runPhyml(concat, analysis=self.analysis,
-                verbosity=self.verbosity))
+                                 verbosity=self.verbosity))
 
         # concat local variable dies here and goes to garbage collect
 
@@ -227,7 +227,7 @@ class Scorer(object):
         self.history.append([time, score, index_list])
 
     def print_history(self, fh=sys.stdout):
-        for iteration, (time, score, index_list) in enumerate(self._history):
+        for iteration, (time, score, index_list) in enumerate(self.history):
             fh.write(str(iteration) + "\t")
             fh.write(str(time) + "\t")
             fh.write(str(score) + "\n")

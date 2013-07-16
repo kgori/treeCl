@@ -25,6 +25,6 @@ dm = c.distance_matrix('geo')
 # emtrees usage:
 
 e = EMTrees(c, 4)
+e.random_partition()
 # e.maximise_test('dist')
 # print e.L
-
