@@ -2,6 +2,7 @@
 
 import treeCl
 from treeCl.lib.local.datastructs.trcl_tree import TrClTree
+from treeCl.lib.remote.datastructs.tree import SPR, NNI, LGT
 from treeCl.lib.local.externals.alf import ALF
 from treeCl.lib.remote.utils import fileIO
 from treeCl.lib.remote import errors
@@ -17,9 +18,11 @@ class Simulator(object):
         gene_length_min=10,
         ):
         errors.optioncheck(master_tree_generator_method, 
-            ['yule', 'coal', 'rtree'])
+            ['yule', 'coal', 'rtree', 'custom'])
         errors.optioncheck(class_tree_permuter, 
-            ['nni', 'spr', 'genetree'])
+            ['nni', 'spr', 'lgt', 'genetree'])
+        if master_tree is None and master_tree_generator_method == 'custom':
+            raise Exception('No custom tree was specified')
         self.num_classes = len(class_list)
         self.num_genes = sum(class_list)
         self.class_list = class_list
@@ -58,10 +61,7 @@ class Simulator(object):
             self._class_trees = self.generate_class_trees()
         return self._class_trees
 
-
-
     def generate_master_tree(self, method, nspecies):
-        errors.optioncheck(method, ['yule', 'coal', 'rtree'])
         if method == 'yule':
             return TrClTree.new_yule(nspecies)
         elif method == 'coal':
@@ -76,23 +76,25 @@ class Simulator(object):
 
     def generate_class_trees(self):
         class_trees = []
-        if self.permuter == 'nni':            
-            for k in range(self.num_classes):
-                class_tree = self.master_tree.copy()
-                for p in range(self.num_permutations):
-                    class_tree.rnni(inplace=True)
-                class_trees.append(class_tree)
-        elif self.permuter == 'spr':
-            for k in range(self.num_classes):
-                class_tree = self.master_tree.copy()
-                for p in range(self.num_permutations):
-                    class_tree.rspr(inplace=True,
-                        disallow_sibling_sprs=True)
-                class_trees.append(class_tree)
-        elif self.permuter == 'genetree':
+        if self.permuter == 'genetree':
             for k in range(self.num_classes):
                 class_trees.append(self.master_tree.sample_gene_tree(
                     nspecies=self.num_species, scale_to=self.num_permutations))
+
+        else:
+            for k in range(self.num_classes):
+                if self.permuter == 'nni':            
+                    t = self.master_tree.rnni(times=self.num_permutations)
+                    class_trees.append(t)
+                elif self.permuter == 'spr':
+                    t = self.master_tree.rspr(times=self.num_permutations,
+                        disallow_sibling_sprs=True, keep_entire_edge=True)
+                    class_trees.append(t)
+                elif self.permuter == 'lgt':
+                    t = self.master_tree.rlgt(times=self.num_permutations,
+                        disallow_sibling_lgts=True)
+                    class_trees.append(t)
+        
         return class_trees
 
 
