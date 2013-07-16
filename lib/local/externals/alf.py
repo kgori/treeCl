@@ -5,6 +5,7 @@ from ..utils import phymlIO
 from ...remote.errors import filecheck, directorymake, directoryquit, optioncheck, OptionError
 from ..datastructs.trcl_seq import TrClSeq
 from textwrap import dedent
+import glob
 import re
 import shutil
 
@@ -451,7 +452,10 @@ class ALF(ExternalSoftware):
         self,
         tree,
         datatype,
-        seqlength,
+        num_genes=1,
+        seqlength=10,
+        gene_length_kappa=1,
+        gene_length_theta=1,
         name='no_name',
         **kwargs
         ):
@@ -459,6 +463,7 @@ class ALF(ExternalSoftware):
         super(ALF, self).__init__(**kwargs)
         self.tree = tree
         self.name = name
+        self.num_genes = num_genes
         self.seqlength = seqlength
         self.datatype = optioncheck(datatype, ['protein', 'dna'])
         self.param_dir = \
@@ -473,7 +478,9 @@ class ALF(ExternalSoftware):
                              working_directory=self.working_dir,
                              outfile_path=self.param_dir)
         self.params.custom_tree('{0}/{1}.nwk'.format(self.param_dir, self.name))
-        self.params.root_genome(number_of_genes=1, min_length=seqlength)
+        self.params.root_genome(number_of_genes=num_genes,
+            min_length=seqlength, theta=gene_length_theta,
+            kappa=gene_length_kappa)
 
     def __str__(self):
         return '\n'.join([
@@ -504,7 +511,8 @@ class ALF(ExternalSoftware):
         record = TrClSeq(alignment_file)
         record.headers = [replacement_dict[x[:x.rindex('/')]] for x in
                           record.headers]
-        record.sequences = [seq[:length] for seq in record.sequences]
+        if self.num_genes == 1:
+            record.sequences = [seq[:length] for seq in record.sequences]
 
         record._update()
         record.sort_by_name()
@@ -520,27 +528,34 @@ class ALF(ExternalSoftware):
         print 'replacement_dict =', replacement_dict
         if self.datatype == 'dna':  # !!! ALF doesn't always write DNA
                                     # alignments
-            alignment = \
-                filecheck('{0}/{1}/MSA/MSA_1_dna.fa'.format(self.working_dir,
+            alignments = \
+                glob.glob('{0}/{1}/MSA/MSA_*_dna.fa'.format(self.working_dir,
                                     self.name))
         else:
-            alignment = \
-                filecheck('{0}/{1}/MSA/MSA_1_aa.fa'.format(self.working_dir,
+            alignments = \
+                glob.glob('{0}/{1}/MSA/MSA_*_aa.fa'.format(self.working_dir,
                                     self.name))
-        rec = self.fix_alignment(alignment, replacement_dict, self.seqlength)
-        rec.datatype = self.datatype
-        return rec
+        print alignments
+        print glob.glob('{0}/{1}/MSA/*'.format(self.working_dir,
+                                    self.name))
+        recs = []
+        for f in alignments:
+            rec = self.fix_alignment(f, replacement_dict, self.seqlength)
+            rec.datatype = self.datatype
+            recs.append(rec)
+        return recs
 
-    def run(self, verbosity=0):
+    def run(self, verbosity=0, cleanup=True):
         params = self.write()
         if verbosity > 0:
             print 'Running ALF on {0}'.format(params)
         (stdout, stderr) = self.call()
         if verbosity > 1:
             print stdout, stderr
-        record = self.read()
-        self.clean()
-        return record
+        records = self.read()
+        if cleanup: 
+            self.clean()
+        return records
 
     def write(self):
         directorymake(self.param_dir)
