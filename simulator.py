@@ -11,17 +11,27 @@ import shutil
 
 class Simulator(object):
 
-    """docstring for Simulator"""
+    """
+    Simulate alignments from several trees.
+    Args:
+    class_list          = a list with an entry for each class, which is the 
+                        (integer) number of genes in that class
+    permutations_list   = a list with an entry for each class, which is the
+                        (integer) number of permutations the class tree has
+                        relative to the master tree (see master_tree)
+    num_species         = number of leaves on the master tree
+    datatype            = 'dna' or 'protein'
+                    """
 
     def __init__(
         self,
         class_list,
+        permutations_list,
         nspecies,
         datatype='protein',
         master_tree_generator_method='yule',
         master_tree=None,
         class_tree_permuter='nni',
-        num_permutations=0,
         gene_length_kappa=1.7719,
         gene_length_theta=279.9,
         gene_length_min=10,
@@ -57,7 +67,7 @@ class Simulator(object):
         self.set_gene_lengths(gene_length_kappa, gene_length_theta,
                               gene_length_min)
         self.permuter = class_tree_permuter
-        self.num_permutations = num_permutations
+        self.permutations_list = permutations_list
         self.datatype = datatype
         self.tmpdir = tmpdir
         self.outdir = outdir
@@ -97,18 +107,18 @@ class Simulator(object):
             for k in range(self.num_classes):
                 class_trees[k+1] = self.master_tree.sample_gene_tree(
                                         nspecies=self.num_species,
-                                        scale_to=self.num_permutations)
+                                        scale_to=self.permutations_list[k])
         else:
             for k in range(self.num_classes):
                 if self.permuter == 'nni':
-                    t = self.master_tree.rnni(times=self.num_permutations)
+                    t = self.master_tree.rnni(times=self.permutations_list[k])
                     class_trees[k+1] = t
                 elif self.permuter == 'spr':
-                    t = self.master_tree.rspr(times=self.num_permutations,
+                    t = self.master_tree.rspr(times=self.permutations_list[k],
                             disallow_sibling_sprs=True, keep_entire_edge=True)
                     class_trees[k+1] = t
                 elif self.permuter == 'lgt':
-                    t = self.master_tree.rlgt(times=self.num_permutations,
+                    t = self.master_tree.rlgt(times=self.permutations_list[k],
                             disallow_sibling_lgts=True)
                     class_trees[k+1] = t
 
@@ -191,12 +201,12 @@ if __name__ == '__main__':
     prog = fileIO.basename(__file__)
     parser = argparse.ArgumentParser(description='{0}'.format(prog))
     parser.add_argument('classes', type=int, nargs='+')
+    parser.add_argument('-p', '--permutations', type=int, nargs='+')
     parser.add_argument('-s', '--species', type=int, default=12)
     parser.add_argument('-d', '--datatype', type=str, default='protein')
     parser.add_argument('-g', '--tree_generator', type=str, default='yule')
     parser.add_argument('-t', '--tree', type=str)
-    parser.add_argument('-p', '--permuter', type=str, default='lgt')
-    parser.add_argument('--num_permutations', type=int, default=1)
+    parser.add_argument('--permuter', type=str, default='lgt')
     parser.add_argument('-l', '--gamma_params', type=float, nargs=2,
         default=(1.7719, 279.9))
     parser.add_argument('-m', '--min_length', type=str, default=10)
@@ -204,20 +214,23 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--output', type=str)
     args = parser.parse_args()
 
-    sim = Simulator(args.classes,
-        args.species,
-        args.datatype,
-        args.tree_generator,
-        args.tree,
-        args.permuter,
-        args.num_permutations,
-        args.gamma_params[0],
-        args.gamma_params[1],
-        args.min_length,
-        args.tmp,
-        args.output)
+    if args.permutations is None:
+        args.permutations = [1 for _ in args.classes]
 
-    sim.clean()
+    sim = Simulator(
+        class_list=args.classes,
+        permutations_list=args.permutations,
+        nspecies=args.species,
+        datatype=args.datatype,
+        master_tree_generator_method=args.tree_generator,
+        master_tree=args.tree,
+        class_tree_permuter=args.permuter,
+        gene_length_kappa=args.gamma_params[0],
+        gene_length_theta=args.gamma_params[1],
+        gene_length_min=args.min_length,
+        tmpdir=args.tmp,
+        outdir=args.output)
+
     sim.run()
     recs = sim.result
     if args.output is not None:

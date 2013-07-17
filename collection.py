@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
 import glob
+import os
+import sys
 import re
 from copy import deepcopy
 from lib.local.datastructs.trcl_seq import TrClSeq, concatenate
@@ -37,7 +39,7 @@ class NoRecordsError(Exception):
 class Collection(object):
 
     """ Call:
-    
+
     c = Collection(inut_dir, file_format, datatype, tmpdir ...)
     c.calc_distances(), c.calc_TC_trees(), ...
     dm = c.distance_matrix('geo')
@@ -54,6 +56,7 @@ class Collection(object):
         tmpdir='/tmp',
         calc_distances=False,
         compression=None,
+        analysis=None,
         ):
 
         self.tmpdir = directorycheck(tmpdir)
@@ -99,7 +102,7 @@ class Collection(object):
     def read_files(self, input_dir, file_format, compression=None):
         """ Get list of alignment files from an input directory *.fa, *.fas and
         *.phy files only
-        
+
         Stores in self.files """
 
         optioncheck(compression, [None, 'gz', 'bz2'])
@@ -115,7 +118,7 @@ class Collection(object):
 
         files = fileIO.glob_by_extensions(input_dir, extensions)
         files.sort(key=sort_key)
-        
+
         return [TrClSeq(f, file_format=file_format, datatype=self.datatype,
                 name=get_name(f), tmpdir=self.tmpdir) for f in files]
 
@@ -124,17 +127,20 @@ class Collection(object):
             runDV(rec, tmpdir=self.tmpdir, verbosity=verbosity)
 
     def calc_TC_trees(self, verbosity=0):
+        self.analysis = 'TreeCollection'
         for rec in self.records:
             runTC(rec, verbosity=verbosity, tmpdir=self.tmpdir)
             rec.tree = TrClTree.cast(rec.tree)
 
     def calc_ML_trees(self, verbosity=0):
+        self.analysis = 'ml'
         for rec in self.records:
-            runPhyml(rec, analysis='ml', verbosity=verbosity,
+            runPhyml(rec, analysis=self.analysis, verbosity=verbosity,
                 tmpdir=self.tmpdir)
             rec.tree = TrClTree.cast(rec.tree)
 
     def calc_NJ_trees(self, verbosity=0):
+        self.analysis = 'nj'
         for rec in self.records:
             runPhyml(rec, analysis='nj', verbosity=verbosity,
                 tmpdir=self.tmpdir)
@@ -154,7 +160,6 @@ class Collection(object):
         new_records = concat.split_by_lengths(lengths, names)
         return self.__class__(new_records)
 
-
 class Scorer(object):
 
     """ Takes an index list, generates a concatenated SequenceRecord, calculates
@@ -171,14 +176,15 @@ class Scorer(object):
         ):
 
         self.analysis = optioncheck(analysis, ['ml', 'nj',
-                'TreeCollection'])
+                        'TreeCollection'])
         self.max_guidetrees = max_guidetrees
         self.records = records
         self.datatype = datatype or records[0].datatype
-        self.verbosity=verbosity
+        self.verbosity = verbosity
         optioncheck(self.datatype, ['protein', 'dna'])
         self.tmpdir = tmpdir or records[0].tmpdir
         self.concats = {}
+        self.history = []
 
     def add(self, index_list):
         """ Takes a tuple of indices. Concatenates the records in the record
@@ -192,12 +198,12 @@ class Scorer(object):
         if self.analysis == 'TreeCollection':
             guidetrees = [self.records[n].tree for n in
                           index_list][:self.max_guidetrees]
-            tree = TrClTree.cast(runTC(concat, guidetrees, 
-                verbosity=self.verbosity))
+            tree = TrClTree.cast(runTC(concat, guidetrees,
+                                 verbosity=self.verbosity))
         else:
 
-            tree = TrClTree.cast(runPhyml(concat, analysis=self.analysis, 
-                verbosity=self.verbosity))
+            tree = TrClTree.cast(runPhyml(concat, analysis=self.analysis,
+                                 verbosity=self.verbosity))
 
         # concat local variable dies here and goes to garbage collect
 
@@ -216,6 +222,16 @@ class Scorer(object):
         concat.name = '-'.join(str(x) for x in index_list)
         return concat
 
+    def update_history(self, score, index_list):
+        time = sum(os.times()[:4])
+        self.history.append([time, score, index_list])
+
+    def print_history(self, fh=sys.stdout):
+        for iteration, (time, score, index_list) in enumerate(self.history):
+            fh.write(str(iteration) + "\t")
+            fh.write(str(time) + "\t")
+            fh.write(str(score) + "\n")
+
     def members(self, index_list):
         return [self.records[n] for n in index_list]
 
@@ -224,7 +240,9 @@ class Scorer(object):
         for each one, and returns the sum """
 
         inds = partition_object.get_membership()
-        return sum([self.add(ind, **kwargs).score for ind in inds])
+        likelihood = sum([self.add(index_list, **kwargs).score for index_list in inds])
+        self.update_history(likelihood, inds)
+        return(likelihood)
 
     def simulate(self, index_list, model=None):
         """ Simulate a group of sequence alignments using ALF. Uses one of
