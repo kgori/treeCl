@@ -122,6 +122,23 @@ class Optimiser(object):
                 for x in assignment.partition_vector)
         return Partition(tuple(pvec))
 
+    def merge_closest(self, assignment):
+        print 'Finding clusters to merge...'
+        clusters = self.get_clusters(assignment)
+        best_score = -np.inf
+
+        for i in clusters:
+            for j in clusters:
+                if i == j:
+                    continue
+                test_assignment = self.merge(assignment, i, j)
+                score = self.Scorer.score(assignment)
+                if score > best_score:
+                    best_score = score
+                    best_assignment = test_assignment
+
+        return(best_assignment)
+
     def split(self, k, assignment=None):
         """
         Function to split cluster based on least representative alignment
@@ -130,7 +147,7 @@ class Optimiser(object):
         members = self.get_clusters(assignment)[k]
         tree_scores = {}
         cluster_record = self.Scorer.concatenate(members)
-        print cluster_record
+        print 'Calculating alignment scores...'
 
         for i in members:
             tree = self.Collection.records[i].tree
@@ -145,6 +162,7 @@ class Optimiser(object):
         self.nclusters += 1
         new_assignment[seed] = self.nclusters
         print 'New Partition: {0}'.format(new_assignment)
+        print 'Assigning to new partition...'
 
         new_assignment = Partition(new_assignment)
         scores = self.score_sample(members, new_assignment)
@@ -155,12 +173,13 @@ class Optimiser(object):
 
     def split_max_var(self, assignment):
         clusters = self.get_clusters(assignment)
+        var_dict = {}
         for k in clusters.keys():
-            var_dict[k] = var(clusters[k])
+            var_dict[k] = self.var(clusters[k])
 
         cluster_to_split, var = max(clusters.iteritems(), key=operator.itemgetter(1))
 
-        return split(cluster_to_split, assignment)
+        return self.split(cluster_to_split, assignment)
 
     def test(self, record, tree, model='WAG'):
         """
