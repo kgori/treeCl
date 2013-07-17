@@ -518,14 +518,15 @@ class ALF(ExternalSoftware):
         record.sort_by_name()
         return record
 
-    def read(self):
+    def read(self, verbosity=0):
         alf_tree_file = \
             filecheck('{0}/{1}/RealTree.nwk'.format(self.working_dir,
                                 self.name))
         alf_tree = open(alf_tree_file).read()
         replacement_dict = dict(zip(re.findall(r'(\w+)(?=:)', alf_tree),
                                 re.findall(r'(\w+)(?=:)', self.tree.newick)))  # bug correction
-        print 'replacement_dict =', replacement_dict
+        if verbosity > 0:
+            print 'replacement_dict =', replacement_dict
         if self.datatype == 'dna':  # !!! ALF doesn't always write DNA
                                     # alignments
             alignments = \
@@ -535,9 +536,9 @@ class ALF(ExternalSoftware):
             alignments = \
                 glob.glob('{0}/{1}/MSA/MSA_*_aa.fa'.format(self.working_dir,
                                     self.name))
-        print alignments
-        print glob.glob('{0}/{1}/MSA/*'.format(self.working_dir,
-                                    self.name))
+        if verbosity > 1:
+            print alignments
+        
         recs = []
         for f in alignments:
             rec = self.fix_alignment(f, replacement_dict, self.seqlength)
@@ -552,7 +553,7 @@ class ALF(ExternalSoftware):
         (stdout, stderr) = self.call()
         if verbosity > 1:
             print stdout, stderr
-        records = self.read()
+        records = self.read(verbosity)
         if cleanup: 
             self.clean()
         return records
