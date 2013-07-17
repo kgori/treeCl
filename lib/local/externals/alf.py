@@ -502,7 +502,7 @@ class ALF(ExternalSoftware):
         self,
         alignment_file,
         replacement_dict,
-        length,
+        length=None,
         ):
         """ Alf uses its own names for taxa even when we provide a custom tree
         with our own taxon labels, so this function reapplies our names. At the
@@ -511,14 +511,14 @@ class ALF(ExternalSoftware):
         record = TrClSeq(alignment_file)
         record.headers = [replacement_dict[x[:x.rindex('/')]] for x in
                           record.headers]
-        if self.num_genes == 1:
+        if length is not None:
             record.sequences = [seq[:length] for seq in record.sequences]
 
         record._update()
         record.sort_by_name()
         return record
 
-    def read(self, verbosity=0):
+    def read(self, verbosity=0, length_is_strict=False):
         alf_tree_file = \
             filecheck('{0}/{1}/RealTree.nwk'.format(self.working_dir,
                                 self.name))
@@ -541,19 +541,22 @@ class ALF(ExternalSoftware):
         
         recs = []
         for f in alignments:
-            rec = self.fix_alignment(f, replacement_dict, self.seqlength)
+            if length_is_strict:
+                rec = self.fix_alignment(f, replacement_dict, self.seqlength)
+            else:
+                rec = self.fix_alignment(f, replacement_dict)
             rec.datatype = self.datatype
             recs.append(rec)
         return recs
 
-    def run(self, verbosity=0, cleanup=True):
+    def run(self, verbosity=0, cleanup=True, length_is_strict=False):
         params = self.write()
         if verbosity > 0:
             print 'Running ALF on {0}'.format(params)
         (stdout, stderr) = self.call()
         if verbosity > 1:
             print stdout, stderr
-        records = self.read(verbosity)
+        records = self.read(verbosity, length_is_strict=length_is_strict)
         if cleanup: 
             self.clean()
         return records
