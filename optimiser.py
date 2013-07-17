@@ -129,13 +129,18 @@ class Optimiser(object):
 
         for i in clusters:
             for j in clusters:
+                print 'i = {}, j = {}'.format(i, j)
                 if i == j:
                     continue
                 test_assignment = self.merge(assignment, i, j)
-                score = self.Scorer.score(assignment)
+                score = self.Scorer.score(test_assignment)
+                print test_assignment
+                print score
+
                 if score > best_score:
                     best_score = score
                     best_assignment = test_assignment
+                    print 'New High Watermark'
 
         return(best_assignment)
 
@@ -144,6 +149,7 @@ class Optimiser(object):
         Function to split cluster based on least representative alignment
         """
         assignment = assignment or self.global_best_assignment
+        print assignment
         members = self.get_clusters(assignment)[k]
         tree_scores = {}
         cluster_record = self.Scorer.concatenate(members)
@@ -152,6 +158,7 @@ class Optimiser(object):
         for i in members:
             tree = self.Collection.records[i].tree
             tree_scores[i] = self.test(cluster_record, tree)
+            print '.'
 
         print tree_scores
 
