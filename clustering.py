@@ -196,8 +196,6 @@ class Clustering(object):
         est.fit(coords)
         return Partition(est.labels_)
 
-    # NOT FIXED YET (26/02/13)
-
     def plot_dendrogram(self, compound_key):
         """ Extracts data from clustering to plot dendrogram """
 
@@ -221,8 +219,6 @@ class Clustering(object):
         plt.ylabel('Distance')
         return fig
 
-    # NOT FIXED YET (26/02/13)
-
     def spectral_rotate(
         self,
         decomp=None,
@@ -230,6 +226,7 @@ class Clustering(object):
         max_groups=None,
         min_groups=2,
         verbose=True,
+        tolerance=0.0025,
         **kwargs
         ):
 
@@ -245,7 +242,7 @@ class Clustering(object):
                              / 3))
         (nclusters, clustering, quality_scores, rotated_vectors) = \
             self.cluster_rotate(decomp.vecs, max_groups=max_groups,
-                                min_groups=min_groups)
+                                min_groups=min_groups, tolerance=tolerance)
 
         translate_clustering = [None] * len(M)
         no_of_empty_clusters = 0
@@ -275,13 +272,12 @@ class Clustering(object):
 
         # ######################
 
-    # NOT FIXED YET (26.02.13)
-
     def cluster_rotate(
         self,
         eigenvectors,
         max_groups,
         min_groups=2,
+        tolerance=0.0025,
         ):
 
         groups = range(min_groups, max_groups + 1)
@@ -309,7 +305,7 @@ class Clustering(object):
         index = quality_scores.index(max_score)
         start = index + 1
         for (i, score) in enumerate(quality_scores[index + 1:], start=start):
-            if abs(score - max_score) < 0.0025:
+            if abs(score - max_score) < tolerance:
                 index = i
 
         return (groups[index], clusters[index], quality_scores,
@@ -331,7 +327,7 @@ class Partition(object):
         return str(self.partition_vector)
 
     def __repr__(self):
-        return self.__class__.__name__ + str(self)
+        return self.__class__.__name__ + '({0})'.format(str(self))
 
     def __len__(self):
         return len(self.partition_vector)
