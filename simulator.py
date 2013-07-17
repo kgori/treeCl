@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import treeCl
+from treeCl import Partition
 from treeCl.lib.local.datastructs.trcl_tree import TrClTree
 from treeCl.lib.remote.datastructs.tree import SPR, NNI, LGT
 from treeCl.lib.local.externals.alf import ALF
@@ -74,6 +75,7 @@ class Simulator(object):
         self.generate_class_trees() # sets self.class_trees dict
         self.make_alf_dirs() # sets self.alf_dirs dict
         self.write_alf_params() 
+        self.get_true_partition()
 
     @property
     def master_tree(self):
@@ -176,6 +178,7 @@ class Simulator(object):
                 rec.name = name
             all_records.extend(simulated_records)
         self.result = all_records
+        self.clean()
         return all_records
 
     def write(self):
@@ -189,7 +192,16 @@ class Simulator(object):
                 name = 'tree{0:0>{1}}.nwk'.format(i+1, len(str(self.num_classes)))
                 filename = fileIO.join_path(self.outdir, name)
                 tree.write_to_file(filename)
+            filename = fileIO.join_path(self.outdir, 'true_partition.txt')
+            with open(filename, 'w') as partition_file:
+                partition_file.write(repr(self.true_partition))
 
+
+    def get_true_partition(self):
+        l = []
+        for k in range(len(self.class_list)):
+            l.extend([k+1]*self.class_list[k])
+        self.true_partition = Partition(l)
 
 
 

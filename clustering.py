@@ -327,7 +327,7 @@ class Partition(object):
         return str(self.partition_vector)
 
     def __repr__(self):
-        return self.__class__.__name__ + str(self)
+        return self.__class__.__name__ + '({0})'.format(str(self))
 
     def __len__(self):
         return len(self.partition_vector)
