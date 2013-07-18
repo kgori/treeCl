@@ -108,7 +108,6 @@ class Simulator(object):
         if self.permuter == 'genetree':
             for k in range(self.num_classes):
                 class_trees[k+1] = self.master_tree.sample_gene_tree(
-                                        nspecies=self.num_species,
                                         scale_to=self.permutations_list[k])
         else:
             for k in range(self.num_classes):
