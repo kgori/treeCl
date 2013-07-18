@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 from treeCl import Collection, Scorer, Partition
-from treeCl.lib.remote.utils import fileIO
 from treeCl.lib.remote.externals.phyml import Phyml
 from collections import defaultdict
-from analysis import Result
 import operator
 import numpy as np
 import random
@@ -258,38 +256,90 @@ class Optimiser(object):
             print self._status()
             self.i += 1
 
+        self.final_assignment(self.global_best_assignment)
+
         print self._status()
         self._reset_counts()
+
+    def final_assignment(self, assignment):
+        n = len(assignment)
+        new_assignment = self.move(n, assignment, n)
+        score = self.Scorer.score(new_assignment)
+        if score > self.global_best_score:
+            self.global_best_score = score
+            self.global_best_assignment = new_assignment
 
 
 if __name__ == '__main__':
 
+    # import argparse
+    # parser = argparse.ArgumentParser(prog=fileIO.basename(__file__),
+    #                                  description='Clustering optimiser')
+    # parser.add_argument('-n', '--nclusters', type=int)
+    # parser.add_argument('-f', '--format', default='phylip')
+
+    # parser.add_argument('-d', '--datatype', default='protein')
+    # parser.add_argument('-p', '--filepath', default='./')
+    # parser.add_argument('-c', '--compression', default=None)
+    # parser.add_argument('-t', '--tmpdir', default='/tmp/')
+    # # Collect all args for optimse and parse them later?
+    # parser.add_argument('-r', '--nreassign', default=10, type=int)
+    # parser.add_argument('-s', '--sample_size', default=10, type=int)
+
+    # args = parser.parse_args()
+
+    # print args
+
+    # c = Collection(input_dir=args.filepath,
+    #                compression=args.compression,
+    #                file_format=args.format,
+    #                datatype=args.datatype)
+
+    # o = Optimiser(args.nclusters, c)
+    # o.optimise(nreassign=args.nreassign, sample_size=args.sample)
+    # r = Result(o.global_best_score, o.global_best_assignment, o.Scorer.history)
+    # r.print_table()
+
+    import tempfile
+    import string
+    import csv
+
     import argparse
-    parser = argparse.ArgumentParser(prog=fileIO.basename(__file__),
-                                     description='Clustering optimiser')
+
+    parser = argparse.ArgumentParser(description='Clustering optimiser')
     parser.add_argument('-n', '--nclusters', type=int)
     parser.add_argument('-f', '--format', default='phylip')
     parser.add_argument('-d', '--datatype', default='protein')
-    parser.add_argument('-p', '--filepath', default='./')
+    parser.add_argument('-i', '--input_dir', default='./')
     parser.add_argument('-c', '--compression', default=None)
     parser.add_argument('-t', '--tmpdir', default='/tmp/')
     # Collect all args for optimse and parse them later?
     parser.add_argument('-r', '--nreassign', default=10, type=int)
-    parser.add_argument('-s', '--sample', default=10, type=int)
+    parser.add_argument('-s', '--sample_size', default=10, type=int)
+    parser.add_argument('-o', '--output', default=None)
 
     args = parser.parse_args()
 
-    print args
+    def id_generator(size=6, chars=string.ascii_uppercase + string.digits):
+        return ''.join(random.choice(chars) for x in range(size))
 
-    c = Collection(input_dir=args.filepath,
-                   compression=args.compression,
-                   file_format=args.format,
-                   datatype=args.datatype)
+    new_tmpdir = tempfile.mkdtemp(prefix='tmpwrap_mgp_', dir=args.tmpdir)
+
+    c = Collection(input_dir=args.input_dir,
+                   compression=args.compression, file_format=args.format, datatype=args.datatype,
+                   tmpdir=new_tmpdir)
 
     o = Optimiser(args.nclusters, c)
-    o.optimise(nreassign=args.nreassign, sample_size=args.sample)
-    r = Result(o.global_best_score, o.global_best_assignment, o.Scorer.history)
-    r.print_table()
+    o.optimise(max_iter=500, nreassign=args.nreassign, sample_size=args.sample_size)
+
+    output_name = args.output or 'output_' + id_generator(6)
+    output_fh = open(output_name, 'w+')
+    headings = ['Iteration', 'CPU Time', 'Likelihood', 'Partition']
+    output = [[i] + x for i, x in enumerate(o.Scorer.history)]
+
+    writer = csv.writer(output_fh, delimiter='\t', quoting=csv.QUOTE_NONE)
+    writer.writerow(headings)
+    writer.writerows(output)
 
 
 """
