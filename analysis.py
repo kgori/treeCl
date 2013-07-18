@@ -8,9 +8,7 @@ import re
 import os
 
 
-PATTERNS = {'ll': re.compile(r'Likelihood score:(\-?\d+\.\d+)'),
-            'cluster': re.compile(r'(\(.*\))'),
-            'uniq': re.compile(r'[A-Z0-9]{6}$')}
+PATTERNS = {'uniq': re.compile(r'[A-Z0-9]{6}$')}
 
 
 class Result(object):
@@ -45,7 +43,7 @@ class Result(object):
             data = np.asarray(self.timeseries())
         else:
             data = np.asarray(self.by_iteration())
-        plt.plot(data[:, 0], data[:, 1]) # WHERE IS PLOT OBJECT STORED
+        plt.plot(data[:, 0], data[:, 1])  # WHERE IS PLOT OBJECT STORED
         filename = name + '.' + ext
         plt.xlabel = 'System Time'
         plt.ylabel = 'Log Likelihood'
@@ -55,27 +53,22 @@ class Result(object):
 
 def fileparser(f):
     uniq_id = PATTERNS['uniq'].search(f.name).group(0)
-    likelihood = eval(PATTERNS['ll'].match(f.readline()).group(1))
     clusters = []
     history = []
 
     while True:
         line = f.readline()
+        best_score = -np.Inf
         try:
-            cluster = PATTERNS['cluster'].search(line).group(1)
-        except:
-            break
-        clusters.append(eval(cluster))
-
-    while True:
-        line = f.readline()
-        try:
-            niter, time, score = [eval(x) for x in line.rstrip().split('\t')]
+            niter, time, score, clusters = [eval(x) for x in line.rstrip().split('\t')]
+            if score > best_score:
+                best_score = score
+                final_partition = clusters
         except:
             break
         history.append((time, score))
 
-    result = Result(likelihood, clusters, history, uniq_id)
+    result = Result(best_score, final_partition, history, uniq_id)
     return(result)
 
 
