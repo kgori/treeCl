@@ -10,10 +10,10 @@ from clustering import Clustering, DistanceMatrix, Partition
 
 class Plotter(object):
 
-    def __init__(self, collection=None, records=None, dm=None, 
+    def __init__(self, collection=None, records=None, dm=None,
         metric='geo', **kwargs):
 
-        """ Initialisation: 
+        """ Initialisation:
         A fully-formed Collection object can be given, or a list of records.
         If a list of records is provided a Collection object is built from it,
         with **kwargs being passed to the constructor.
@@ -25,7 +25,7 @@ class Plotter(object):
             self.collection = Collection(records, **kwargs)
         else:
             self.collection = collection
-        
+
         if dm is not None:
             self.dm = dm
         else:
@@ -102,8 +102,8 @@ class Plotter(object):
         return fig
 
     def embedding(self, method='MDS', dimensions=3, partition=None,
-            add_sphere=False, 
-            xlab='PCo1', ylab='PCo2', zlab='PCo3', 
+            add_sphere=False,
+            xlab='PCo1', ylab='PCo2', zlab='PCo3',
             title='Trees embedded in dimension-reduced space',
             outfile=False, **kwargs
         ):
@@ -111,12 +111,12 @@ class Plotter(object):
         """ Gets coordinates, then calls embedding_plotter to do the plot """
 
         coords = self.get_coords(method, dimensions, normalise=False, **kwargs)
-        return self.embedding_plotter(coords, dimensions, partition, add_sphere, 
+        return self.embedding_plotter(coords, dimensions, partition, add_sphere,
             xlab, ylab, zlab, title, outfile)
 
     def embedding_plotter(
-            self, coordinates, dimensions, partition=None, add_sphere=False, 
-            xlab='PCo1', ylab='PCo2', zlab='PCo3', 
+            self, coordinates, dimensions, partition=None, add_sphere=False,
+            xlab='PCo1', ylab='PCo2', zlab='PCo3',
             title='Trees embedded in dimension-reduced space',
             outfile=False,
         ):
@@ -124,7 +124,7 @@ class Plotter(object):
         by Partition object (or all black if no Partition specified) """
 
         optioncheck(dimensions, [2,3])
-        partition = partition or Partition(tuple([6]*len(self.records)))
+        partition = partition or Partition(tuple([6]*len(self.collection.records)))
 
         colours = 'bgrcmyk'
         colour_mapping = np.array([colours[i] for i in partition.partition_vector])
@@ -157,7 +157,7 @@ if __name__ == '__main__':
 
     path_to_file = fileIO.path_to(__file__)
     test_data = fileIO.join_path(path_to_file, 'aa_alignments')
-    
+
     print 'Loading data...',
     c = Collection(
             input_dir=test_data,
@@ -197,12 +197,12 @@ if __name__ == '__main__':
     print 'Testing plotting'
     p = Partition(tuple([1]*15+[2]*15+[3]*15+[4]*15))
     p_rand = Partition(tuple([1, 3, 1, 4, 2, 3, 3, 3, 2, 2, 1, 3, 3, 4, 1, 4, 1,
-        1, 2, 4, 1, 2, 2, 2, 2, 2, 3, 4, 2, 2, 1, 4, 3, 1, 4, 4, 3, 1, 3, 1, 3, 
+        1, 2, 4, 1, 2, 2, 2, 2, 2, 3, 4, 2, 2, 1, 4, 3, 1, 4, 4, 3, 1, 3, 1, 3,
         2, 4, 4, 1, 4, 1, 2, 3, 4, 2, 4, 3, 2, 1, 3, 4, 4, 1, 3]))
     fig1 = plotter_from_collection.embedding('MDS', 2, p) # 2d MDS embedding
     fig2 = plotter_from_collection.embedding('MDS', 3, p) # 3d MDS embedding
     fig3 = plotter_from_collection.embedding('spectral', 2, p_rand) # 2d spectral
     fig4 = plotter_from_collection.embedding('spectral', 3, p_rand) # 3d spectral
-    fig5 = plotter_just_dm.heatmap(p) # distance matrix as 
+    fig5 = plotter_just_dm.heatmap(p) # distance matrix as
     fig6 = plotter_just_dm.heatmap(p_rand)
     plt.show()
