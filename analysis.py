@@ -61,6 +61,7 @@ def fileparser(f):
         best_score = -np.Inf
         try:
             niter, time, score, clusters = [eval(x) for x in line.rstrip().split('\t')]
+            print(score)
             if score > best_score:
                 best_score = score
                 final_partition = clusters
@@ -72,11 +73,11 @@ def fileparser(f):
     return(result)
 
 
-def foldersearch(folderpath, info=None):
+def foldersearch(folderpath, info=None, prefix='output_'):
     filenames = os.listdir(folderpath)
     results = []
     for fn in filenames:
-        if not re.match('output_', fn):
+        if not re.match(prefix, fn):
             continue
         f = open(os.path.join(folderpath, fn))
         result = fileparser(f)
@@ -85,3 +86,37 @@ def foldersearch(folderpath, info=None):
         results.append(result)
 
     return(results)
+
+
+def plot(folder):
+    results = foldersearch(folder)
+
+    plt.hold(False)
+
+    for r in results:
+        plotname = os.path.join(folder, 'plot_' + str(r.id))
+        r.plot(plotname, 'png')
+
+    lls = [r.likelihood for r in results]
+    times = [r.cputime for r in results]
+
+    print('For Folder: {0}'.format(folder))
+    print('Mean Likelihood:' + str(mean(lls)))
+    print('Mean time:' + str(mean(times)))
+
+    plt.scatter(times, lls)
+    plt.savefig(os.path.join(folder, 'scatterplot'))
+
+if __name__ == '__main__':
+    from numpy import mean
+    print('Running as script.')
+
+    try:
+        folders = sys.argv[1:]
+    except:
+        folder = './'
+
+    print(folders)
+
+    for folder in folders:
+        plot(folder)
