@@ -84,6 +84,13 @@ class TrClSeq(Seq):
         p = Phyml(self)
         self.tree = TrClTree.cast(p.run('nj'))
 
+    def bionj_plus(self):
+        """ Uses phyml (via treeCl.externals.tree_builders.Phyml) to build a
+        bioNJ tree for the current record """
+
+        p = Phyml(self)
+        self.tree = TrClTree.cast(p.run('lr'))
+
     def bootstrap_sample(self):
         """ Samples with replacement from the columns of the alignment """
         columns = self._pivot(self.sequences)

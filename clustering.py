@@ -92,6 +92,7 @@ class Clustering(object):
         self,
         prune='estimate',
         local_scale=7,
+        binsearch_dists_tolerance=0.001,
         sigma=2,
         noise=False,
         ):
@@ -137,19 +138,20 @@ class Clustering(object):
         
         else:                         # use chosen value
             try:
-                print type(local_scale) == type(1)
+                # print type(local_scale) == type(1)
                 assert type(local_scale) == type(1)
             except AssertionError:
                 print ('Unrecognised option "{0}".\n'
                     'Allowed options are integers, -1 (=maximum), '
                     '"estimate" and "median'.format(local_scale))
                 raise
-            print local_scale, type(local_scale)
+            # print local_scale, type(local_scale)
             scale = matrix.kdists(k=local_scale)
             print 'Local scale based on {0} nearest-neighbour'.format(local_scale)
 
         if not (scale > 0).all():
-            (_, scale) = matrix.binsearch_dists()
+            (_, scale) = matrix.binsearch_dists(
+                tolerance=binsearch_dists_tolerance)
         assert (scale > 0).all() 
         aff = matrix.affinity(mask, scale)
         laplace = matrix.laplace(aff)
@@ -219,6 +221,20 @@ class Clustering(object):
         plt.ylabel('Distance')
         return fig
 
+    def translate_evrot_clustering(self, clustering):
+        translation = [None] * len(self.distance_matrix)
+        no_of_empty_clusters = 0
+        for (group_number, group_membership) in enumerate(clustering):
+            if len(group_membership) == 0:
+                no_of_empty_clusters += 1
+            for index in group_membership:
+                translation[index - 1] = group_number
+        if no_of_empty_clusters > 0:
+            print 'Found {0} empty clusters'.format(
+                no_of_empty_clusters)   
+        p = Partition(tuple(translation))
+        return p
+
     def spectral_rotate(
         self,
         decomp=None,
@@ -238,39 +254,33 @@ class Clustering(object):
 
         M = decomp.matrix
         if not max_groups:
-            max_groups = int(np.sqrt(M.shape[0]) + np.power(M.shape[0], 1.0
-                             / 3))
-        (nclusters, clustering, quality_scores, rotated_vectors) = \
+            max_groups = max(int(np.sqrt(M.shape[0]) + np.power(M.shape[0], 1.0
+                             / 3)), min_groups)
+        (groups, clusters, quality_scores, rotated_vectors) = \
             self.cluster_rotate(decomp.vecs, max_groups=max_groups,
                                 min_groups=min_groups, tolerance=tolerance)
 
-        translate_clustering = [None] * len(M)
-        no_of_empty_clusters = 0
-        for (group_number, group_membership) in enumerate(clustering):
-            if len(group_membership) == 0:
-                no_of_empty_clusters += 1
-            for index in group_membership:
-                translate_clustering[index - 1] = group_number
-        clustering = Partition(translate_clustering)
-        if no_of_empty_clusters > 0:
-            print 'Subtracting {0} empty {1}'.format(no_of_empty_clusters,
-                    ('cluster' if no_of_empty_clusters == 1 else 'clusters'))
-            nclusters -= no_of_empty_clusters
-
+        corrected_groups = [None] * len(groups)
+        for i, cluster in enumerate(clusters):
+            p = self.translate_evrot_clustering(cluster)
+            clusters[i] = p
+            corrected_groups[i] = max(p.partition_vector)
+         
         # ######################
+
+        index = self.best_evrot_clustering(quality_scores)
+        optimum_nclusters = corrected_groups[index]
 
         if verbose:
-            print 'Discovered {0} clusters'.format(nclusters)
+            print 'Discovered {0} clusters'.format(optimum_nclusters)
             print 'Quality scores: {0}'.format(quality_scores)
-            if KMeans:
-                print 'Pre-KMeans clustering: {0}'.format(clustering)
+            
         if KMeans:
-            T = self.kmeans(nclusters, rotated_vectors)
-        else:
-            T = clustering
-        return (T, nclusters, quality_scores)
+            KMeans_clusters = [self.kmeans(groups[i], rotated_vectors[i])
+                                for i in range(len(groups))]
+            return groups, KMeans_clusters, quality_scores, index
 
-        # ######################
+        return groups, clusters, quality_scores, index
 
     def cluster_rotate(
         self,
@@ -297,6 +307,10 @@ class Clustering(object):
             (clusters[g], quality_scores[g], rotated_vectors[g]) = \
                 evrot.main(current_vector)
 
+        return (groups, clusters, quality_scores, rotated_vectors)
+
+    def best_evrot_clustering(self, quality_scores, tolerance=0.0025):
+
         # Find the highest index of quality scores where the
         # score is within 0.0025 of the maximum:
         # this is our chosen number of groups
@@ -307,9 +321,9 @@ class Clustering(object):
         for (i, score) in enumerate(quality_scores[index + 1:], start=start):
             if abs(score - max_score) < tolerance:
                 index = i
+        return index
 
-        return (groups[index], clusters[index], quality_scores,
-                rotated_vectors[index])
+        
 
 
 class Partition(object):

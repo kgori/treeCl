@@ -163,18 +163,21 @@ class DistanceMatrix(np.ndarray):
                  * sigma)
         ix = np.where(np.logical_not(mask))
         affinity_matrix = np.exp(-self ** 2 / scale)
+        # inputs where distance = 0 and scale = 0 result in NaN:
+        # the next line replaces NaNs with 0.0
+        affinity_matrix[np.where(np.isnan(affinity_matrix))] = 0.0 
         affinity_matrix[ix] = 0.  # mask
         affinity_matrix.flat[::len(affinity_matrix) + 1] = 0. # diagonal
         return affinity_matrix
 
-    def binsearch_dists(self):
+    def binsearch_dists(self, tolerance=0.001):
         mink = 1
         maxk = self.shape[0]
         guessk = int(np.log(maxk).round())
         last_result = (guessk, None)
         while maxk - mink != 1:
             dists = self.kdists(k=guessk)
-            if (dists > 0).all():
+            if (dists > tolerance).all():
                 maxk = guessk
                 last_result = (guessk, dists)
                 guessk = mink + (guessk - mink) / 2

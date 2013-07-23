@@ -139,10 +139,10 @@ class Collection(object):
                 tmpdir=self.tmpdir)
             rec.tree = TrClTree.cast(rec.tree)
 
-    def calc_NJ_trees(self, verbosity=0):
-        self.analysis = 'nj'
+    def calc_NJ_trees(self, analysis='nj', verbosity=0):
+        self.analysis = analysis
         for rec in self.records:
-            runPhyml(rec, analysis='nj', verbosity=verbosity,
+            runPhyml(rec, analysis=analysis, verbosity=verbosity,
                 tmpdir=self.tmpdir)
             rec.tree = TrClTree.cast(rec.tree)
         if verbosity == 1:
