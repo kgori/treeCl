@@ -3,6 +3,7 @@ from treeCl import Collection, Scorer, Partition
 from treeCl.lib.remote.externals.phyml import Phyml
 from collections import defaultdict
 import operator
+import os
 import numpy as np
 import random
 # import sys
@@ -37,6 +38,7 @@ class Optimiser(object):
         self.stayed_put = 0
         self.i = 0
         self.resets = 0
+        self.merges = 0
 
     def _reset_counts(self):
         self.done_worse = 0
@@ -257,7 +259,7 @@ class Optimiser(object):
         current_assignment = local_best_assignment
         self.sampled = []
 
-        print 'Optimising: {0} {1} {2}'.format([i, local_best_score, partition])
+        print 'Optimising: {0} {1} {2}'.format(self.i, local_best_score, current_assignment)
 
         while True:
             if self.stayed_put > max_stayed_put:
@@ -280,7 +282,7 @@ class Optimiser(object):
             score = self.Scorer.score(new_assignment, history=history)
             print score, new_assignment
 
-            if score > self.local_best_score:
+            if score > local_best_score:
                 self.sampled = []
                 local_best_score = score
                 local_best_assignment = new_assignment
@@ -304,20 +306,32 @@ class Optimiser(object):
         self._reset_counts()
         return local_best_assignment
 
-    def optimise_with_merge(self, assignment, **kwargs):
+    def optimise_with_merge(self, assignment, update=True, **kwargs):
         new_assignment = self.optimise(assignment, **kwargs)
+        print 'Partition after {0} merges at {1}:\n{2}'.format(self.merges,
+                                        sum(os.times()[:4]), new_assignment)
+        opt_score = self.Scorer.score(new_assignment)
+        print 'Score: {0}'.format(opt_score)
+        self.merges += 1
 
         split = self.split_search(new_assignment)
-        split = self.optimise(split, history=False, niter=50, **kwargs)
-        np1_score = self.Scorer.score(split, history=False)
+        split = self.optimise(split, history=False, max_iter=10, **kwargs)
+        print 'Partition after {0} splits at {1}:\n{2}'.format(self.merges,
+                                        sum(os.times()[:4]), new_assignment)
+        print 'Score: {0}'.format(self.Scorer.score(split))
 
         merged = self.merge_closest(split)
-        new_score = self.Scorer.score(merged)
+        merged_score = self.Scorer.score(merged)
+        print 'Partition after {0} merges at {1}:\n{2}'.format(self.merges,
+                                        sum(os.times()[:4]), new_assignment)
+        print 'Score: {0}'.format(merged_score)
 
-        if np.abs(new_score - self.global_best_score) > EPS:
-            self.optimise_with_merge(assignment, **kwargs)
+        if np.abs(merged_score - opt_score) > EPS:
+            merged = self.optimise_with_merge(merged, **kwargs)
         else:
-            self.update(merged)
+            if update is True:
+                self.update(merged)
+            return(merged)
 
     def final_assignment(self, assignment):
         n = len(assignment)
