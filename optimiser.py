@@ -52,10 +52,13 @@ class Optimiser(object):
         return Partition(tuple(np.random.randint(nclusters,
                          size=len(self.Collection))))
 
-    # def update(self, assignment):
-    #     self.best_global_assignment = assignment
-    #     self.best_globas_score = self.Scorer.score(assignment)
-    #     self.nclusters = len(set(assignment.partition_vector))
+    def update(self, assignment):
+        """
+        method for working interactively and keeping nclusters correct
+        """
+        self.global_best_assignment = assignment
+        self.global_best_score = self.Scorer.score(assignment)
+        self.nclusters = max(assignment.partition_vector)
 
     def get_clusters(self, assignment):
         pvec = assignment.partition_vector
@@ -109,15 +112,24 @@ class Optimiser(object):
                                             # [1,x], and new_clusters is in range [0,x-1]
         return Partition(tuple(new_assignment))
 
-    def move(self, sample_size, assignment, nreassign=1, choose='max'):
+    def move(self, sample_size, assignment, nreassign=1, choose='max', sampled=[]):
         """
         !! now generates own sample and passes to scores
         wraps self.score_sample + self.new_assignment
         """
-        sample = random.sample(range(len(self.Collection)), sample_size)
-        scores = self.score_sample(sample, assignment)
-        return self.make_new_assignment(sample, scores, assignment, nreassign,
-                                        choose)
+        unsampled = set(range(len(self.Collection))) - set(sampled)
+
+        if len(unsampled) > 0:
+            if sample_size > len(unsampled):
+                sample = unsampled
+            else:
+                sample = random.sample(unsampled, sample_size)
+
+            self.sampled.extend(sample)
+            scores = self.score_sample(sample, assignment)
+            assignment = self.make_new_assignment(sample, scores, assignment,
+                                                  nreassign, choose)
+        return assignment
 
     def merge(self, assignment, label1, label2):
         pvec = ((x if x != label1 else label2)
@@ -144,8 +156,6 @@ class Optimiser(object):
                     best_assignment = test_assignment
                     # print 'New High Watermark'
 
-        self.nclusters -= 1
-
         return(best_assignment)
 
     def split(self, k, assignment):
@@ -166,14 +176,13 @@ class Optimiser(object):
         print 'Splitting on {0}.'.format(seed)
 
         new_assignment = list(assignment.partition_vector)
-        self.nclusters += 1
-        new_assignment[seed] = self.nclusters
+        new_assignment[seed] = max(assignment.partition_vector) + 1
         print 'New Partition: {0}'.format(new_assignment)
         print 'Assigning to new partition...'
 
         new_assignment = Partition(new_assignment)
         scores = self.score_sample(members, new_assignment)
-        assignment = self.make_new_assignment(members, scores, new_assignment, nreassign=len(members), choose='max')
+        assignment = self.make_new_assignment(members, scores, new_assignment, nreassign=len(members))
         print 'Returning: {0}'.format(assignment)
 
         return assignment
@@ -204,9 +213,6 @@ class Optimiser(object):
                 best_score = score
                 best_assignment = test_assignment
                     # print 'New High Watermark'
-            self.nclusters -= 1
-
-        self.nclusters += 1
 
         return best_assignment
 
@@ -232,19 +238,27 @@ class Optimiser(object):
         score = self.Scorer.add(tuple(members)).score
         records = [self.Collection.records[i] for i in members]
         total_length = sum([r.seqlength for r in records])
+
         return(score / total_length)
 
     def optimise(self,
+                 assignment,
+                 update=True,
+                 history=True,
                  sample_size=10,
-                 nreassign=1,
+                 nreassign=10,
                  max_stayed_put=5,
-                 max_resets=10,
+                 max_resets=5,
                  max_done_worse=5,
-                 max_iter=100):
-        print 'Optimising - iter, best_score, partition'
-        print self._status()
+                 max_iter=1000):
 
-        current_assignment = self.global_best_assignment
+        local_best_assignment = assignment
+        local_best_score = self.Scorer.score(local_best_assignment, history=history)
+        current_assignment = local_best_assignment
+        self.sampled = []
+
+        print 'Optimising: {0} {1} {2}'.format([i, local_best_score, partition])
+
         while True:
             if self.stayed_put > max_stayed_put:
                 print 'stayed put too many times ({0})'.format(max_stayed_put)
@@ -256,34 +270,54 @@ class Optimiser(object):
                 print 'wandered off, resetting...'
                 self.resets += 1
                 self.done_worse = 0
-                current_assignment = self.global_best_assignment
+                current_assignment = local_best_assignment
             if self.i == max_iter:
                 print 'max iterations reached'
                 break
 
             new_assignment = self.move(sample_size, current_assignment,
                                        nreassign)
-            score = self.Scorer.score(new_assignment)
+            score = self.Scorer.score(new_assignment, history=history)
             print score, new_assignment
 
-            if score > self.global_best_score:
-                self.global_best_score = score
-                self.global_best_assignment = new_assignment
+            if score > self.local_best_score:
+                self.sampled = []
+                local_best_score = score
+                local_best_assignment = new_assignment
                 self.stayed_put = 0
                 self.done_worse = 0
-            elif np.abs(score - self.global_best_score) < EPS:
+                self.resets = 0
+            elif np.abs(score - local_best_score) < EPS:
                 self.stayed_put += 1
                 self.done_worse = 0
             else:
+                self.sampled = []
                 self.stayed_put = 0
                 self.done_worse += 1
             print self._status()
             self.i += 1
 
-        self.final_assignment(self.global_best_assignment)
+        if update is True:
+            self.update(local_best_assignment)
 
         print self._status()
         self._reset_counts()
+        return local_best_assignment
+
+    def optimise_with_merge(self, assignment, **kwargs):
+        new_assignment = self.optimise(assignment, **kwargs)
+
+        split = self.split_search(new_assignment)
+        split = self.optimise(split, history=False, niter=50, **kwargs)
+        np1_score = self.Scorer.score(split, history=False)
+
+        merged = self.merge_closest(split)
+        new_score = self.Scorer.score(merged)
+
+        if np.abs(new_score - self.global_best_score) > EPS:
+            self.optimise_with_merge(assignment, **kwargs)
+        else:
+            self.update(merged)
 
     def final_assignment(self, assignment):
         n = len(assignment)
@@ -292,7 +326,6 @@ class Optimiser(object):
         if score > self.global_best_score:
             self.global_best_score = score
             self.global_best_assignment = new_assignment
-
 
 
 def get_partition(clusters):
@@ -308,35 +341,6 @@ def get_partition(clusters):
 
 
 if __name__ == '__main__':
-
-    # import argparse
-    # parser = argparse.ArgumentParser(prog=fileIO.basename(__file__),
-    #                                  description='Clustering optimiser')
-    # parser.add_argument('-n', '--nclusters', type=int)
-    # parser.add_argument('-f', '--format', default='phylip')
-
-    # parser.add_argument('-d', '--datatype', default='protein')
-    # parser.add_argument('-p', '--filepath', default='./')
-    # parser.add_argument('-c', '--compression', default=None)
-    # parser.add_argument('-t', '--tmpdir', default='/tmp/')
-    # # Collect all args for optimse and parse them later?
-    # parser.add_argument('-r', '--nreassign', default=10, type=int)
-    # parser.add_argument('-s', '--sample_size', default=10, type=int)
-
-    # args = parser.parse_args()
-
-    # print args
-
-    # c = Collection(input_dir=args.filepath,
-    #                compression=args.compression,
-    #                file_format=args.format,
-    #                datatype=args.datatype)
-
-    # o = Optimiser(args.nclusters, c)
-    # o.optimise(nreassign=args.nreassign, sample_size=args.sample)
-    # r = Result(o.global_best_score, o.global_best_assignment, o.Scorer.history)
-    # r.print_table()
-
     import tempfile
     import string
     import csv
@@ -350,12 +354,12 @@ if __name__ == '__main__':
     parser.add_argument('-i', '--input_dir', default='./')
     parser.add_argument('-c', '--compression', default=None)
     parser.add_argument('-t', '--tmpdir', default='/tmp/')
-    # Collect all args for optimse and parse them later?
     parser.add_argument('-r', '--nreassign', default=10, type=int)
     parser.add_argument('-s', '--sample_size', default=10, type=int)
     parser.add_argument('-o', '--output', default=None)
 
     args = parser.parse_args()
+    opt_args = {'nreassign': args.nreassign, 'sample_size': args.sample_size}
 
     def id_generator(size=6, chars=string.ascii_uppercase + string.digits):
         return ''.join(random.choice(chars) for x in range(size))
@@ -367,7 +371,7 @@ if __name__ == '__main__':
                    tmpdir=new_tmpdir)
 
     o = Optimiser(args.nclusters, c)
-    o.optimise(max_iter=500, nreassign=args.nreassign, sample_size=args.sample_size)
+    o.optimise(o.global_best_assignment, update=True, **opt_args)
 
     output_name = args.output or 'output_' + id_generator(6)
     output_fh = open(output_name, 'w+')
