@@ -16,27 +16,28 @@ except ImportError:
     print "sklearn unavailable: KMeans disabled"
 from collections import defaultdict
 try:
-    import evrot ## evrot not currently in use
+    import evrot  # evrot not currently in use
 except ImportError:
-    print 'evrot is not currently in use'
+    # print 'evrot is not currently in use'
+    pass
 from copy import deepcopy
 
 
 class Clustering(object):
 
     """ Apply clustering methods to distance matrix
-    
+
     = Hierarchical clustering - single-linkage - complete-linkage - average-
     linkage (UPGMA) - Ward's method
-    
+
     = k-medoids
-    
+
     = Multidimensional Scaling (Principal Coordinate Analysis) + k-means
-    
+
     = Spectral Clustering + k-means - NJW method - Shi-Malik method - Zelnik-
     Manor and Perona Local Scaling - Local Scaling with eigenvector rotation as
     stopping criterion
-    
+
     """
 
     def __init__(self, distance_matrix):
@@ -51,7 +52,7 @@ class Clustering(object):
         if Biopython_Unavailable:
             print 'kmedoids not available without Biopython'
             return
-        
+
         if noise:
             matrix = self.distance_matrix.add_noise()
         else:
@@ -96,10 +97,10 @@ class Clustering(object):
         noise=False,
         ):
         """ Use prune to remove links between distant points:
-        
+
         prune='estimate' searches for the smallest value that retains a fully
         connected graph
-        
+
         """
 
         if noise:
@@ -111,30 +112,30 @@ class Clustering(object):
         if prune == 'estimate':       # use binary search
             (kp, mask) = matrix.binsearch_mask()
             print 'Pruning distances greater than {0} nearest-neighbour'.format(kp)
-        
+
         elif prune == -1:             # no pruning
             mask = None
             print 'No pruning applied'
-        
+
         else:                         # prune to chosen value
             kp = prune
             mask = matrix.kmask(k=kp)
             print 'Pruning connections beyond {0} nearest-neighbour'.format(kp)
 
-        if local_scale == 'estimate': # use same value as binary mask search 
-            if kp is None: 
+        if local_scale == 'estimate': # use same value as binary mask search
+            if kp is None:
                 kp = matrix.binsearch_mask()[0]
             scale = matrix.kdists(k=kp)
             print 'Local scale based on {0} nearest-neighbour'.format(kp)
-        
+
         elif local_scale == 'median': # use median vector
             scale = np.median(matrix, axis=1)
-        
+
         elif local_scale == -1:       # use maximum vector
             scale = matrix.kdists(k=matrix.shape[0])
             print 'Local scale based on {0} nearest-neighbour'.format(
                 matrix.shape[0])
-        
+
         else:                         # use chosen value
             try:
                 print type(local_scale) == type(1)
@@ -150,7 +151,7 @@ class Clustering(object):
 
         if not (scale > 0).all():
             (_, scale) = matrix.binsearch_dists()
-        assert (scale > 0).all() 
+        assert (scale > 0).all()
         aff = matrix.affinity(mask, scale)
         laplace = matrix.laplace(aff)
         return laplace.eigen()  # vectors are in columns
@@ -366,12 +367,12 @@ class Partition(object):
         according to some clustering method. Cluster labels are arbitrary.
         partition_2 (list / array) - another partitioning of the same dataset.
         Labels don't need to match, nor do the number of clusters.
-        
+
         subfunctions: get_membership( parameter partition (list / array) )
         returns a list of length equal to the number of clusters found in the
         partition. Each element is the set of members of the cluster. Ordering
         is arbitrary.
-        
+
         variables used: t = total number of points in the dataset m1 = cluster
         memberships from partition_1 m2 = cluster memberships from partition_2
         l1 = length (i.e. number of clusters) of m1 l2 = length of m2 entropy_1
@@ -413,9 +414,9 @@ class Partition(object):
 
     def flatten(self, list_of_lists):
         """ This is faster than the one-liner version:-
-        
+
         def(flatten): return list(itertools.chain(*list_of_lists))
-        
+
         """
 
         res = []
@@ -436,7 +437,7 @@ class Partition(object):
 
     def normalised_mutual_information(self, other):
         partition_1 = self.partition_vector
-        partition_2 = other.partition_vector    
+        partition_2 = other.partition_vector
 
         (entropy_1, entropy_2, mut_inf) = self.entropies(partition_1,
                 partition_2)
@@ -455,3 +456,19 @@ class Partition(object):
                 partition_2)
 
         return entropy_1 + entropy_2 - 2 * mut_inf
+
+
+def get_partition(clusters):
+    global seq
+    seq = clusters if isinstance(clusters, dict) else range(len(clusters))
+    length = sum((len(clusters[i]) for i in seq))
+    global pvec
+    pvec = [0] * length
+    print 'seq: {0}'.format(seq)
+    print clusters
+    for k in seq:
+        for i in clusters[k]:
+            print k, i
+            pvec[i] = k
+    print pvec
+    return(Partition(tuple(pvec)))
