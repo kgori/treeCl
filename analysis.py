@@ -24,14 +24,15 @@ class Result(object):
         return(len(self.history))
 
     def timeseries(self):
-        return([(r[0], r[1]) for r in self.history])
+        return([(round(rec[0], 1), int(rec[1])) for rec in self.history])
 
     def by_iteration(self):
-        return([(i, rec[1]) for i, rec in enumerate(self.history)])
+        return([(i, int(rec[1])) for i, rec in enumerate(self.history)])
 
     def print_table(self, file=sys.stdout):
         for i, rec in enumerate(self.history):
-            print(i, rec[0], rec[1], sep='\t', end='\n')
+            print('i\t', 'cpu time\t', 'likelihood')
+            print(i, round(rec[0], 1), int(rec[1]), sep='\t', end='\n')
 
     # @property
     # def plot(self):
@@ -55,13 +56,13 @@ def fileparser(f):
     uniq_id = PATTERNS['uniq'].search(f.name).group(0)
     clusters = []
     history = []
+    _ = f.readline()
+    best_score = -np.Inf
 
     while True:
         line = f.readline()
-        best_score = -np.Inf
         try:
             niter, time, score, clusters = [eval(x) for x in line.rstrip().split('\t')]
-            print(score)
             if score > best_score:
                 best_score = score
                 final_partition = clusters
@@ -88,7 +89,7 @@ def foldersearch(folderpath, info=None, prefix='output_'):
     return(results)
 
 
-def plot(folder):
+def plot_folder(folder):
     results = foldersearch(folder)
 
     plt.hold(False)
@@ -119,4 +120,4 @@ if __name__ == '__main__':
     print(folders)
 
     for folder in folders:
-        plot(folder)
+        plot_folder(folder)
