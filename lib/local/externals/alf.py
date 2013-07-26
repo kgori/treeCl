@@ -452,6 +452,7 @@ class ALF(ExternalSoftware):
         self,
         tree,
         datatype,
+        tmpdir,
         num_genes=1,
         seqlength=10,
         gene_length_kappa=1,
@@ -460,7 +461,7 @@ class ALF(ExternalSoftware):
         **kwargs
         ):
 
-        super(ALF, self).__init__(**kwargs)
+        super(ALF, self).__init__(tmpdir, **kwargs)
         self.tree = tree
         self.name = name
         self.num_genes = num_genes

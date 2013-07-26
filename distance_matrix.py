@@ -8,7 +8,7 @@ from lib.local.datastructs.trcl_tree import TrClTree
 from lib.remote.errors import optioncheck
 
 
-def get_dendropy_distances(trees, fn, **kwargs):
+def get_dendropy_distances(trees, fn, dec_places=None, **kwargs):
     num_trees = len(trees)
     matrix = np.zeros((num_trees, num_trees))
     for i in range(num_trees):
@@ -16,16 +16,21 @@ def get_dendropy_distances(trees, fn, **kwargs):
         for j in range(i + 1, num_trees):
             distance = dist_fn(trees[j], **kwargs)
             matrix[i, j] = matrix[j, i] = distance
+    if dec_places is not None:
+        matrix.round(dec_places, out=matrix)
     return matrix
 
 
-def get_geo_distances(trees, tmpdir=None):
+def get_geo_distances(trees, dec_places, tmpdir=None):
 
     g = GTP(tmpdir=tmpdir)
-    return g.run(trees)
+    matrix = g.run(trees)
+    if dec_places is not None:
+        matrix.round(dec_places, out=matrix)
+    return matrix
 
 
-def get_distance_matrix(trees, metric, tmpdir, **kwargs):
+def get_distance_matrix(trees, metric, tmpdir, dec_places, **kwargs):
     """ Generates pairwise distance matrix between trees Uses one of the
     following distance metrics: Robinson-Foulds distance - topology only (='rf')
     Robinson-Foulds distance - branch lengths (='wrf') Euclidean distance -
@@ -33,18 +38,18 @@ def get_distance_matrix(trees, metric, tmpdir, **kwargs):
     lengths (='geo') """
 
     if metric == 'geo':
-        return get_geo_distances(trees, tmpdir=tmpdir)
+        return get_geo_distances(trees, dec_places, tmpdir=tmpdir)
     
     if metric == 'rf':
         n = len(trees[0])
-        matrix = get_dendropy_distances(trees, 'rfdist', **kwargs)
+        matrix = get_dendropy_distances(trees, 'rfdist', dec_places, **kwargs)
     
     elif metric == 'wrf':
 
-        matrix = get_dendropy_distances(trees, 'wrfdist', **kwargs)
+        matrix = get_dendropy_distances(trees, 'wrfdist', dec_places, **kwargs)
     elif metric == 'euc':
 
-        matrix = get_dendropy_distances(trees, 'eucdist', **kwargs)
+        matrix = get_dendropy_distances(trees, 'eucdist', dec_places, **kwargs)
     else:
 
         print 'Unrecognised distance metric'
@@ -114,10 +119,11 @@ class DistanceMatrix(np.ndarray):
         dtype=float,
         add_noise=False,
         normalise=False,
+        dec_places=None,
         ):
         optioncheck(metric, ['euc', 'geo', 'rf', 'wrf'])
         input_array = get_distance_matrix(trees, metric, tmpdir, 
-            normalise=normalise)
+            normalise=normalise, dec_places=dec_places)
         obj = np.asarray(input_array, dtype).view(cls)
         obj.metric = metric
         obj.tmpdir = tmpdir
@@ -155,17 +161,23 @@ class DistanceMatrix(np.ndarray):
         self,
         mask=None,
         scale=None,
-        sigma=2,
         ):
+        """
+        Mask is a 2d boolean matrix. Scale is a 2d local scale matrix,
+        as output by self.kscale(). It's the outer product of the kdists column
+        vector produced by self.kdists.
+        """
 
         mask = (mask if mask is not None else np.ones(self.shape, dtype=bool))
-        scale = (scale if scale is not None else np.ones(self.shape) * 2
-                 * sigma)
+        assert isconnected(mask)
+        scale = (scale if scale is not None else np.ones(self.shape))
+         
         ix = np.where(np.logical_not(mask))
-        affinity_matrix = np.exp(-self ** 2 / scale)
+        scaled_matrix = -self ** 2 / scale
         # inputs where distance = 0 and scale = 0 result in NaN:
-        # the next line replaces NaNs with 0.0
-        affinity_matrix[np.where(np.isnan(affinity_matrix))] = 0.0 
+        # the next line replaces NaNs with -1.0
+        scaled_matrix[np.where(np.isnan(scaled_matrix))] = -1.0 
+        affinity_matrix = np.exp(scaled_matrix)
         affinity_matrix[ix] = 0.  # mask
         affinity_matrix.flat[::len(affinity_matrix) + 1] = 0. # diagonal
         return affinity_matrix
@@ -197,19 +209,25 @@ class DistanceMatrix(np.ndarray):
         guessk = int(np.log(maxk).round())
         result = [guessk, None]
         while maxk - mink != 1:
-            test = self.kmask(k=guessk, logic=logic)
-            if isconnected(test):
+            test_dist = self.kdists(k=guessk)
+            test_mask = self.kmask(dists=test_dist, logic=logic)
+            if isconnected(test_mask) and (test_dist > 1e-6).all():
                 maxk = guessk  # either correct or too high
-                result = (guessk, test)
+                result = (guessk, test_mask)
                 guessk = mink + (guessk - mink) / 2  # try a lower number
             else:
                 mink = guessk  # too low
                 guessk = guessk + (maxk - guessk) / 2
 
         if result[0] == guessk + 1:
-            return result
-        mask = self.kmask(k=guessk + 1, logic=logic)
-        return (guessk + 1, mask)
+            k, mask = result
+            scale = self.kscale(k)
+            return k, mask, scale
+        else:
+            k = guessk + 1
+            mask = self.kmask(k=guessk+1, logic=logic)
+            scale = self.kscale(k)
+        return (k, mask, scale)
 
     def check_euclidean(self):
         """ A distance matrix is euclidean iff F = -0.5 * (I - 1/n)D(I - 1/n) is
@@ -285,39 +303,43 @@ class DistanceMatrix(np.ndarray):
         return self / lengths[:, np.newaxis]
 
     def kdists(self, k=7, ix=None):
-        """ Returns the k-th nearest distances """
+        """ Returns the k-th nearest distances, row-wise, as a column vector """
 
         ix = ix or self.kindex(k)
-        return self[ix]
+        return self[ix][np.newaxis].T
 
     def kindex(self, k):
-        """ Returns indices to select the kth nearest neighbour, column-wise"""
+        """ Returns indices to select the kth nearest neighbour"""
 
-        ix = list(np.ix_(*[np.arange(i) for i in self.shape]))
-        ix[0] = self.argsort(0)[k - 1:k, :]
+        ix = (np.arange(len(self)), self.argsort(axis=0)[k]) 
+        #ix = list(np.ix_(*[np.arange(i) for i in self.shape]))
+        #ix[0] = self.argsort(0)[k:k+1, :]
         return ix
 
     def kmask(
         self,
-        dists=None,
         k=7,
+        dists=None,
         logic='or',
         ):
         """ Creates a boolean mask to include points within k nearest
-        neighbours, and exclude the rest """
+        neighbours, and exclude the rest.
+        Logic can be OR or AND. OR gives the k-nearest-neighbour mask,
+        AND gives the mutual k-nearest-neighbour mask."""
 
         dists = (self.kdists(k=k) if dists is None else dists)
+        mask = (self <= dists)
         if logic == 'or' or logic == '|':
-            mask = (self <= dists) | (self <= dists.T)
+            return mask | mask.T
         elif logic == 'and' or logic == '&':
-            mask = (self <= dists) & (self <= dists.T)
+            return mask & mask.T
         return mask
 
-    def kscale(self, dists=None, k=7):
+    def kscale(self, k=7, dists=None):
         """ Returns the local scale based on the k-th nearest neighbour """
 
         dists = (self.kdists(k=k) if dists is None else dists)
-        scale = dists.T.dot(dists)
+        scale = dists.dot(dists.T)
         return scale
 
     def laplace(self, affinity_matrix, shi_malik_type=False):
@@ -329,7 +351,7 @@ class DistanceMatrix(np.ndarray):
         L = (D^-1).A - `Shi-Malik` type, from Shi Malik paper"""
 
         diagonal = affinity_matrix.sum(axis=1) - affinity_matrix.diagonal()
-        if (diagonal <= 1e-20).any(): # arbitrarily small value
+        if (diagonal <= 1e-10).any(): # arbitrarily small value
             raise ZeroDivisionError
         if shi_malik_type:
             invD = np.diag(1 / diagonal).view(type(self))

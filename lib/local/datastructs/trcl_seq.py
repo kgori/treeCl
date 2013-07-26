@@ -3,6 +3,7 @@
 from ...remote.datastructs.seq import Seq, concatenate
 from ...remote.externals.phyml import Phyml
 from ...remote.externals.treecollection import TreeCollection
+from ...remote.errors import directorycheck
 from ..externals.DVscript import runDV
 from trcl_tree import TrClTree
 import re
@@ -29,7 +30,7 @@ class TrClSeq(Seq):
         sequences=[],
         dv=None,
         tree=None,
-        tmpdir='/tmp',
+        tmpdir=None,
         ):
 
         self.TCfiles = {}
@@ -39,7 +40,6 @@ class TrClSeq(Seq):
         else:
             self.tree = None
 
-        self.tmpdir = tmpdir
 
         super(TrClSeq, self).__init__(
             infile,
@@ -48,6 +48,7 @@ class TrClSeq(Seq):
             datatype,
             headers,
             sequences,
+            tmpdir,
             )
 
     def __add__(self, other):
@@ -77,16 +78,25 @@ class TrClSeq(Seq):
         return_object.dv = dvsum
         return return_object
 
-    def bionj(self):
+    def bionj(self, tmpdir):
         """ Uses phyml (via treeCl.externals.tree_builders.Phyml) to build a
         bioNJ tree for the current record """
 
-        p = Phyml(self)
+        if self.tmpdir is not None:
+            tmpdir = self.tmpdir
+        else:
+            directorycheck(tmpdir)
+
+        p = Phyml(self, tmpdir)
         self.tree = TrClTree.cast(p.run('nj'))
 
     def bionj_plus(self):
         """ Uses phyml (via treeCl.externals.tree_builders.Phyml) to build a
         bioNJ tree for the current record """
+        if self.tmpdir is not None:
+            tmpdir = self.tmpdir
+        else:
+            directorycheck(tmpdir)
 
         p = Phyml(self)
         self.tree = TrClTree.cast(p.run('lr'))
@@ -99,27 +109,39 @@ class TrClSeq(Seq):
         return self.__class__(headers=self.headers, sequences=bootstrap_sequences,
                         datatype=self.datatype)
 
-    def dv_matrix(self):
+    def dv_matrix(self, tmpdir):
         """ Uses darwin (via treeCl.externals.DVWrapper) to calculate pairwise
         distances and variances"""
+        if self.tmpdir is not None:
+            tmpdir = self.tmpdir
+        else:
+            directorycheck(tmpdir)
 
-        runDV(self)
+        runDV(self, tmpdir)
 
-    def phyml(self):
+    def phyml(self, tmpdir):
         """ Uses phyml (via treeCl.externals.tree_builders.Phyml) to build a
         full ML tree for the current record """
+        if self.tmpdir is not None:
+            tmpdir = self.tmpdir
+        else:
+            directorycheck(tmpdir)
 
-        p = Phyml(self)
+        p = Phyml(self, tmpdir)
         self.tree = TrClTree.cast(p.run('ml'))
 
-    def tree_collection(self):
+    def tree_collection(self, tmpdir):
         """ Uses TreeCollection (via
         treeCl.externals.tree_builders.TreeCollection) to build a least squares
         tree for the current record """
+        if self.tmpdir is not None:
+            tmpdir = self.tmpdir
+        else:
+            directorycheck(tmpdir)
 
         if self.dv <= []:
             self.dv_matrix()
-        tc = TreeCollection(self)
+        tc = TreeCollection(self, tmpdir)
         self.tree = TrClTree.cast(tc.run())
 
     def _pivot(self, lst):

@@ -5,6 +5,7 @@ import os
 import sys
 import re
 from copy import deepcopy
+from dendropy import TaxonSet
 from lib.local.datastructs.trcl_seq import TrClSeq, concatenate
 from lib.local.datastructs.trcl_tree import TrClTree
 # from treeCl.externals import runDV, simulate_from_tree
@@ -59,12 +60,14 @@ class Collection(object):
         analysis=None,
         ):
 
-        self.tmpdir = directorycheck(tmpdir)
+        self.tmpdir = directorymake(tmpdir)
 
         if records:
             self.records = records
             self.datatype = datatype or records[0].datatype
             optioncheck(self.datatype, ['dna', 'protein'])
+            for rec in records:
+                rec.tmpdir = self.tmpdir
 
         elif input_dir:
             directorycheck(input_dir)
@@ -80,6 +83,8 @@ class Collection(object):
 
         if calc_distances:
             self.calc_distances()
+
+        self.taxon_set = TaxonSet()
 
     def __len__(self):
         if getattr(self, 'records'):
@@ -98,6 +103,10 @@ class Collection(object):
         self._records = dict(enumerate(records))
 
         # self.reverse_lookup = {v:k for (k,v) in self.records}
+
+    @property
+    def trees(self):
+        return [self._records[i].tree for i in range(len(self._records))]
 
     def read_files(self, input_dir, file_format, compression=None):
         """ Get list of alignment files from an input directory *.fa, *.fas and
@@ -129,21 +138,22 @@ class Collection(object):
     def calc_TC_trees(self, verbosity=0):
         self.analysis = 'TreeCollection'
         for rec in self.records:
-            runTC(rec, verbosity=verbosity, tmpdir=self.tmpdir)
+            runTC(rec, self.tmpdir, verbosity=verbosity, 
+                taxon_set=self.taxon_set)
             rec.tree = TrClTree.cast(rec.tree)
 
     def calc_ML_trees(self, verbosity=0):
         self.analysis = 'ml'
         for rec in self.records:
-            runPhyml(rec, analysis=self.analysis, verbosity=verbosity,
-                tmpdir=self.tmpdir)
+            runPhyml(rec, self.tmpdir, analysis=self.analysis, 
+                verbosity=verbosity, taxon_set=self.taxon_set)
             rec.tree = TrClTree.cast(rec.tree)
 
     def calc_NJ_trees(self, analysis='nj', verbosity=0):
         self.analysis = analysis
         for rec in self.records:
-            runPhyml(rec, analysis=analysis, verbosity=verbosity,
-                tmpdir=self.tmpdir)
+            runPhyml(rec, self.tmpdir, analysis=analysis, verbosity=verbosity,
+                taxon_set=self.taxon_set)
             rec.tree = TrClTree.cast(rec.tree)
         if verbosity == 1:
             print
@@ -151,7 +161,8 @@ class Collection(object):
     def distance_matrix(self, metric, **kwargs):
         """ Generate a distance matrix from a fully-populated Collection """
         trees = [rec.tree for rec in self.records]
-        return DistanceMatrix(trees, metric, tmpdir=self.tmpdir, **kwargs)
+        return DistanceMatrix(trees, metric, tmpdir=self.tmpdir, 
+            **kwargs)
 
     def permuted_copy(self):
         lengths, names = zip(*[(rec.seqlength, rec.name) for rec in self.records])
@@ -159,6 +170,7 @@ class Collection(object):
         concat.shuffle()
         new_records = concat.split_by_lengths(lengths, names)
         return self.__class__(new_records)
+
 
 class Scorer(object):
 
@@ -183,8 +195,10 @@ class Scorer(object):
         self.verbosity = verbosity
         optioncheck(self.datatype, ['protein', 'dna'])
         self.tmpdir = tmpdir or records[0].tmpdir
+        directorymake(self.tmpdir)
         self.concats = {}
         self.history = []
+        self.populate_cache()
 
     def add(self, index_list):
         """ Takes a tuple of indices. Concatenates the records in the record
@@ -198,12 +212,13 @@ class Scorer(object):
         if self.analysis == 'TreeCollection':
             guidetrees = [self.records[n].tree for n in
                           index_list][:self.max_guidetrees]
-            tree = TrClTree.cast(runTC(concat, guidetrees,
-                                 verbosity=self.verbosity))
+            tree = TrClTree.cast(runTC(concat, self.tmpdir, guidetrees,
+                                verbosity=self.verbosity))
         else:
 
-            tree = TrClTree.cast(runPhyml(concat, analysis=self.analysis,
-                                 verbosity=self.verbosity))
+            tree = TrClTree.cast(runPhyml(concat, self.tmpdir, 
+                                analysis=self.analysis,
+                                verbosity=self.verbosity))
 
         # concat local variable dies here and goes to garbage collect
 
@@ -234,6 +249,12 @@ class Scorer(object):
 
     def members(self, index_list):
         return [self.records[n] for n in index_list]
+
+    def populate_cache(self):
+        for i, rec in enumerate(self.records):
+            key = (i,)
+            tree = rec.tree
+            self.concats[key]=tree
 
     def score(self, partition_object, **kwargs):
         """ Generates the index lists of the Partition object, gets the score

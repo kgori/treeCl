@@ -20,6 +20,9 @@ try:
 except ImportError:
     print 'evrot is not currently in use'
 from copy import deepcopy
+from lib.remote.utils import fileIO
+import uuid
+import os
 
 
 class Clustering(object):
@@ -91,11 +94,11 @@ class Clustering(object):
     def spectral_decomp(
         self,
         prune='estimate',
-        local_scale=7,
-        binsearch_dists_tolerance=0.001,
-        sigma=2,
+        local_scale=None,
         noise=False,
-        ):
+        verbosity=0,
+        logic='or',
+        **kwargs):
         """ Use prune to remove links between distant points:
         
         prune='estimate' searches for the smallest value that retains a fully
@@ -107,60 +110,74 @@ class Clustering(object):
             matrix = self.distance_matrix.add_noise()
         else:
             matrix = self.distance_matrix
-        kp = None
 
-        if prune == 'estimate':       # use binary search
-            (kp, mask) = matrix.binsearch_mask()
-            print 'Pruning distances greater than {0} nearest-neighbour'.format(kp)
+        kp, mask, est_scale = matrix.binsearch_mask(logic=logic) # prune anyway,
+                                                    # get local scale estimate
         
-        elif prune == -1:             # no pruning
-            mask = None
-            print 'No pruning applied'
-        
-        else:                         # prune to chosen value
-            kp = prune
-            mask = matrix.kmask(k=kp)
-            print 'Pruning connections beyond {0} nearest-neighbour'.format(kp)
+        ks = kp # ks and kp log the scaling and pruning parameters
+        est_ks = ks
 
-        if local_scale == 'estimate': # use same value as binary mask search 
-            if kp is None: 
-                kp = matrix.binsearch_mask()[0]
-            scale = matrix.kdists(k=kp)
-            print 'Local scale based on {0} nearest-neighbour'.format(kp)
-        
-        elif local_scale == 'median': # use median vector
-            scale = np.median(matrix, axis=1)
-        
-        elif local_scale == -1:       # use maximum vector
-            scale = matrix.kdists(k=matrix.shape[0])
-            print 'Local scale based on {0} nearest-neighbour'.format(
-                matrix.shape[0])
-        
-        else:                         # use chosen value
-            try:
-                # print type(local_scale) == type(1)
-                assert type(local_scale) == type(1)
-            except AssertionError:
-                print ('Unrecognised option "{0}".\n'
-                    'Allowed options are integers, -1 (=maximum), '
-                    '"estimate" and "median'.format(local_scale))
-                raise
-            # print local_scale, type(local_scale)
-            scale = matrix.kdists(k=local_scale)
-            print 'Local scale based on {0} nearest-neighbour'.format(local_scale)
+        # ADJUST MASK
+        if prune == -1: # change mask to all
+            kp   = len(matrix) - 1 
+            mask = np.ones(matrix.shape, dtype=bool)
+        elif isinstance(prune, int) and prune > 0:
+            kp   = prune
+            mask = matrix.kmask(prune, logic=logic)
 
-        if not (scale > 0).all():
-            (_, scale) = matrix.binsearch_dists(
-                tolerance=binsearch_dists_tolerance)
-        assert (scale > 0).all() 
+        # ADJUST SCALE
+        if local_scale == 'estimate': # deprecated option
+            local_scale = None
+        if local_scale is not None:
+            if local_scale == 'median':
+                ks    = 'median'
+                dist  = np.median(matrix, axis=1)
+                scale = np.outer(dist, dist)
+            elif isinstance(local_scale, int):
+                ks    = local_scale
+                scale = matrix.kscale(local_scale)
+        else: 
+            scale = est_scale
+
+        # ZeroDivisionError safety check
+        if not (scale > 1e-5).all():
+            if verbosity > 0:
+                print 'Rescaling to avoid zero-div error'
+            scale = est_scale
+            ks = est_ks
+            assert (scale > 1e-5).all()
+
+        if verbosity > 0:
+            print 'Pruning parameter: {0}'.format(kp)
+            print 'Scaling parameter: {0}'.format(ks)
+
         aff = matrix.affinity(mask, scale)
-        laplace = matrix.laplace(aff)
+        
+        # ZeroDivisionError triggers pickle dump
+        try: 
+            laplace = matrix.laplace(aff, **kwargs)
+        except ZeroDivisionError:
+            dump = str(uuid.uuid4()).split('-')[0]
+            home = os.getenv('HOME')
+            if home:
+                dumpfile = '{0}/dm_{1}.pkl.gz'.format(home, dump)
+                fileIO.gpickle(self.distance_matrix, dumpfile)
+                print 'ZeroDivisionError detected on constructing laplacian.'
+                print 'Distance matrix dumped to {0}'.format(dumpfile)
+                print 'prune and local scale arguments: {0}, {1}'.format(
+                    prune, local_scale)
+            raise
+
         return laplace.eigen()  # vectors are in columns
 
-    def spectral_cluster(self, nclusters, decomp):
+    def spectral_cluster(self, nclusters, decomp, verbosity=0):
 
+        if nclusters == 1:
+            return Partition([1]*len(self.distance_matrix))
+            
         (coords, cve) = decomp.coords_by_dimension(nclusters)
-        print '{0} dimensions explain {1:.2f}% of the variance'.format(nclusters,
+        if verbosity > 0:
+            print '{0} dimensions explain {1:.2f}% of the variance'.format(nclusters,
                 cve * 100)
         coords = coords.normalise_rows()  # scale all rows to unit length
         P = self.kmeans(nclusters, coords)
@@ -181,12 +198,14 @@ class Clustering(object):
         nclusters,
         decomp,
         cutoff=None,
+        verbosity=0,
         ):
 
         (coords, cve) = \
             (decomp.coords_by_cutoff(cutoff) if cutoff else decomp.coords_by_dimension(nclusters))
-        print '{0} dimensions explain {1:.2f}% of the variance'.format(coords.shape[1],
-                cve * 100)
+        if verbosity > 0:
+            print '{0} dimensions explain {1:.2f}% of the variance'.format(
+                coords.shape[1], cve * 100)
         P = self.kmeans(nclusters, coords)
         return P
 
