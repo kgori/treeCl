@@ -3,8 +3,7 @@ import sys
 sys.path.append('/home/malcolm/Documents/EBi/Git/')
 from treeCl.collection import Collection, Scorer
 from treeCl.clustering import Clustering
-from analysis import Result
-from lib.remote.errors import optioncheck, OptionError
+from lib.remote.errors import optioncheck
 
 import random
 import tempfile
@@ -25,7 +24,8 @@ parser.add_argument('-o', '--output', default=None)
 
 args = parser.parse_args()
 
-optioncheck(args.method, ['s', 'spectral', 'h', 'hierarchical', 'k', 'kmedoids'])
+optioncheck(args.method, ['s', 'spectral', 'h', 'hierarchical', 'k', 'kmedoids', 'MDS', 'mds'])
+
 
 def id_generator(size=6, chars=string.ascii_uppercase + string.digits):
     return ''.join(random.choice(chars) for x in range(size))
@@ -38,14 +38,19 @@ c = Collection(input_dir=args.input_dir,
 
 c.calc_NJ_trees()
 
-dm = c.distance_matrix('geo')
+dm = c.distance_matrix('euc')
 cl = Clustering(dm)
 
 if args.method in ['spectral', 's']:
     print 'Starting spectral decomposition...'
-    sd = cl.spectral_decomp('estimate', 'estimate')
+    decomp = cl.spectral_decomp('estimate', 'estimate')
     print 'Starting spectral clustering...'
-    p = cl.spectral_cluster(4, sd)
+    p = cl.spectral_cluster(4, decomp)
+elif args.method in ['MDS', 'mds']:
+    print 'Starting MDS decomposition...'
+    decomp = cl.MDS_decomp()
+    print 'Starting MDS clustering...'
+    p = cl.MDS_cluster(4, decomp)
 elif args.method in ['hierarchical', 'h']:
     print 'Starting hierarchical clustering...'
     p = cl.hierarchical(4, 'ward')
