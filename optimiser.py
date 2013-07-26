@@ -155,8 +155,7 @@ class Optimiser(object):
                 if score > best_score:
                     best_score = score
                     best_assignment = test_assignment
-                    best_pair = (i,j)
-                    # print 'New High Watermark'
+
         print 'Best assignment: {0}'.format(best_assignment)
         return(best_assignment)
 
@@ -202,17 +201,18 @@ class Optimiser(object):
 
     def split_search(self, assignment):
         clusters = self.get_clusters(assignment)
-        # k = max(assignment.partition_vector)
+        k = max(assignment.partition_vector)
         best_score = -np.Inf
 
         for i in clusters:
             print 'i: {0}'.format(i)
             test_assignment = self.split(i, assignment)
             score = self.Scorer.score(test_assignment)
-            # if max(test_assignment.partition_vector) == k + 1:
-            #     score = self.Scorer.score(test_assignment)
-            # else:
-            #     score = -np.Inf
+            if max(test_assignment.partition_vector) == k + 1:
+                score = self.Scorer.score(test_assignment)
+            else:
+                score = -np.Inf
+                print 'Something has gone wrong'
             print test_assignment
             print score
 
@@ -378,6 +378,8 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--output', default=None)
 
     args = parser.parse_args()
+    if args.sample_size < args.nreassign:
+        args.sample_size = args.nreassign
     opt_args = {'nreassign': args.nreassign, 'sample_size': args.sample_size}
 
     def id_generator(size=6, chars=string.ascii_uppercase + string.digits):
