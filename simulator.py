@@ -29,6 +29,7 @@ class Simulator(object):
         class_list,
         permutations_list,
         nspecies,
+        tmpdir,
         datatype='protein',
         master_tree_generator_method='yule',
         master_tree=None,
@@ -36,7 +37,6 @@ class Simulator(object):
         gene_length_kappa=1.7719,
         gene_length_theta=279.9,
         gene_length_min=10,
-        tmpdir='/tmp',
         outdir='./'
         ):
         # default
@@ -70,7 +70,7 @@ class Simulator(object):
         self.permuter = class_tree_permuter
         self.permutations_list = permutations_list
         self.datatype = datatype
-        self.tmpdir = tmpdir
+        self.tmpdir = errors.directorymake(tmpdir)
         self.outdir = outdir
         self.generate_class_trees() # sets self.class_trees dict
         self.make_alf_dirs() # sets self.alf_dirs dict
@@ -172,7 +172,9 @@ class Simulator(object):
         all_records = []
         for k in range(self.num_classes):
             simulated_records = self.alf_params[k+1].run()
-            names = ['class{0}_{1:0>{2}}'.format(k + 1, i, len(str(self.class_list[k]))) for i in range(1, len(simulated_records) + 1)]
+            names = ['class{0}_{1:0>{2}}'.format(k + 1, i, 
+                len(str(self.class_list[k]))) for i in range(1, 
+                len(simulated_records) + 1)]
             for (rec, name) in zip(simulated_records, names):
                 rec.name = name
             all_records.extend(simulated_records)

@@ -18,7 +18,7 @@ def guess_seqtype(rec):
 
 class DV(Darwin):
 
-    def __init__(self, record, tmpdir='/tmp', verbosity=0):
+    def __init__(self, record, tmpdir, verbosity=0):
         super(DV, self).__init__(tmpdir, verbosity)
         self.record = record
         if not self.record.datatype:
@@ -267,7 +267,7 @@ quit;
         if self.verbosity > 1:
             print '  (Tests pass.)'
     
-def runDV(record, tmpdir='/tmp', verbosity=0):
+def runDV(record, tmpdir, verbosity=0):
     dw = DV(record, tmpdir, verbosity)
     dv_string = dw.run()
     labels = ' '.join(record.headers)
