@@ -376,6 +376,7 @@ if __name__ == '__main__':
     parser.add_argument('-r', '--nreassign', default=10, type=int)
     parser.add_argument('-s', '--sample_size', default=10, type=int)
     parser.add_argument('-o', '--output', default=None)
+    parser.add_argument('-m', action='store_true', help='Enable merge/splitting of clusters')
 
     args = parser.parse_args()
     if args.sample_size < args.nreassign:
