@@ -376,7 +376,7 @@ if __name__ == '__main__':
     parser.add_argument('-r', '--nreassign', default=10, type=int)
     parser.add_argument('-s', '--sample_size', default=10, type=int)
     parser.add_argument('-o', '--output', default=None)
-    parser.add_argument('-m', action='store_true', help='Enable merge/splitting of clusters')
+    parser.add_argument('-m', '--merge', action='store_true', help='Enable merge/splitting of clusters')
 
     args = parser.parse_args()
     if args.sample_size < args.nreassign:
@@ -393,7 +393,10 @@ if __name__ == '__main__':
                    tmpdir=new_tmpdir)
 
     o = Optimiser(args.nclusters, c)
-    o.optimise(o.global_best_assignment, update=True, **opt_args)
+    if args.merge is True:
+        o.optimise_with_merge(o.global_best_assignment, update=True, **opt_args)
+    else:
+        o.optimise(o.global_best_assignment, update=True, **opt_args)
 
     output_name = args.output or 'output_' + id_generator(6)
     output_fh = open(output_name, 'w+')
