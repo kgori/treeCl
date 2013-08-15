@@ -374,6 +374,7 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--compression', default=None)
     parser.add_argument('-t', '--tmpdir', default='/tmp/')
     parser.add_argument('-r', '--nreassign', default=10, type=int)
+    parser.add_argument('-w', '--max_done_worse', default=5)
     parser.add_argument('-s', '--sample_size', default=10, type=int)
     parser.add_argument('-o', '--output', default=None)
     parser.add_argument('-m', '--merge', action='store_true', help='Enable merge/splitting of clusters')
@@ -381,7 +382,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     if args.sample_size < args.nreassign:
         args.sample_size = args.nreassign
-    opt_args = {'nreassign': args.nreassign, 'sample_size': args.sample_size}
+    opt_args = {'nreassign': args.nreassign, 'sample_size': args.sample_size, 'max_done_worse': args.max_done_worse}
 
     def id_generator(size=6, chars=string.ascii_uppercase + string.digits):
         return ''.join(random.choice(chars) for x in range(size))
