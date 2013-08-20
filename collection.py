@@ -256,13 +256,14 @@ class Scorer(object):
             tree = rec.tree
             self.concats[key]=tree
 
-    def score(self, partition_object, **kwargs):
+    def score(self, partition_object, history=True, **kwargs):
         """ Generates the index lists of the Partition object, gets the score
         for each one, and returns the sum """
 
         inds = partition_object.get_membership()
         likelihood = sum([self.add(index_list, **kwargs).score for index_list in inds])
-        self.update_history(likelihood, inds)
+        if history is True:
+            self.update_history(likelihood, inds)
         return(likelihood)
 
     def simulate(self, index_list, model=None):

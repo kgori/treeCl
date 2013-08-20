@@ -16,9 +16,10 @@ except ImportError:
     print "sklearn unavailable: KMeans disabled"
 from collections import defaultdict
 try:
-    import evrot ## evrot not currently in use
+    import evrot  # evrot not currently in use
 except ImportError:
-    print 'evrot is not currently in use'
+    # print 'evrot is not currently in use'
+    pass
 from copy import deepcopy
 from lib.remote.utils import fileIO
 import uuid
@@ -28,18 +29,18 @@ import os
 class Clustering(object):
 
     """ Apply clustering methods to distance matrix
-    
+
     = Hierarchical clustering - single-linkage - complete-linkage - average-
     linkage (UPGMA) - Ward's method
-    
+
     = k-medoids
-    
+
     = Multidimensional Scaling (Principal Coordinate Analysis) + k-means
-    
+
     = Spectral Clustering + k-means - NJW method - Shi-Malik method - Zelnik-
     Manor and Perona Local Scaling - Local Scaling with eigenvector rotation as
     stopping criterion
-    
+
     """
 
     def __init__(self, distance_matrix):
@@ -54,7 +55,7 @@ class Clustering(object):
         if Biopython_Unavailable:
             print 'kmedoids not available without Biopython'
             return
-        
+
         if noise:
             matrix = self.distance_matrix.add_noise()
         else:
@@ -100,10 +101,10 @@ class Clustering(object):
         logic='or',
         **kwargs):
         """ Use prune to remove links between distant points:
-        
+
         prune='estimate' searches for the smallest value that retains a fully
         connected graph
-        
+
         """
 
         if noise:
@@ -111,6 +112,7 @@ class Clustering(object):
         else:
             matrix = self.distance_matrix
 
+<<<<<<< HEAD
         kp, mask, est_scale = matrix.binsearch_mask(logic=logic) # prune anyway,
                                                     # get local scale estimate
         
@@ -399,12 +401,12 @@ class Partition(object):
         according to some clustering method. Cluster labels are arbitrary.
         partition_2 (list / array) - another partitioning of the same dataset.
         Labels don't need to match, nor do the number of clusters.
-        
+
         subfunctions: get_membership( parameter partition (list / array) )
         returns a list of length equal to the number of clusters found in the
         partition. Each element is the set of members of the cluster. Ordering
         is arbitrary.
-        
+
         variables used: t = total number of points in the dataset m1 = cluster
         memberships from partition_1 m2 = cluster memberships from partition_2
         l1 = length (i.e. number of clusters) of m1 l2 = length of m2 entropy_1
@@ -446,9 +448,9 @@ class Partition(object):
 
     def flatten(self, list_of_lists):
         """ This is faster than the one-liner version:-
-        
+
         def(flatten): return list(itertools.chain(*list_of_lists))
-        
+
         """
 
         res = []
@@ -469,7 +471,7 @@ class Partition(object):
 
     def normalised_mutual_information(self, other):
         partition_1 = self.partition_vector
-        partition_2 = other.partition_vector    
+        partition_2 = other.partition_vector
 
         (entropy_1, entropy_2, mut_inf) = self.entropies(partition_1,
                 partition_2)
@@ -488,3 +490,19 @@ class Partition(object):
                 partition_2)
 
         return entropy_1 + entropy_2 - 2 * mut_inf
+
+
+def get_partition(clusters):
+    global seq
+    seq = clusters if isinstance(clusters, dict) else range(len(clusters))
+    length = sum((len(clusters[i]) for i in seq))
+    global pvec
+    pvec = [0] * length
+    print 'seq: {0}'.format(seq)
+    print clusters
+    for k in seq:
+        for i in clusters[k]:
+            print k, i
+            pvec[i] = k
+    print pvec
+    return(Partition(tuple(pvec)))
