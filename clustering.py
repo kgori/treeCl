@@ -112,7 +112,6 @@ class Clustering(object):
         else:
             matrix = self.distance_matrix
 
-<<<<<<< HEAD
         kp, mask, est_scale = matrix.binsearch_mask(logic=logic) # prune anyway,
                                                     # get local scale estimate
         
