@@ -3,7 +3,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib import cm as CM
-from lib.local.externals.gtp import GTP
+from lib.local.externals.gtp import GTP, geodist
 from lib.local.datastructs.trcl_tree import TrClTree
 from lib.remote.errors import optioncheck
 
@@ -21,10 +21,13 @@ def get_dendropy_distances(trees, fn, dec_places=None, **kwargs):
     return matrix
 
 
-def get_geo_distances(trees, dec_places, tmpdir=None):
+def get_geo_distances(trees, dec_places=None, tmpdir=None):
 
-    g = GTP(tmpdir=tmpdir)
-    matrix = g.run(trees)
+    if len(trees) > 100:
+        matrix = geodist(trees, tmpdir, 100)
+    else:
+        matrix = geodist(trees, tmpdir)
+
     if dec_places is not None:
         matrix.round(dec_places, out=matrix)
     return matrix
