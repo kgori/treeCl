@@ -24,6 +24,11 @@ class TrClTree(Tree):
         return cast
 
     @classmethod
+    def new_iterative_rtree(cls, nspecies):
+        t = super(TrClTree, cls).new_iterative_rtree(nspecies)
+        return cls.cast(t)
+
+    @classmethod
     def new_yule(cls, nspecies, **kwargs):
         t = super(TrClTree, cls).new_yule(nspecies, **kwargs)
         return cls.cast(t)

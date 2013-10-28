@@ -247,6 +247,9 @@ class Scorer(object):
             fh.write(str(time) + "\t")
             fh.write(str(score) + "\n")
 
+    def clear_history(self):
+        self.history = []
+
     def members(self, index_list):
         return [self.records[n] for n in index_list]
 
