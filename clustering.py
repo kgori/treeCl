@@ -350,9 +350,9 @@ class Partition(object):
 
     """ Class to store clustering information """
 
-    score = 0
-    concats = []
-    partition_vector = None
+    # score = 0
+    # concats = []
+    # partition_vector = None
 
     def __init__(self, partition_vector):
         self.partition_vector = partition_vector
@@ -364,7 +364,11 @@ class Partition(object):
         return self.__class__.__name__ + '({0})'.format(str(self))
 
     def __len__(self):
-        return len(self.partition_vector)
+        """
+        This gives the number of groups in the partition, rather than
+        the number of elements in the data
+        """
+        return max(self.partition_vector)
 
     @property
     def partition_vector(self):
