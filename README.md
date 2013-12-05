@@ -38,7 +38,7 @@ Then the above packages can be installed by running this command:
 - [GTP](http://dl.acm.org/citation.cfm?id=1916603 "ACM digital library") - a java program for calculating geodesic distances - see [A Fast Algorithm for Computing Geodesic Distances in Tree Space](https://cs.uwaterloo.ca/~m2owen/pub/poly_geodesic.pdf "Owen and Provan, 2011") 
 
 ## Example Analysis
-```
+``` python
 """
 Import some classes from treeCl
 """
