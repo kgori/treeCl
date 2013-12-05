@@ -4,6 +4,7 @@ import glob
 import os
 import sys
 import re
+import timeit
 from copy import deepcopy
 from dendropy import TaxonSet
 from lib.local.datastructs.trcl_seq import TrClSeq, concatenate
@@ -238,14 +239,17 @@ class Scorer(object):
         return concat
 
     def update_history(self, score, index_list):
-        time = sum(os.times()[:4])
-        self.history.append([time, score, index_list])
+        time = timeit.default_timer()
+        self.history.append([time, score, index_list, len(index_list)])
 
     def print_history(self, fh=sys.stdout):
-        for iteration, (time, score, index_list) in enumerate(self.history):
+        for iteration, (time, score, index_list, nclusters) in enumerate(
+                self.history):
             fh.write(str(iteration) + "\t")
             fh.write(str(time) + "\t")
-            fh.write(str(score) + "\n")
+            fh.write(str(score) + "\t")
+            fh.write(str(index_list) + "\t")
+            fh.write(str(nclusters) + "\n")
 
     def clear_history(self):
         self.history = []
