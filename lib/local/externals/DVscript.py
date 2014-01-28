@@ -1,20 +1,19 @@
 from ...remote.externals.darwin import Darwin
 from ...remote.utils import fileIO
-from ...remote.errors import filecheck
+from ...remote.errors import filecheck, FileError
 from copy import copy
-import numpy as np
 
-def guess_seqtype(rec):
+def guess_seqtype(rec, threshold=0.8):
     """ Looks at proportion of As, Cs, Gs and Ts across all 
     sequences in the record, and guesses the data to be dna
-    if the proportion is > 0.8, else it guesses protein """
+    if the proportion is > threshold, else it guesses protein """
     
     newrec = copy(rec)
     newrec.change_case('upper')
     all_seqs = ''.join(newrec.sequences)
     nuc_freqs = sum(all_seqs.count(x) for x in ['A','C', 'G', 'T'])
     nuc_freqs /= float(len(all_seqs))
-    return 'dna' if nuc_freqs > 0.8 else 'protein'
+    return 'dna' if nuc_freqs > threshold else 'protein'
 
 class DV(Darwin):
 

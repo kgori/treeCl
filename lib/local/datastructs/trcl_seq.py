@@ -5,7 +5,7 @@ from ...remote.externals.phyml import Phyml
 from ...remote.externals.treecollection import TreeCollection
 from ...remote.errors import directorycheck
 from ..externals.DVscript import runDV
-from trcl_tree import TrClTree
+from trcl_tree import Tree, TrClTree
 import re
 import random
 
@@ -36,7 +36,7 @@ class TrClSeq(Seq):
         self.TCfiles = {}
         self.dv = dv or []
         if tree and isinstance(tree, Tree):
-            self.tree = TrCltree.cast(tree)
+            self.tree = TrClTree.cast(tree)
         else:
             self.tree = None
 
@@ -154,9 +154,7 @@ class TrClSeq(Seq):
         for h in self.headers:
             if '/' in h:
                 h = h[:h.index('/')]
-            while h.startswith(' '):
-                h = h[1:]
-            h = h.replace(' ', '_')
+            h = h.strip().replace(' ', '_')
             l.append(h)
         self.headers = l
         self.sequences = [seq.upper() for seq in self.sequences]
