@@ -130,8 +130,8 @@ class TrClSeq(Seq):
         p = Phyml(self, tmpdir)
         self.tree = TrClTree.cast(p.run('ml'))
 
-    def tree_collection(self, tmpdir):
-        """ Uses TreeCollection (via
+    def tree_collection_deprecated(self, tmpdir):
+        """ DEPRECATED:   Uses TreeCollection (via
         treeCl.externals.tree_builders.TreeCollection) to build a least squares
         tree for the current record """
         if self.tmpdir is not None:
@@ -180,7 +180,7 @@ class TrClSeq(Seq):
 
         return distvar_string, genome_map_string, labels_string
 
-    def tree_coll(self, niters=5, quiet=True, tmpdir=None):
+    def tree_collection(self, niters=5, quiet=True, tmpdir=None):
         import tree_collection
         if self.dv <= []:
             self.dv_matrix()
