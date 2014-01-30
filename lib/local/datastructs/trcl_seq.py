@@ -144,6 +144,58 @@ class TrClSeq(Seq):
         tc = TreeCollection(self, tmpdir)
         self.tree = TrClTree.cast(tc.run())
 
+    def _get_tree_collection_strings(self):
+        """ Function to get input strings for tree_collection
+        tree_collection needs distvar, genome_map and labels -
+        these are returned in the order above
+        """
+        if self.dv <= []:
+            return None
+
+        # aliases
+        dv = self.dv
+        num_matrices = len(dv)
+        all_labels = self.headers
+        labels_len = len(all_labels)
+
+        # labels string can be built straight away
+        labels_string   = '{0}\n{1}\n'.format(labels_len, ' '.join(all_labels))
+
+        # distvar and genome_map need to be built up
+        distvar_list    = [str(num_matrices)]
+        genome_map_list = ['{0} {1}'.format(num_matrices, labels_len)]
+
+        # build up lists to turn into strings
+        for (i, (matrix, labels)) in enumerate(self.dv, start=1):
+            labels = labels.split()
+            dim = len(labels)
+            distvar_list.append('{0} {0} {1}\n{2}'.format(dim, i, matrix))
+            for lab in all_labels:
+                genome_map_list.append(('{0} '.format(labels.index(lab) + 1)
+                                       if lab in labels else '-1 '))
+
+        distvar_string = '\n'.join(distvar_list)
+        genome_map_string = '\n'.join(genome_map_list)
+
+        return distvar_string, genome_map_string, labels_string
+
+    def tree_coll(self, niters=5, quiet=True):
+        import tree_collection
+        if self.dv <= []:
+            self.dv_matrix()
+        if not self.tree:
+            guide_tree = self.bionj()
+        else:
+            guide_tree = self.tree
+        gt = guide_tree.newick
+        dv, gm, lab = self._get_tree_collection_strings()
+        output_tree, score = tree_collection.compute(dv, gm, lab, gt, niters, 
+                                                     quiet)
+        result = TrClTree(output_tree, score, program='tree_collection',
+            name=self.name, output='').scale(0.01)
+        self.tree = result
+        return result
+
     def _pivot(self, lst):
         new_lst = zip(*lst)
         return [''.join(x) for x in new_lst]
