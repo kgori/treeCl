@@ -170,27 +170,41 @@ class TrClSeq(Seq):
             labels = labels.split()
             dim = len(labels)
             distvar_list.append('{0} {0} {1}\n{2}'.format(dim, i, matrix))
-            for lab in all_labels:
-                genome_map_list.append(('{0} '.format(labels.index(lab) + 1)
-                                       if lab in labels else '-1 '))
+            genome_map_entry = ' '.join((str(labels.index(lab) + 1)
+                                        if lab in labels else '-1')
+                                        for lab in all_labels)
+            genome_map_list.append(genome_map_entry)
 
         distvar_string = '\n'.join(distvar_list)
         genome_map_string = '\n'.join(genome_map_list)
 
         return distvar_string, genome_map_string, labels_string
 
-    def tree_coll(self, niters=5, quiet=True):
+    def tree_coll(self, niters=5, quiet=True, tmpdir=None):
         import tree_collection
         if self.dv <= []:
             self.dv_matrix()
-        if not self.tree:
-            guide_tree = self.bionj()
+
+        if tmpdir is not None:
+            tmpdir = tmpdir
+        elif self.tmpdir is not None:
+            tmpdir = self.tmpdir
         else:
-            guide_tree = self.tree
-        gt = guide_tree.newick
+            tmpdir = '/tmp'
+
+        if not self.tree:
+            self.bionj(tmpdir)
+
+        if self.tree is None:
+            raise Exception('Couldn\'t generate a BIONJ guide tree')
+
+        gt = self.tree
+        gt.reroot_at_midpoint()
+        if not gt.is_rooted:
+            raise Exception('Couldn\'t root the guide tree' )
         dv, gm, lab = self._get_tree_collection_strings()
-        output_tree, score = tree_collection.compute(dv, gm, lab, gt, niters, 
-                                                     quiet)
+        output_tree, score = tree_collection.compute(dv, gm, lab, gt.newick, 
+                                                     niters, quiet)
         result = TrClTree(output_tree, score, program='tree_collection',
             name=self.name, output='').scale(0.01)
         self.tree = result
