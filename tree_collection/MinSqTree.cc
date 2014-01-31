@@ -3196,7 +3196,7 @@ void MinSquareTreeCollection::compute(bool KeepTopology, int iter, bool quiet) t
       }
    }
    if (i <= 0)
-      printf("Warning: stopped after %d iterations without swap, not yet at minimum\n",iter);
+      if (!quiet) printf("Warning: stopped after %d iterations without swap, not yet at minimum\n",iter);
 
 
    //d1 = ne<=3 ? d1 : d1/(ne-2)/(ne-3)*2;

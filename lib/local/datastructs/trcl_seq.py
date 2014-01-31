@@ -130,6 +130,42 @@ class TrClSeq(Seq):
         p = Phyml(self, tmpdir)
         self.tree = TrClTree.cast(p.run('ml'))
 
+    def likelihood(self, tree, tmpdir):
+        """ Uses phyml (via treeCl.externals.tree_builders.Phyml) to calculate
+        the likelihood  for the current record """
+        if self.tmpdir is not None:
+            tmpdir = self.tmpdir
+        else:
+            directorycheck(tmpdir)
+
+        p = Phyml(self, tmpdir)
+
+        alignment_file = self.write_phylip('{0}/tmp_alignment.phy'.format(
+            tmpdir), interleaved=True)
+        newick_file = tree.write_to_file('{0}/tmp_tree.nwk'.format(tmpdir))
+
+        p.add_tempfile(alignment_file)
+        p.add_tempfile(newick_file)
+        p.add_flag('-i', alignment_file)
+        p.add_flag('-u', newick_file)
+        p.add_flag('-b', '0')   # no bootstraps
+        if self.datatype == 'protein':
+            p.add_flag('-m', 'WAG') # evolutionary model
+        else:
+            p.add_flag('-m', 'GTR')
+        p.add_flag('-o', 'n')   # no optimisation
+        if self.datatype == 'protein':
+            p.add_flag('-d', 'aa')  # datatype
+        else:
+            p.add_flag('-d', 'nt')
+        p.add_flag('--no_memory_check', '')
+        p.add_flag('--quiet', '')
+        p.call() # run phyml
+        (_, stats) = p.read(alignment_file)
+        p.clean() # cleanup tempfiles
+        score = float(re.compile('(?<=Log-likelihood: ).+').search(stats).group(0))
+        return score
+
     def tree_collection_deprecated(self, tmpdir):
         """ DEPRECATED:   Uses TreeCollection (via
         treeCl.externals.tree_builders.TreeCollection) to build a least squares
@@ -182,8 +218,6 @@ class TrClSeq(Seq):
 
     def tree_collection(self, niters=5, quiet=True, tmpdir=None):
         import tree_collection
-        if self.dv <= []:
-            self.dv_matrix()
 
         if tmpdir is not None:
             tmpdir = tmpdir
@@ -198,12 +232,15 @@ class TrClSeq(Seq):
         if self.tree is None:
             raise Exception('Couldn\'t generate a BIONJ guide tree')
 
+        if self.dv <= []:
+            self.dv_matrix(tmpdir)
+
         gt = self.tree
         gt.reroot_at_midpoint()
         if not gt.is_rooted:
             raise Exception('Couldn\'t root the guide tree' )
         dv, gm, lab = self._get_tree_collection_strings()
-        output_tree, score = tree_collection.compute(dv, gm, lab, gt.newick, 
+        output_tree, score = tree_collection.compute(dv, gm, lab, gt.newick,
                                                      niters, quiet)
         result = TrClTree(output_tree, score, program='tree_collection',
             name=self.name, output='').scale(0.01)
