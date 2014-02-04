@@ -6,7 +6,8 @@ from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 from lib.remote.errors import optioncheck
 from collection import Collection
-from clustering import Clustering, DistanceMatrix, Partition
+from clustering import Clustering, Partition
+from distance_matrix import DistanceMatrix
 
 class Plotter(object):
 
