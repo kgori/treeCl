@@ -28,7 +28,7 @@ def svd(nparray):
 
 def gram_schmidt(a):
     """
-    Calculates an orthonormalised matrix of (column) vectors from 
+    Calculates an orthonormalised matrix of (column) vectors from
     input matrix a.
     Orthonormal vectors have length = 1 and dot product = 0 (perpendicular)
     """

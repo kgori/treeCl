@@ -37,13 +37,13 @@ class Optimiser(object):
         if initial_assignment is None:
             initial_assignment = Partition(tuple([x]*len(collection)))
             # initial_assignment = self.random_partition(nclusters)
-        
+
         self.global_best_scores = {}
         self.global_best_assignments = {}
         self.global_best_scores[self.nclusters] = self.scorer.score(
             initial_assignment, history=True)
         self.global_best_assignments[self.nclusters] = initial_assignment
-        
+
         self.done_worse = 0
         self.stayed_put = 0
         self.i = 0
@@ -62,7 +62,7 @@ class Optimiser(object):
         curr_score = self.scorer.score(current_assignment, history=False)
         best_score = self.global_best_scores[n]
         details = ('\t'+str(details) if details is not None else '')
-        
+
         return 'Iter:{0}\tNclusters:{1}\tCurrent\tscore:{2}\tBest score:{3}{4}'.format(
             iter_, n, curr_score, best_score, details)
 
@@ -79,7 +79,7 @@ class Optimiser(object):
         curr_score = self.scorer.score(assignment, history=False)
         if (curr_score - best_score) > EPS:
             self.global_best_assignments[nclusters] = assignment
-            self.global_best_scores[nclusters] = self.scorer.score(assignment, 
+            self.global_best_scores[nclusters] = self.scorer.score(assignment,
                 history=False)
 
     def get_clusters(self, assignment):
@@ -130,7 +130,7 @@ class Optimiser(object):
             assignment = self.split_search(assignment)
         return assignment
 
-    def make_new_assignment(self, sample, scores, assignment, nreassign=1, 
+    def make_new_assignment(self, sample, scores, assignment, nreassign=1,
             choose='max'):
         """
         MAKES A NEW PARTITION BY REASSIGNING RECORDS BETWEEN CLUSTERS
@@ -146,13 +146,13 @@ class Optimiser(object):
         new_assignment = list(assignment.partition_vector)
 
         for i in reassignments:
-            new_assignment[sample[i]] = new_clusters[i]+1  
+            new_assignment[sample[i]] = new_clusters[i]+1
                 # because cluster number is in range
                 # [1,x], and new_clusters is in range [0,x-1]
-        
+
         return Partition(tuple(new_assignment))
 
-    def move(self, sample_size, assignment, nreassign=1, choose='max', 
+    def move(self, sample_size, assignment, nreassign=1, choose='max',
             sampled=None):
         """
         !! now generates own sample and passes to scores
@@ -229,10 +229,10 @@ class Optimiser(object):
 
         for i in members:
             r = self.Collection.records[i]
-            alignment_scores[i] = self.test(r, tree) / float(r.seqlength) 
+            alignment_scores[i] = self.test(r, tree) / float(r.seqlength)
                 # per-site likelihood
 
-        seed, min_score = min(alignment_scores.iteritems(), 
+        seed, min_score = min(alignment_scores.iteritems(),
             key=operator.itemgetter(1))
         print 'Splitting on {0}.'.format(seed+1) # convert to 1-based indexing
 
@@ -261,7 +261,7 @@ class Optimiser(object):
 
         print var_dict
 
-        cluster_to_split, var = max(clusters.iteritems(), 
+        cluster_to_split, var = max(clusters.iteritems(),
             key=operator.itemgetter(1))
 
     def split_search(self, assignment, update=True):
@@ -293,12 +293,12 @@ class Optimiser(object):
         TESTS AN ALIGNMENT AGAINST A TREE TOPOLOGY
         """
         tmp_record = copy.deepcopy(record)
-        
+
         # if tree label set and record label set don't match
         header_set = set(tmp_record.headers)
         extra_in_tree = tree.labels - header_set
         extra_in_record = header_set - tree.labels
-        
+
         if extra_in_tree:
             for lab in extra_in_tree:
                 tmp_record.headers.append(lab)
@@ -330,8 +330,8 @@ class Optimiser(object):
             if model is None:
                 model = 'WAG'
             p.add_flag('-m', model)  # evolutionary model
-            p.add_flag('-d', 'aa')   # datatype    
-        
+            p.add_flag('-d', 'aa')   # datatype
+
         p.add_flag('-o', 'n')    # no optimisation
         return p.run().score
 
@@ -360,7 +360,7 @@ class Optimiser(object):
         assignment = self.constrain_assignment(assignment, nclusters)
 
         local_best_assignment = assignment
-        local_best_score = self.scorer.score(local_best_assignment, 
+        local_best_score = self.scorer.score(local_best_assignment,
             history=False)
         current_assignment = local_best_assignment
         self.sampled = []
@@ -385,7 +385,7 @@ class Optimiser(object):
 
             new_assignment = self.move(sample_size, current_assignment,
                                        nreassign)
-            new_assignment = self.constrain_assignment(new_assignment, 
+            new_assignment = self.constrain_assignment(new_assignment,
                 nclusters)
             score = self.scorer.score(new_assignment, history=history)
             self.update(new_assignment)
@@ -401,29 +401,29 @@ class Optimiser(object):
             elif np.abs(score - local_best_score) < EPS:
                 self.stayed_put += 1
                 self.done_worse = 0
-                print self.status(new_assignment, 
-                    '(No improvement - [{}/{}])'.format(self.stayed_put, 
+                print self.status(new_assignment,
+                    '(No improvement - [{}/{}])'.format(self.stayed_put,
                         max_stayed_put))
             else:
                 self.sampled = []
                 #self.stayed_put = 0
                 self.done_worse += 1
-                print self.status(new_assignment, 
-                    '(Did worse - [{}/{}]'.format(self.done_worse, 
+                print self.status(new_assignment,
+                    '(Did worse - [{}/{}]'.format(self.done_worse,
                         max_done_worse))
-            
+
             self.i += 1
 
         self._reset_counts()
         return local_best_assignment
 
-    def optimise_with_variable_clusters(self, 
-            assignment, 
-            target_clusters, 
-            max_clusters, 
+    def optimise_with_variable_clusters(self,
+            assignment,
+            target_clusters,
+            max_clusters,
             optimise_on_ascent=True,
-            optimise_on_descent=True, 
-            update=True, 
+            optimise_on_descent=True,
+            update=True,
             **kwargs):
 
         if max_clusters < target_clusters:
@@ -453,10 +453,9 @@ class Optimiser(object):
         return self.constrain_assignment(assignment, target_clusters)
 
     def write(self, filename):
-        import csv
         headers = ['Iteration', 'CPU Time', 'Likelihood', 'Partition',
             'NClusters']
-        output = [[i] + x + len(x[-1]) 
+        output = [[i] + x + len(x[-1])
                     for (i, x) in enumerate(self.scorer.history)]
 
         with open(filename, 'w+') as file_:
@@ -492,50 +491,50 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Clustering optimiser')
 
-    parser.add_argument('-n', 
-        '--nclusters', 
+    parser.add_argument('-n',
+        '--nclusters',
         type=int)
 
-    parser.add_argument('-f', 
-        '--format', 
+    parser.add_argument('-f',
+        '--format',
         default='phylip')
 
-    parser.add_argument('-d', 
-        '--datatype', 
+    parser.add_argument('-d',
+        '--datatype',
         default='protein')
 
-    parser.add_argument('-i', 
-        '--input_dir', 
+    parser.add_argument('-i',
+        '--input_dir',
         default='./')
 
-    parser.add_argument('-c', 
-        '--compression', 
+    parser.add_argument('-c',
+        '--compression',
         default=None)
 
-    parser.add_argument('-t', 
-        '--tmpdir', 
+    parser.add_argument('-t',
+        '--tmpdir',
         default='/tmp/')
 
-    parser.add_argument('-r', 
-        '--nreassign', 
+    parser.add_argument('-r',
+        '--nreassign',
         default=10, type=int)
 
-    parser.add_argument('-w', 
-        '--max_done_worse', 
+    parser.add_argument('-w',
+        '--max_done_worse',
         default=5)
 
-    parser.add_argument('-s', 
-        '--sample_size', 
-        default=10, 
+    parser.add_argument('-s',
+        '--sample_size',
+        default=10,
         type=int)
 
-    parser.add_argument('-o', 
-        '--output', 
+    parser.add_argument('-o',
+        '--output',
         default=None)
 
-    parser.add_argument('-m', 
-        '--merge', 
-        action='store_true', 
+    parser.add_argument('-m',
+        '--merge',
+        action='store_true',
         help='Enable merge/splitting of clusters')
 
     parser.add_argument('-max',
@@ -546,20 +545,20 @@ if __name__ == '__main__':
         type=int,
         help='Target number of clusters to descend to')
 
-    parser.add_argument('-p', 
-        '--partition', 
-        default=None, 
+    parser.add_argument('-p',
+        '--partition',
+        default=None,
         help='Initial partitioning (e.g. from clustering), given as a file')
 
-    parser.add_argument('--hierarchical', 
-        default=None, 
-        choices=['bottom_up', 'top_down'], 
+    parser.add_argument('--hierarchical',
+        default=None,
+        choices=['bottom_up', 'top_down'],
         help=('use top-down/bottom-up hierarchical clustering to generate'
             ' initial partitioning'))
 
-    parser.add_argument('-q', 
+    parser.add_argument('-q',
         '--quit',
-        action='store_true', 
+        action='store_true',
         help='Quit before optimising, just return initial partition and score')
 
 
@@ -569,36 +568,36 @@ if __name__ == '__main__':
     if args.sample_size < args.nreassign:
         args.sample_size = args.nreassign
     opt_args = {
-        'nreassign': args.nreassign, 'sample_size': args.sample_size, 
+        'nreassign': args.nreassign, 'sample_size': args.sample_size,
         'max_done_worse': args.max_done_worse
     }
 
     new_tmpdir = tempfile.mkdtemp(prefix='tmpwrap_mgp_', dir=args.tmpdir)
 
     c = Collection(input_dir=args.input_dir,
-                   compression=args.compression, 
-                   file_format=args.format, 
+                   compression=args.compression,
+                   file_format=args.format,
                    datatype=args.datatype,
                    tmpdir=new_tmpdir)
 
     # Initial partitioning - either random or specified from a file
     if args.partition is not None:
-        
+
         if not os.path.exists(args.partition):
             print 'Partition file {0} not found'.format(args.partition)
             sys.exit(1)
         else:
             p = get_partition_from_file(args.partition)
-        
+
         if not len(p) == len(c):
             print ('Partition is of incorrect length '
-                '(expected {0}, got {1}'.format(len(c), 
+                '(expected {0}, got {1}'.format(len(c),
                 len(p)))
             sys.exit(1)
 
-        o = Optimiser(args.nclusters, c, tmpdir=new_tmpdir, 
+        o = Optimiser(args.nclusters, c, tmpdir=new_tmpdir,
                 initial_assignment=p)
-        
+
     else:
         o = Optimiser(args.nclusters, c, tmpdir=new_tmpdir)
 
@@ -619,12 +618,12 @@ if __name__ == '__main__':
     if args.quit:
         pass
 
-    else: 
+    else:
         if args.merge is True:
-            o.optimise_with_merge(o.global_best_assignments[args.nclusters], 
+            o.optimise_with_merge(o.global_best_assignments[args.nclusters],
                 update=True, **opt_args)
         else:
-            o.optimise(o.global_best_assignments[args.nclusters], 
+            o.optimise(o.global_best_assignments[args.nclusters],
                 update=True, **opt_args)
 
     def id_generator(size=6, chars=string.ascii_uppercase + string.digits):

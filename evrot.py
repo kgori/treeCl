@@ -2,7 +2,7 @@ import numpy as np
 from evrot_extensions import build_Uab, sum_dJ
 
 def buildA(X, U1, Vk, U2):
-    
+
     # A = X*U1*Vk*U2
     A = X.dot(U1.dot(Vk.dot(U2)))
 
@@ -16,7 +16,7 @@ def gradU(theta, k, ik, jk, dim):
     tt = theta[k]
     sin = np.sin(tt)
     cos = np.cos(tt)
-    
+
     V[[i,i,j,j],[i,j,i,j]] = [-sin,cos,-cos,-sin]
 
     return V
@@ -33,7 +33,7 @@ def evqualitygrad(X, theta, ik, jk, angle_num, angle_index, dim, ndata):
 
     U1 = build_Uab(theta, 0, angle_index-1, ik, jk, dim)
     U2 = build_Uab(theta, angle_index+1, angle_num-1, ik, jk, dim)
-    
+
     A = buildA(X, U1, V, U2)
 
     Y = rotate_givens(X, theta, ik, jk, angle_num, dim)
@@ -48,7 +48,7 @@ def evqualitygrad(X, theta, ik, jk, angle_num, angle_index, dim, ndata):
     mv_sq = max_values**2
     mv_cb = max_values*mv_sq
     A_x_Y = A*Y
-    
+
     # Compute gradient
     dJ = sum_dJ(A_x_Y, Y_sq, mv_sq, mv_cb, max_A_values, dim, ndata)
 
@@ -58,7 +58,7 @@ def evqual(X, ndata, dim):
 
     Xsquare = X*X
     max_values = Xsquare.max(axis=1)
-    max_index = Xsquare.argmax(axis=1)
+    # max_index = Xsquare.argmax(axis=1)
 
     # Compute cost
     Xsq_div_maxvals = Xsquare/max_values.reshape( (ndata,1) )
@@ -71,7 +71,7 @@ def cluster_assign(X):#, ik, jk, dim, ndata):
 
     (ndata,dim)=X.shape
     Xsq = X*X
-    max_values = np.max(Xsq, axis=1)
+    # max_values = np.max(Xsq, axis=1)
     max_index = np.argmax(Xsq, axis=1)
     cluster_count = np.bincount(max_index, minlength=dim)
     cluster_cell_array = [ np.array( [0]*count ) for count in cluster_count  ]
@@ -84,7 +84,7 @@ def cluster_assign(X):#, ik, jk, dim, ndata):
                 cluster[cind] = i+1
                 cind+=1
     return cluster_cell_array
-    
+
 def test(X):
     (ndata, dim) = X.shape
     (ik,jk) = np.triu_indices(dim,k=1)
@@ -113,7 +113,7 @@ def main(X, max_iter=200):
     Q_old2 = Q
     alpha = 1
     for iteration in range(max_iter):
-        
+
         for d in range(angle_num):
             dQ = evqualitygrad(X, theta, ik, jk, angle_num, d, dim, ndata)
             theta_new[d] = theta[d] - alpha * dQ

@@ -152,7 +152,7 @@ class Plotter(object):
 if __name__ == '__main__':
     # TESTS
 
-    from collection import Collection
+    # from collection import Collection
     from lib.remote.utils import fileIO
 
     path_to_file = fileIO.path_to(__file__)

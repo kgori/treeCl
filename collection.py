@@ -1,11 +1,8 @@
 #!/usr/bin/env python
 
-import glob
-import os
 import sys
 import re
 import timeit
-from copy import deepcopy
 from dendropy import TaxonSet
 from lib.local.datastructs.trcl_seq import TrClSeq, concatenate
 from lib.local.datastructs.trcl_tree import TrClTree
@@ -14,8 +11,8 @@ from lib.remote.externals.phyml import runPhyml
 from lib.remote.externals.treecollection import runTC
 from lib.local.externals.DVscript import runDV
 from distance_matrix import DistanceMatrix
-from lib.remote.errors import FileError, DirectoryError, OptionError, \
-    optioncheck, directorymake, directorycheck
+from lib.remote.errors import  OptionError, optioncheck, directorymake,\
+    directorycheck
 from lib.remote.utils import fileIO
 
 sort_key = lambda item: tuple((int(num) if num else alpha) for (num, alpha) in

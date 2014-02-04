@@ -1,10 +1,7 @@
 #!/usr/bin/env python
 
 import numpy as np
-from matplotlib import pyplot as plt
-from matplotlib import cm as CM
-from lib.local.externals.gtp import GTP, geodist
-from lib.local.datastructs.trcl_tree import TrClTree
+from lib.local.externals.tp import geodist
 from lib.remote.errors import optioncheck
 
 
@@ -42,11 +39,11 @@ def get_distance_matrix(trees, metric, tmpdir, dec_places, **kwargs):
 
     if metric == 'geo':
         return get_geo_distances(trees, dec_places, tmpdir=tmpdir)
-    
+
     if metric == 'rf':
-        n = len(trees[0])
+        # n = len(trees[0])
         matrix = get_dendropy_distances(trees, 'rfdist', dec_places, **kwargs)
-    
+
     elif metric == 'wrf':
 
         matrix = get_dendropy_distances(trees, 'wrfdist', dec_places, **kwargs)
@@ -125,7 +122,7 @@ class DistanceMatrix(np.ndarray):
         dec_places=None,
         ):
         optioncheck(metric, ['euc', 'geo', 'rf', 'wrf'])
-        input_array = get_distance_matrix(trees, metric, tmpdir, 
+        input_array = get_distance_matrix(trees, metric, tmpdir,
             normalise=normalise, dec_places=dec_places)
         obj = np.asarray(input_array, dtype).view(cls)
         obj.metric = metric
@@ -174,12 +171,12 @@ class DistanceMatrix(np.ndarray):
         mask = (mask if mask is not None else np.ones(self.shape, dtype=bool))
         assert isconnected(mask)
         scale = (scale if scale is not None else np.ones(self.shape))
-         
+
         ix = np.where(np.logical_not(mask))
         scaled_matrix = -self ** 2 / scale
         # inputs where distance = 0 and scale = 0 result in NaN:
         # the next line replaces NaNs with -1.0
-        scaled_matrix[np.where(np.isnan(scaled_matrix))] = -1.0 
+        scaled_matrix[np.where(np.isnan(scaled_matrix))] = -1.0
         affinity_matrix = np.exp(scaled_matrix)
         affinity_matrix[ix] = 0.  # mask
         affinity_matrix.flat[::len(affinity_matrix) + 1] = 0. # diagonal
@@ -314,7 +311,7 @@ class DistanceMatrix(np.ndarray):
     def kindex(self, k):
         """ Returns indices to select the kth nearest neighbour"""
 
-        ix = (np.arange(len(self)), self.argsort(axis=0)[k]) 
+        ix = (np.arange(len(self)), self.argsort(axis=0)[k])
         #ix = list(np.ix_(*[np.arange(i) for i in self.shape]))
         #ix[0] = self.argsort(0)[k:k+1, :]
         return ix
@@ -348,9 +345,9 @@ class DistanceMatrix(np.ndarray):
     def laplace(self, affinity_matrix, shi_malik_type=False):
         """ Converts affinity matrix into graph Laplacian, for spectral
         clustering. (At least) two forms exist:
-        
+
         L = (D^-0.5).A.(D^-0.5) - default
-        
+
         L = (D^-1).A - `Shi-Malik` type, from Shi Malik paper"""
 
         diagonal = affinity_matrix.sum(axis=1) - affinity_matrix.diagonal()

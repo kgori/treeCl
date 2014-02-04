@@ -2,7 +2,7 @@
 
 import os
 import numpy as np
-from collection import Collection, Scorer
+from collection import Scorer
 from random import randint
 from clustering import Partition
 from distance_matrix import DistanceMatrix

@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
-import treeCl
+# import treeCl
 from treeCl import Partition
 from treeCl.lib.local.datastructs.trcl_tree import TrClTree
-from treeCl.lib.remote.datastructs.tree import SPR, NNI, LGT
+# from treeCl.lib.remote.datastructs.tree import SPR, NNI, LGT
 from treeCl.lib.local.externals.alf import ALF
 from treeCl.lib.remote.utils import fileIO
 from treeCl.lib.remote import errors
@@ -15,7 +15,7 @@ class Simulator(object):
     """
     Simulate alignments from several trees.
     Args:
-    class_list          = a list with an entry for each class, which is the 
+    class_list          = a list with an entry for each class, which is the
                         (integer) number of genes in that class
     permutations_list   = a list with an entry for each class, which is the
                         (integer) number of permutations the class tree has
@@ -74,7 +74,7 @@ class Simulator(object):
         self.outdir = outdir
         self.generate_class_trees() # sets self.class_trees dict
         self.make_alf_dirs() # sets self.alf_dirs dict
-        self.write_alf_params() 
+        self.write_alf_params()
         self.get_true_partition()
 
     @property
@@ -136,10 +136,10 @@ class Simulator(object):
     def write_alf_params(self):
         if not hasattr(self, 'alf_dirs'):
             self.make_alf_dirs()
-        
+
         if not hasattr(self, 'class_trees'):
             self.generate_class_trees()
-        
+
         alf_params = {}
         for k in range(self.num_classes):
             alfdir = self.alf_dirs[k+1]
@@ -150,7 +150,7 @@ class Simulator(object):
             seqlength = self.gene_length_min
             gene_length_kappa = self.gene_length_kappa
             gene_length_theta = self.gene_length_theta
-            alf_obj = ALF(tree=tree, 
+            alf_obj = ALF(tree=tree,
                 datatype=datatype, num_genes=num_genes,
                 seqlength=seqlength, gene_length_kappa=gene_length_kappa,
                 gene_length_theta=gene_length_theta, name=name, tmpdir=alfdir )
@@ -172,8 +172,8 @@ class Simulator(object):
         all_records = []
         for k in range(self.num_classes):
             simulated_records = self.alf_params[k+1].run()
-            names = ['class{0}_{1:0>{2}}'.format(k + 1, i, 
-                len(str(self.class_list[k]))) for i in range(1, 
+            names = ['class{0}_{1:0>{2}}'.format(k + 1, i,
+                len(str(self.class_list[k]))) for i in range(1,
                 len(simulated_records) + 1)]
             for (rec, name) in zip(simulated_records, names):
                 rec.name = name

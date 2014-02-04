@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import numpy as np
-from distance_matrix import DistanceMatrix
 from scipy.cluster.hierarchy import linkage, fcluster, dendrogram
 try:
     from Bio.Cluster import kmedoids
@@ -20,7 +19,6 @@ try:
 except ImportError:
     # print 'evrot is not currently in use'
     pass
-from copy import deepcopy
 from lib.remote.utils import fileIO
 import uuid
 import os
@@ -114,13 +112,13 @@ class Clustering(object):
 
         kp, mask, est_scale = matrix.binsearch_mask(logic=logic) # prune anyway,
                                                     # get local scale estimate
-        
+
         ks = kp # ks and kp log the scaling and pruning parameters
         est_ks = ks
 
         # ADJUST MASK
         if prune == -1: # change mask to all
-            kp   = len(matrix) - 1 
+            kp   = len(matrix) - 1
             mask = np.ones(matrix.shape, dtype=bool)
         elif isinstance(prune, int) and prune > 0:
             kp   = prune
@@ -137,7 +135,7 @@ class Clustering(object):
             elif isinstance(local_scale, int):
                 ks    = local_scale
                 scale = matrix.kscale(local_scale)
-        else: 
+        else:
             scale = est_scale
 
         # ZeroDivisionError safety check
@@ -153,9 +151,9 @@ class Clustering(object):
             print 'Scaling parameter: {0}'.format(ks)
 
         aff = matrix.affinity(mask, scale)
-        
+
         # ZeroDivisionError triggers pickle dump
-        try: 
+        try:
             laplace = matrix.laplace(aff, **kwargs)
         except ZeroDivisionError:
             dump = str(uuid.uuid4()).split('-')[0]
@@ -175,7 +173,7 @@ class Clustering(object):
 
         if nclusters == 1:
             return Partition([1]*len(self.distance_matrix))
-            
+
         (coords, cve) = decomp.coords_by_dimension(nclusters)
         if verbosity > 0:
             print '{0} dimensions explain {1:.2f}% of the variance'.format(nclusters,
@@ -251,7 +249,7 @@ class Clustering(object):
                 translation[index - 1] = group_number
         if no_of_empty_clusters > 0:
             print 'Found {0} empty clusters'.format(
-                no_of_empty_clusters)   
+                no_of_empty_clusters)
         p = Partition(tuple(translation))
         return p
 
@@ -285,7 +283,7 @@ class Clustering(object):
             p = self.translate_evrot_clustering(cluster)
             clusters[i] = p
             corrected_groups[i] = max(p.partition_vector)
-         
+
         # ######################
 
         index = self.best_evrot_clustering(quality_scores)
@@ -294,7 +292,7 @@ class Clustering(object):
         if verbose:
             print 'Discovered {0} clusters'.format(optimum_nclusters)
             print 'Quality scores: {0}'.format(quality_scores)
-            
+
         if KMeans:
             KMeans_clusters = [self.kmeans(groups[i], rotated_vectors[i])
                                 for i in range(len(groups))]
@@ -311,7 +309,6 @@ class Clustering(object):
         ):
 
         groups = range(min_groups, max_groups + 1)
-        vector_length = eigenvectors.shape[0]
         current_vector = eigenvectors[:, :groups[0]]
         n = max_groups - min_groups + 1
 
@@ -343,7 +340,7 @@ class Clustering(object):
                 index = i
         return index
 
-        
+
 
 
 class Partition(object):

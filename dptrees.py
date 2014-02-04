@@ -6,8 +6,6 @@ Tree DP means
 
 import numpy as np
 import sys
-from collections import defaultdict
-from treeCl.collection import Collection, Scorer
 from treeCl.clustering import Partition
 # from treeCl.lib.remote.datastructs import TrClTree
 
@@ -22,10 +20,10 @@ from treeCl.clustering import Partition
 
 class DP_trees(object):
 
-    """ Preparation: c = Collection(...), sc = Scorer(c.records, 
+    """ Preparation: c = Collection(...), sc = Scorer(c.records,
     'Treecollection / nj / ml'). c.calc_distances(), etc...,
     dm = c.distance_matrix('euc')
-    mean = dm[np.triu_indices(len(c), 1)].mean()        
+    mean = dm[np.triu_indices(len(c), 1)].mean()
     dp = DP_trees(sc, lmbda=mean)
     dp.maxiter=1
     dp.run() """
@@ -81,9 +79,9 @@ class DP_trees(object):
         ix = self.get_index_list(k)
         self.assignments[ix] = -1
 
-    def assign_orphans(self):
-        orphan_ix = self.get_index_list(-1)
-        pass
+    # def assign_orphans(self):
+    #     orphan_ix = self.get_index_list(-1)
+    #     pass
 
 
     def set_ith_cluster_tree(self, i, tree):
@@ -98,7 +96,7 @@ class DP_trees(object):
     def score(self):
         return self.scorer.score(self.assignments_to_Partition())
 
-    def update_assignments(self): 
+    def update_assignments(self):
         for i, rec in enumerate(self.records):
             dists = [self.distance(rec, t) for t in self.cluster_trees]
             print dists
@@ -107,7 +105,7 @@ class DP_trees(object):
             if min_dist < self.lmbda:
                 self.assignments[i] = k
 
-            else: 
+            else:
                 self.create(i)
 
 
