@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import numpy as np
-from lib.local.externals.tp import geodist
+from lib.local.externals.gtp import geodist
 from lib.remote.errors import optioncheck
 
 
