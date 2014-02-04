@@ -1,9 +1,11 @@
+
 #!/usr/bin/env python
 
 from ...remote.externals.external import ExternalSoftware
 from ...remote.errors import FileError, filecheck
 from ...remote.utils import fileIO
 import numpy as np
+import numbers
 
 
 class GTP(ExternalSoftware):
@@ -15,7 +17,7 @@ class GTP(ExternalSoftware):
     default_binary = 'gtp.jar'
     default_env = 'GTP_PATH'
     local_dir = fileIO.path_to(__file__)
-    get_safe_newick_string = lambda self, tree: tree.as_string('newick', 
+    get_safe_newick_string = lambda self, tree: tree.as_string('newick',
                 internal_labels=False, suppress_rooting=True).rstrip()
 
     def __str__(self):
@@ -39,38 +41,63 @@ class GTP(ExternalSoftware):
             '',
             ))
 
+    def check_row_value(self, row, maxval):
+        if row is not None:
+            if not isinstance(row, numbers.Number):
+                raise ValueError('row parameter ({0}) is not a number'.format(
+                    row))
+            if row > (maxval - 1):
+                raise ValueError('row value ({0}) is too big to index into'
+                    ' a tree list of length {1}'.format(row, maxval))
+            return int(row)
+
     def allrooted(self, trees):
         return all(tree.rooted for tree in trees)
 
-    def call(self, rooted):
+    def call(self, rooted, row):
 
         bincall = 'java -jar {0}'.format(self.binary)
+        flags = []
+        if row is not None:
+            flags.append('-r')
         if not rooted:
-            flags = '-u -o'
-        else:
-            flags = '-o'
+            flags.append('-u')
+        flags.append('-o')
+        flags = ' '.join(flags)
+
         outf = '{0}/output.txt'.format(self.tmpdir)
         inf = '{0}/geotrees.nwk > /dev/null'.format(self.tmpdir)
 
         cmd = ' '.join((bincall, flags, outf, inf))
+        print cmd
         fileIO.syscall(cmd)
 
     def pairwise(self, tree1, tree2):
         return self.run((tree1, tree2))[0, 1]
 
-    def read(self, size):
-        matrix = np.zeros((size, size))
+    def read(self, size, row, translation):
+        row = self.check_row_value(row, size)
+        if row is not None:
+            matrix = np.zeros((1,size))
+        else:
+            matrix = np.zeros((size, size))
 
         try:
             with open('{0}/output.txt'.format(self.tmpdir)) as outf:
                 for line in outf:
                     line = line.rstrip()
                     if line:
+                        # print "line = ", line
                         (i, j, value) = line.split()
                         i = int(i)
-                        j = int(j)
+                        j = translation[int(j)]
+                        # print "i, j = ", i, j
                         value = float(value)
-                        matrix[i, j] = matrix[j, i] = value
+                        # print "value = ", value
+                        # print "matrix dims = ", matrix.shape
+                        matrix[i, j] = value
+                        if row is None:
+                            matrix[j, i] = value
             self.add_tempfile('{0}/output.txt'.format(self.tmpdir))
             return matrix
         except IOError, e:
@@ -79,12 +106,13 @@ class GTP(ExternalSoftware):
             print 'Geodesic distances couldn\'t be calculated'
             raise
 
-    def run(self, trees):
-        self.write(trees)
+    def run(self, trees, row=None):
+        row = self.check_row_value(row, len(trees))
+        translation = self.write(trees, row)
         rooted = self.allrooted(trees)
-        self.call(rooted)
+        self.call(rooted, row)
         try:
-            matrix = self.read(len(trees))
+            matrix = self.read(len(trees), row, translation)
             self.clean()
             return matrix
         except IOError:
@@ -92,11 +120,29 @@ class GTP(ExternalSoftware):
             matrix = None
             raise
 
-    def write(self, trees):
+    def write(self, trees, row):
+        row = self.check_row_value(row, len(trees))
         with open('{0}/geotrees.nwk'.format(self.tmpdir), 'w') as tmpf:
-            tmpf.write('\n'.join(self.get_safe_newick_string(tree) for tree in
-                       trees))
+            if row is None:
+                tmpf.write('\n'.join(self.get_safe_newick_string(tree)
+                                     for tree in trees))
+                translation = zip(range(len(trees)), range(len(trees)))
+
+            else:
+                tmpf.write(self.get_safe_newick_string(trees[row]) + '\n')
+                translation = []
+                for i, tree in enumerate(trees):
+                    if i < row:
+                        tmpf.write(self.get_safe_newick_string(tree) + '\n')
+                        translation.append((i + 1, i))
+                    elif i == row:
+                        translation.append((0, i))
+                    else:
+                        tmpf.write(self.get_safe_newick_string(tree) + '\n')
+                        translation.append((i, i))
+
         self.add_tempfile('{0}/geotrees.nwk'.format(self.tmpdir))
+        return dict(translation) # key:pos_new_list => value:pos_orig_list
 
 
 def breakpoints(n, m=100):
@@ -158,11 +204,14 @@ def geodist_offdiagonals(matrix, trees, breakpoints, calculator):
     for (r,c) in zip(*offdiagonal_indices(breakpoints)):
         matrix[r,c] = matrix[c,r] = calculator.pairwise(trees[r], trees[c])
 
-def geodist(trees, tmpdir, breaks=None):
+def geodist(trees, tmpdir, row=None, breaks=None):
+
     g = GTP(tmpdir=tmpdir)
-    if breaks is None:
-        return g.run(trees)
     l = len(trees)
+    row = g.check_row_value(row, l)
+    if breaks is None:
+        return g.run(trees, row)
+
     bps = breakpoints(l, breaks)
     matrix = np.zeros((l,l))
     geodist_diagonals(matrix, trees, bps, g)
