@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 import re
+from ...errors import filecheck, FileError
 
 """
-TO DO: Add PAML class to estimate these kinds of parameters better then 
+TO DO: Add PAML class to estimate these kinds of parameters better then
 can dispense with this
 """
 
@@ -56,3 +57,16 @@ def extract_GTR_parameters(tree):
         )
 
     return d
+    
+# TODO: refactor the Tree.new_tree_from_phyml_results to here
+# def load_tree(filename):
+#     tree_file = '{0}_phyml_tree.txt'.format(filename)
+#     stats_file = '{0}_phyml_stats.txt'.format(filename)
+#     try:
+#         filecheck(filename)
+#         filecheck(tree_file)
+#         filecheck(statsfile)
+
+#     except FileError, e:
+#         raise
+

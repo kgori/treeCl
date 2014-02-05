@@ -2,7 +2,8 @@
 
 from ...remote.externals.external import ExternalSoftware
 from ..utils import phymlIO
-from ...remote.errors import filecheck, directorymake, directoryquit, optioncheck, OptionError
+from ...remote.errors import filecheck, directorymake, directoryquit, \
+    optioncheck, OptionError
 from ..datastructs.trcl_seq import TrClSeq
 from textwrap import dedent
 import glob
@@ -471,8 +472,8 @@ class ALF(ExternalSoftware):
             directorymake('{0}/alfsim_param_dir'.format(self.tmpdir))
         self.working_dir = \
             directorymake('{0}/alfsim_working_dir'.format(self.tmpdir))
-        
-        if datatype == 'dna':               # Length correction as ALF assumes 
+
+        if datatype == 'dna':               # Length correction as ALF assumes
             seqlength = (seqlength / 3) + 1 # we mean amino acid sequences
 
         self.params = Params(simulation_name=name,
@@ -539,7 +540,7 @@ class ALF(ExternalSoftware):
                                     self.name))
         if verbosity > 1:
             print alignments
-        
+
         recs = []
         for f in alignments:
             if length_is_strict:
@@ -558,7 +559,7 @@ class ALF(ExternalSoftware):
         if verbosity > 1:
             print stdout, stderr
         records = self.read(verbosity, length_is_strict=length_is_strict)
-        if cleanup: 
+        if cleanup:
             self.clean()
         return records
 
@@ -586,7 +587,7 @@ def simulate_from_tree(
 
     directoryquit(tmpdir)
     optioncheck(datatype, ['dna', 'protein'])
-    
+
     if datatype == 'dna':
         optioncheck(model, ['CPAM', 'ECM', 'ECMu'])
     else:

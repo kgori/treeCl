@@ -6,7 +6,7 @@ import timeit
 from dendropy import TaxonSet
 from lib.local.datastructs.trcl_seq import TrClSeq, concatenate
 from lib.local.datastructs.trcl_tree import TrClTree
-# from treeCl.externals import runDV, simulate_from_tree
+from treeCl.externals.alf import simulate_from_record_GTR, simulate_from_tree
 from lib.remote.externals.phyml import runPhyml
 from lib.remote.externals.treecollection import runTC
 from lib.local.externals.DVscript import runDV
@@ -136,14 +136,14 @@ class Collection(object):
     def calc_TC_trees(self, verbosity=0):
         self.analysis = 'TreeCollection'
         for rec in self.records:
-            runTC(rec, self.tmpdir, verbosity=verbosity, 
+            runTC(rec, self.tmpdir, verbosity=verbosity,
                 taxon_set=self.taxon_set)
             rec.tree = TrClTree.cast(rec.tree)
 
     def calc_ML_trees(self, verbosity=0):
         self.analysis = 'ml'
         for rec in self.records:
-            runPhyml(rec, self.tmpdir, analysis=self.analysis, 
+            runPhyml(rec, self.tmpdir, analysis=self.analysis,
                 verbosity=verbosity, taxon_set=self.taxon_set)
             rec.tree = TrClTree.cast(rec.tree)
 
@@ -159,7 +159,7 @@ class Collection(object):
     def distance_matrix(self, metric, **kwargs):
         """ Generate a distance matrix from a fully-populated Collection """
         trees = [rec.tree for rec in self.records]
-        return DistanceMatrix(trees, metric, tmpdir=self.tmpdir, 
+        return DistanceMatrix(trees, metric, tmpdir=self.tmpdir,
             **kwargs)
 
     def permuted_copy(self):
@@ -214,7 +214,7 @@ class Scorer(object):
                                 verbosity=self.verbosity))
         else:
 
-            tree = TrClTree.cast(runPhyml(concat, self.tmpdir, 
+            tree = TrClTree.cast(runPhyml(concat, self.tmpdir,
                                 analysis=self.analysis,
                                 verbosity=self.verbosity))
 
