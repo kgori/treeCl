@@ -6,7 +6,7 @@ import timeit
 from dendropy import TaxonSet
 from lib.local.datastructs.trcl_seq import TrClSeq, concatenate
 from lib.local.datastructs.trcl_tree import TrClTree
-from treeCl.externals.alf import simulate_from_record_GTR, simulate_from_tree
+from lib.local.externals.alf import simulate_from_record_GTR, simulate_from_tree
 from lib.remote.externals.phyml import runPhyml
 from lib.remote.externals.treecollection import runTC
 from lib.local.externals.DVscript import runDV
@@ -17,8 +17,6 @@ from lib.remote.utils import fileIO
 
 sort_key = lambda item: tuple((int(num) if num else alpha) for (num, alpha) in
                               re.findall(r'(\d+)|(\D+)', item))
-
-get_name = lambda i: i[i.rindex('/') + 1:i.rindex('.')]
 
 
 class NoRecordsError(Exception):
@@ -127,7 +125,9 @@ class Collection(object):
         files.sort(key=sort_key)
 
         return [TrClSeq(f, file_format=file_format, datatype=self.datatype,
-                name=get_name(f), tmpdir=self.tmpdir) for f in files]
+                        name=fileIO.strip_extensions(f),
+                        tmpdir=self.tmpdir)
+                for f in files]
 
     def calc_distances(self, verbosity=0):
         for rec in self.records:
@@ -155,6 +155,13 @@ class Collection(object):
             rec.tree = TrClTree.cast(rec.tree)
         if verbosity == 1:
             print
+
+    def get_phyml_command_strings(self, analysis, tmpdir, verbosity=0):
+        cmds = [runPhyml(rec, tmpdir, analysis=analysis,
+                         verbosity=verbosity, taxon_set=self.taxon_set,
+                         dry_run=True)
+                for rec in self.records]
+        return cmds
 
     def distance_matrix(self, metric, **kwargs):
         """ Generate a distance matrix from a fully-populated Collection """

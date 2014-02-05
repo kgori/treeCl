@@ -2,3 +2,4 @@ aa_alignments
 *.pyc
 *DS_Store*
 tree_collection/cython/build/
+cpp/*

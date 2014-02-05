@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
 from ...remote.externals.external import ExternalSoftware
+from ...remote.utils.gapmasker import GapMasker
 from ..utils import phymlIO
 from ...remote.errors import filecheck, directorymake, directoryquit, \
-    optioncheck, OptionError
+    optioncheck, OptionError, directorycheck
 from ..datastructs.trcl_seq import TrClSeq
 from textwrap import dedent
 import glob
@@ -606,9 +607,8 @@ def simulate_from_tree(
     except:
         gamma = 1
 
-    sim = ALF(tree, datatype, length, tmpdir=tmpdir)
+    sim = ALF(tree, datatype, tmpdir, seqlength=length)
 
-    sim.params.indels()
     sim.params.rate_variation(gamma)
     sim.params.one_word_model(model)
 
@@ -618,6 +618,75 @@ def simulate_from_tree(
         return record.split_by_lengths(split_lengths, gene_names)
     return record
 
+
+def simulate_from_record(
+    record,
+    length=None,
+    tmpdir='/tmp',
+    model='WAG',
+    allow_nonsense=True,
+    split_lengths=None,
+    gene_names=None,
+    mask_gaps=True
+    ):
+
+    if not record.tree:
+        raise Exception('Simulation template must have an associated tree')
+
+    directorycheck(tmpdir)
+    optioncheck(record.datatype, ['dna', 'protein'])
+
+    if record.datatype == 'dna':
+        optioncheck(model, ['CPAM', 'ECM', 'ECMu', 'GTR'])
+    else:
+        optioncheck(model, [
+                'CPAM',
+                'ECM',
+                'ECMu',
+                'GCB',
+                'JTT',
+                'LG',
+                'WAG',
+                ])
+
+    length = (length if length is not None else record.seqlength)
+    gamma = phymlIO.extract_gamma_parameter(record.tree)
+    GTR_parameters = None
+
+    sim = ALF(record.tree, record.datatype, tmpdir, seqlength=length)
+    if model == 'GTR':
+        GTR_parameters = phymlIO.extract_GTR_parameters(record.tree)
+        sim.params.gtr_model(
+        CtoT=GTR_parameters['CtoT'],
+        AtoT=GTR_parameters['AtoT'],
+        GtoT=GTR_parameters['GtoT'],
+        AtoC=GTR_parameters['AtoC'],
+        CtoG=GTR_parameters['CtoG'],
+        AtoG=GTR_parameters['AtoG'],
+        Afreq=GTR_parameters['Afreq'],
+        Cfreq=GTR_parameters['Cfreq'],
+        Gfreq=GTR_parameters['Gfreq'],
+        Tfreq=GTR_parameters['Tfreq'],
+        allow_nonsense=allow_nonsense,
+        )
+    else:
+        sim.params.one_word_model(model)
+    sim.params.rate_variation(gamma)
+
+    sim_record = sim.run(length_is_strict=True)[0]
+    print 'sim record: ', repr(sim_record)
+    sim_record.tree = record.tree
+    sim_record.name = record.name
+    sim_record.datatype = record.datatype
+
+    if mask_gaps:
+        gp = GapMasker(record)
+        gp.mask(sim_record)
+
+    if split_lengths and gene_names:
+        return sim_record.split_by_lengths(split_lengths, gene_names)
+
+    return sim_record
 
 def simulate_from_record_GTR(
     record,
@@ -632,11 +701,11 @@ def simulate_from_record_GTR(
 
     length = record.seqlength
     tree = record.tree
-    directoryquit(tmpdir)
+    directorycheck(tmpdir)
     GTR_parameters = phymlIO.extract_GTR_parameters(tree)
     gamma = phymlIO.extract_gamma_parameter(tree)
 
-    sim = ALF(tree, 'dna', length, name, tmpdir=tmpdir)
+    sim = ALF(tree, 'dna', tmpdir, length, name)
 
     sim.params.indels()
     sim.params.rate_variation(gamma)

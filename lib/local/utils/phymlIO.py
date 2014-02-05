@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import re
-from ...errors import filecheck, FileError
+# from ...remote.errors import filecheck, FileError
 
 """
 TO DO: Add PAML class to estimate these kinds of parameters better then
@@ -12,8 +12,8 @@ def extract_gamma_parameter(tree):
         try:
             gamma = float(gamma_regex.search(tree.output).group())
         except AttributeError:
-            print 'Couldn\'t extract parameters'
-            return
+            print 'Couldn\'t extract alpha parameter'
+            return 1.0
         return gamma
 
 def extract_GTR_parameters(tree):
@@ -40,8 +40,9 @@ def extract_GTR_parameters(tree):
         CtoT = float(CtoT_regex.search(tree.output).group())
         GtoT = float(GtoT_regex.search(tree.output).group())
     except AttributeError:
-        print 'Couldn\'t extract parameters'
-        return
+        print 'Couldn\'t extract GTR parameters'
+        Afreq = Cfreq = Gfreq = Tfreq = 0.25
+        AtoC = AtoG = AtoT = CtoG = CtoT = GtoT = 1.0
 
     d = dict(
         Afreq=Afreq,
@@ -57,7 +58,7 @@ def extract_GTR_parameters(tree):
         )
 
     return d
-    
+
 # TODO: refactor the Tree.new_tree_from_phyml_results to here
 # def load_tree(filename):
 #     tree_file = '{0}_phyml_tree.txt'.format(filename)

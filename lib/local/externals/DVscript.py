@@ -4,10 +4,10 @@ from ...remote.errors import filecheck, FileError
 from copy import copy
 
 def guess_seqtype(rec, threshold=0.8):
-    """ Looks at proportion of As, Cs, Gs and Ts across all 
+    """ Looks at proportion of As, Cs, Gs and Ts across all
     sequences in the record, and guesses the data to be dna
     if the proportion is > threshold, else it guesses protein """
-    
+
     newrec = copy(rec)
     newrec.change_case('upper')
     all_seqs = ''.join(newrec.sequences)
@@ -29,7 +29,7 @@ class DV(Darwin):
 # RobustEstimateDistVarM calls EstimatePamNoGap, which in turn calls RemoveGaps
 # JUST RETURNS DISTANCE-VARIANCE MATRIX
 
-# TO BRING IN COMMAND LINE ARGS TO DARWIN USE THIS CALL: 
+# TO BRING IN COMMAND LINE ARGS TO DARWIN USE THIS CALL:
 # SHELL>$ echo "fil := ReadFastaWithNames('<infile.fas>'); seqtype := 'AA'/'DNA'; fpath := '<output_filepath>'; ReadProgram('<path_to_this_file>/TC_wrapper.drw'); " | darwin
 
 
@@ -222,7 +222,7 @@ od;
 WriteData(dv, outf);
 quit;
 ''' % (self.recfile, ('AA' if self.record.datatype == 'protein' else 'DNA'))
-    
+
     @property
     def record(self):
         return self._record
@@ -265,7 +265,7 @@ quit;
         filecheck(self.recfile)
         if self.verbosity > 1:
             print '  (Tests pass.)'
-    
+
 def runDV(record, tmpdir, verbosity=0):
     dw = DV(record, tmpdir, verbosity)
     dv_string = dw.run()

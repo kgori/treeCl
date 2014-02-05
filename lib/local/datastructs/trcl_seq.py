@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from ...remote.datastructs.seq import Seq, concatenate
-from ...remote.externals.phyml import Phyml
+from ...remote.externals.phyml import Phyml, runPhyml
 from ...remote.externals.treecollection import TreeCollection
 from ...remote.errors import directorycheck
 from ..externals.DVscript import runDV
@@ -78,7 +78,7 @@ class TrClSeq(Seq):
         return_object.dv = dvsum
         return return_object
 
-    def bionj(self, tmpdir):
+    def bionj(self, tmpdir, verbosity=0):
         """ Uses phyml (via treeCl.externals.tree_builders.Phyml) to build a
         bioNJ tree for the current record """
 
@@ -88,9 +88,10 @@ class TrClSeq(Seq):
             directorycheck(tmpdir)
 
         p = Phyml(self, tmpdir)
-        self.tree = TrClTree.cast(p.run('nj'))
+        self.tree = TrClTree.cast(p.run('nj', verbosity))
+        return self.tree
 
-    def bionj_plus(self):
+    def bionj_plus(self, tmpdir, verbosity=0):
         """ Uses phyml (via treeCl.externals.tree_builders.Phyml) to build a
         bioNJ tree for the current record """
         if self.tmpdir is not None:
@@ -98,8 +99,9 @@ class TrClSeq(Seq):
         else:
             directorycheck(tmpdir)
 
-        p = Phyml(self)
-        self.tree = TrClTree.cast(p.run('lr'))
+        p = Phyml(self, tmpdir)
+        self.tree = TrClTree.cast(p.run('lr', verbosity))
+        return self.tree
 
     def bootstrap_sample(self):
         """ Samples with replacement from the columns of the alignment """
@@ -119,7 +121,7 @@ class TrClSeq(Seq):
 
         runDV(self, tmpdir)
 
-    def phyml(self, tmpdir):
+    def phyml(self, tmpdir, verbosity=0):
         """ Uses phyml (via treeCl.externals.tree_builders.Phyml) to build a
         full ML tree for the current record """
         if self.tmpdir is not None:
@@ -128,43 +130,58 @@ class TrClSeq(Seq):
             directorycheck(tmpdir)
 
         p = Phyml(self, tmpdir)
-        self.tree = TrClTree.cast(p.run('ml'))
+        self.tree = TrClTree.cast(p.run('ml', verbosity))
+        return self.tree
 
-    def likelihood(self, tree, tmpdir):
-        """ Uses phyml (via treeCl.externals.tree_builders.Phyml) to calculate
-        the likelihood  for the current record """
+    def likelihood(self, tree, tmpdir, dry_run=False, set_as_record_tree=False):
         if self.tmpdir is not None:
             tmpdir = self.tmpdir
         else:
             directorycheck(tmpdir)
 
-        p = Phyml(self, tmpdir)
-
-        alignment_file = self.write_phylip('{0}/tmp_alignment.phy'.format(
-            tmpdir), interleaved=True)
-        newick_file = tree.write_to_file('{0}/tmp_tree.nwk'.format(tmpdir))
-
-        p.add_tempfile(alignment_file)
-        p.add_tempfile(newick_file)
-        p.add_flag('-i', alignment_file)
-        p.add_flag('-u', newick_file)
-        p.add_flag('-b', '0')   # no bootstraps
-        if self.datatype == 'protein':
-            p.add_flag('-m', 'WAG') # evolutionary model
+        result = runPhyml(self, tmpdir, 'lk', tree=tree, dry_run=dry_run,
+                          set_as_record_tree=set_as_record_tree)
+        if dry_run:
+            return result
         else:
-            p.add_flag('-m', 'GTR')
-        p.add_flag('-o', 'n')   # no optimisation
-        if self.datatype == 'protein':
-            p.add_flag('-d', 'aa')  # datatype
-        else:
-            p.add_flag('-d', 'nt')
-        p.add_flag('--no_memory_check', '')
-        p.add_flag('--quiet', '')
-        p.call() # run phyml
-        (_, stats) = p.read(alignment_file)
-        p.clean() # cleanup tempfiles
-        score = float(re.compile('(?<=Log-likelihood: ).+').search(stats).group(0))
-        return score
+            return result.score
+
+
+    # def likelihood(self, tree, tmpdir):
+    #     """ Uses phyml (via treeCl.externals.tree_builders.Phyml) to calculate
+    #     the likelihood  for the current record """
+    #     if self.tmpdir is not None:
+    #         tmpdir = self.tmpdir
+    #     else:
+    #         directorycheck(tmpdir)
+
+    #     p = Phyml(self, tmpdir)
+
+    #     alignment_file = self.write_phylip('{0}/tmp_alignment.phy'.format(
+    #         tmpdir), interleaved=True)
+    #     newick_file = tree.write_to_file('{0}/tmp_tree.nwk'.format(tmpdir))
+
+    #     p.add_tempfile(alignment_file)
+    #     p.add_tempfile(newick_file)
+    #     p.add_flag('-i', alignment_file)
+    #     p.add_flag('-u', newick_file)
+    #     p.add_flag('-b', '0')   # no bootstraps
+    #     if self.datatype == 'protein':
+    #         p.add_flag('-m', 'WAG') # evolutionary model
+    #     else:
+    #         p.add_flag('-m', 'GTR')
+    #     p.add_flag('-o', 'n')   # no optimisation
+    #     if self.datatype == 'protein':
+    #         p.add_flag('-d', 'aa')  # datatype
+    #     else:
+    #         p.add_flag('-d', 'nt')
+    #     p.add_flag('--no_memory_check', '')
+    #     p.add_flag('--quiet', '')
+    #     p.call() # run phyml
+    #     (_, stats) = p.read(alignment_file)
+    #     p.clean() # cleanup tempfiles
+    #     score = float(re.compile('(?<=Log-likelihood: ).+').search(stats).group(0))
+    #     return score
 
     def tree_collection_deprecated(self, tmpdir):
         """ DEPRECATED:   Uses TreeCollection (via

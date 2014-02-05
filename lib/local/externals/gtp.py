@@ -69,7 +69,7 @@ class GTP(ExternalSoftware):
         inf = '{0}/geotrees.nwk > /dev/null'.format(self.tmpdir)
 
         cmd = ' '.join((bincall, flags, outf, inf))
-        print cmd
+        # print cmd
         fileIO.syscall(cmd)
 
     def pairwise(self, tree1, tree2):
