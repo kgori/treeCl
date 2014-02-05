@@ -284,7 +284,7 @@ class TrClSeq(Seq):
         """ Modifies in-place """
 
         columns = self._pivot(self.sequences)
-        shf(columns)
+        random.shuffle(columns)
         self.sequences = self._pivot(columns)
         self._update()
 

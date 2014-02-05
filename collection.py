@@ -6,10 +6,11 @@ import timeit
 from dendropy import TaxonSet
 from lib.local.datastructs.trcl_seq import TrClSeq, concatenate
 from lib.local.datastructs.trcl_tree import TrClTree
-from lib.local.externals.alf import simulate_from_record_GTR, simulate_from_tree
+from lib.local.externals.alf import simulate_from_record
 from lib.remote.externals.phyml import runPhyml
 from lib.remote.externals.treecollection import runTC
 from lib.local.externals.DVscript import runDV
+from lib.local.utils import flatten_list
 from distance_matrix import DistanceMatrix
 from lib.remote.errors import  OptionError, optioncheck, directorymake,\
     directorycheck
@@ -192,7 +193,7 @@ class Scorer(object):
         verbosity=0,
         ):
 
-        self.analysis = optioncheck(analysis, ['ml', 'nj',
+        self.analysis = optioncheck(analysis, ['ml', 'nj', 'lr',
                         'TreeCollection'])
         self.max_guidetrees = max_guidetrees
         self.records = records
@@ -295,23 +296,23 @@ class Scorer(object):
                 'LG',
                 ])
         else:
-            model = model or 'ECM'
+            model = model or 'GTR'
             try:
-                optioncheck(model, ['CPAM', 'ECM', 'ECMu'])
+                optioncheck(model, ['CPAM', 'ECM', 'ECMu', 'GTR'])
             except OptionError, e:
                 print 'Choose a DNA-friendly model for simulation:\n', e
                 return
 
         member_records = self.members(index_list)
+        concat = self.concatenate(index_list)
         (lengths, names) = zip(*[(rec.seqlength, rec.name) for rec in
                                member_records])
         full_length = sum(lengths)
-        tree = self.add(index_list)
+        concat.tree = self.add(index_list)
 
-        simulated_records = simulate_from_tree(
-            tree=tree,
+        simulated_records = simulate_from_record(
+            concat,
             length=full_length,
-            datatype=self.datatype,
             tmpdir=self.tmpdir,
             model=model,
             split_lengths=lengths,
@@ -322,4 +323,4 @@ class Scorer(object):
 
     def simulate_from_result(self, partition_object, **kwargs):
         inds = partition_object.get_membership()
-        return [self.simulate(ind, **kwargs) for ind in inds]
+        return flatten_list([self.simulate(ind, **kwargs) for ind in inds])
