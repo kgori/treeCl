@@ -1,0 +1,154 @@
+#!/usr/bin/env python
+from treeCl import Collection, Clustering, Scorer
+from treeCl.lib.remote.utils import fileIO
+from treeCl.lib.remote.errors import directorycheck, directorymake, filecheck
+import os
+
+# def dump_cache(cache_dir, collection, clustering,
+#                distance_matrix, partition, scorer):
+#     fileIO.gpickle(collection,
+#         '{0}/collection.pkl.gz'.format(cache_dir))
+#     fileIO.gpickle(clustering,
+#         '{0}/clustering.pkl.gz'.format(cache_dir))
+#     fileIO.gpickle(distance_matrix,
+#         '{0}/distance_matrix.pkl.gz'.format(cache_dir))
+#     fileIO.gpickle(scorer,
+#         '{0}/scorer.pkl.gz'.format(cache_dir))
+#     fileIO.gpickle(partition,
+#         '{0}/partition.pkl.gz'.format(cache_dir))
+
+# def load_cache(cache_dir):
+#     collection = fileIO.gunpickle(filecheck('{0}/collection.pkl.gz'.format(cache_dir)))
+#     clustering = fileIO.gunpickle(filecheck('{0}/clustering.pkl.gz'.format(cache_dir)))
+#     distance_matrix = fileIO.gunpickle(filecheck('{0}/distance_matrix.pkl.gz'.format(cache_dir)))
+#     partition = fileIO.gunpickle(filecheck('{0}/partition.pkl.gz'.format(cache_dir)))
+#     scorer = fileIO.gunpickle(filecheck('{0}/scorer.pkl.gz'.format(cache_dir)))
+#     concats = fileIO.gunpickle(filecheck('{0}/concats.pkl.gz'.format(cache_dir)))
+#     scorer.concats = concats
+#     return collection, clustering, distance_matrix, partition, scorer
+
+def load_cache(cache_dir):
+    collection = fileIO.gunpickle(filecheck('{0}/collection.pkl.gz'.format(cache_dir)))
+    return collection
+
+def write_memberships(outfile, partition, scorer):
+    inds = partition.get_membership()
+    with open(outfile, 'w') as file_:
+        for cluster, ix in enumerate(inds, start=1):
+            names = [scorer.records[i].name for i in ix]
+            names_string = ' '.join(names)
+            file_.write('{0}\t{1}\n'.format(cluster, names_string))
+
+def write_trees(outfile, partition, scorer):
+    inds = partition.get_membership()
+    with open(outfile, 'w') as file_:
+        for ix in inds:
+            tree = scorer.concats[ix]
+            file_.write(tree.newick + '\n')
+
+def write_tree_details(outfile, partition, scorer):
+    inds = partition.get_membership()
+    with open(outfile, 'w') as file_:
+        for ix in inds:
+            tree = scorer.concats[ix]
+            file_.write(tree.output +'\n')
+
+def write_summary(outfile, metric, method, likelihood, partition):
+    with open(outfile, 'w') as file_:
+        file_.write('metric = {0}\n'.format(metric))
+        file_.write('method = {0}\n'.format(method))
+        file_.write('likelihood = {0}\n'.format(likelihood))
+        file_.write('partition = {0}\n'.format(partition))
+
+
+def cluster(clustering, method, nclasses, noise=False):
+
+    if method == 'spectral':
+        decomp = clustering.spectral_decomp(prune = -1)
+        return clustering.spectral_cluster(nclasses, decomp)
+
+    elif method == 'mds':
+        decomp = clustering.MDS_decomp()
+        return clustering.MDS_cluster(nclasses, decomp)
+
+    elif method == 'single' or method == 'complete' or method == 'average' or method == 'ward':
+        return clustering.hierarchical(nclasses, method, noise)
+
+    elif method == 'kmedoids':
+        return clustering.kmedoids(nclasses, noise)
+
+
+def parse_args():
+    import argparse
+    fchoices = ['fasta', 'phylip']
+    dchoices = ['protein', 'dna']
+    cchoices = ['spectral', 'mds', 'single', 'complete', 'average', 'ward', 'kmedoids']
+    mchoices = ['geo', 'euc', 'rf', 'wrf']
+    zchoices = ['gz', 'bz2', None]
+    lchoices = ['ml', 'nj', 'lr']
+    vchoices = [0, 1, 2, 3]
+    lhelp = '''Tree search strategy: ml=full maximum likelihood, nj=BioNJ, lr=BioNJ topology, optimised lengths and rates'''
+
+    parser = argparse.ArgumentParser(description=fileIO.basename(__file__))
+    parser.add_argument('-i', type=str, help='Input directory', required=True)
+    parser.add_argument('-o', type=str, help='Output directory', required=True)
+    parser.add_argument('-t', type=str, help='Temporary directory', required=True)
+    parser.add_argument('-f', type=str, choices=fchoices, help='File format', required=True)
+    parser.add_argument('-d', type=str, choices=dchoices, help='Datatype', required=True)
+    parser.add_argument('-c', type=str, choices=cchoices, help='Clustering method', required=True)
+    parser.add_argument('-m', type=str, choices=mchoices, help='Distance metric', required=True)
+    parser.add_argument('-l', type=str, choices=lchoices, help=lhelp, required=True)
+    parser.add_argument('-z', type=str, choices=zchoices, help='Compression (if input files are compressed)', default=None)
+    parser.add_argument('-n', type=int, help='Number of classes', required=True)
+    parser.add_argument('-p', type=str, help='Precomputed cache directory')
+    parser.add_argument('-k', type=str, help='Dump cache to directory')
+    parser.add_argument('-v', type=int, choices=vchoices, help='Verbosity level: 0-3', default=1)
+    return parser.parse_args()
+
+def validate_args(args):
+    directorycheck(args.i)
+    directorymake(args.o)
+    if args.p:
+        directorycheck(args.p)
+    if args.k:
+        directorymake(args.k)
+
+if __name__ == "__main__":
+    args = parse_args()
+    validate_args(args)
+    tmpdir = os.getenv('TEMPORARY_DIRECTORY') or args.t
+    directorymake(tmpdir)
+
+
+    if not args.p:
+        collection = Collection(input_dir=args.i, datatype=args.d, file_format=args.f,
+                       compression=args.z, tmpdir=tmpdir)
+
+        if args.l == 'ml':
+            collection.calc_ML_trees(verbosity=args.v)
+        else:
+            collection.calc_NJ_trees(analysis=args.l, verbosity=args.v)
+
+        if args.k:
+            fileIO.gpickle(collection,
+                '{0}/collection.pkl.gz'.format(args.k))
+
+    else:
+        collection = load_cache(args.p)
+
+    distance_matrix = collection.distance_matrix(args.m)
+    clustering = Clustering(distance_matrix)
+    partition = cluster(clustering, args.c, args.n,
+                        (True if args.m == 'rf' else False))
+    scorer = Scorer(collection.records, args.l, verbosity=args.v)
+    score = scorer.score(partition)
+
+    outfiles = {'memberships': '{0}/memberships.txt'.format(args.o),
+                'trees': '{0}/trees.nwk'.format(args.o),
+                'tree_details': '{0}/trees_details.txt'.format(args.o),
+                'summary': '{0}/summary.txt'.format(args.o)}
+
+    write_memberships(outfiles['memberships'], partition, scorer)
+    write_trees(outfiles['trees'], partition, scorer)
+    write_tree_details(outfiles['tree_details'], partition, scorer)
+    write_summary(outfiles['summary'], args.m, args.c, score, partition)

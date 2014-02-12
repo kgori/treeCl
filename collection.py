@@ -225,6 +225,8 @@ class Scorer(object):
             tree = TrClTree.cast(runPhyml(concat, self.tmpdir,
                                 analysis=self.analysis,
                                 verbosity=self.verbosity))
+            if self.verbosity == 1:
+                print
 
         # concat local variable dies here and goes to garbage collect
 
