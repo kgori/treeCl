@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 
-from ...remote.datastructs.seq import Seq, concatenate
+from ...remote.datastructs.seq import Seq
 from ...remote.externals.phyml import Phyml, runPhyml
 from ...remote.externals.treecollection import TreeCollection
 from ...remote.errors import directorycheck
 from ..externals.DVscript import runDV
+from ....constants import TMPDIR
 from trcl_tree import Tree, TrClTree
 import re
 import random
@@ -241,7 +242,7 @@ class TrClSeq(Seq):
         elif self.tmpdir is not None:
             tmpdir = self.tmpdir
         else:
-            tmpdir = '/tmp'
+            tmpdir = TMPDIR
 
         if not self.tree:
             self.bionj(tmpdir)

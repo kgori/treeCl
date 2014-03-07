@@ -7,14 +7,14 @@ import os
 import numpy as np
 import random
 import copy
+from .constants import EPS, MINUS_INF, TMPDIR
 # import sys
 
-EPS = 1e-8
-MINUS_INF = -np.inf
+
 
 class Optimiser(object):
 
-    def __init__(self, nclusters, collection, tmpdir='/tmp',
+    def __init__(self, nclusters, collection, tmpdir=TMPDIR,
                  initial_assignment=None, scorer=None):
         self.Collection = collection
 

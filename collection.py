@@ -2,12 +2,14 @@
 
 import sys
 import re
+import os
 import timeit
 from dendropy import TaxonSet
-from lib.local.datastructs.trcl_seq import TrClSeq, concatenate
+from lib.local.datastructs.trcl_seq import TrClSeq
+from lib.remote.datastructs.seq import concatenate
 from lib.local.datastructs.trcl_tree import TrClTree
 from lib.local.externals.alf import simulate_from_record
-from lib.remote.externals.phyml import runPhyml
+from lib.remote.externals.phyml import runPhyml, runLSFPhyml
 from lib.remote.externals.treecollection import runTC
 from lib.local.externals.DVscript import runDV
 from lib.local.utils import flatten_list
@@ -15,6 +17,7 @@ from distance_matrix import DistanceMatrix
 from lib.remote.errors import  OptionError, optioncheck, directorymake,\
     directorycheck
 from lib.remote.utils import fileIO
+from .constants import TMPDIR
 
 sort_key = lambda item: tuple((int(num) if num else alpha) for (num, alpha) in
                               re.findall(r'(\d+)|(\D+)', item))
@@ -51,7 +54,7 @@ class Collection(object):
         input_dir=None,
         file_format='fasta',
         datatype=None,
-        tmpdir='/tmp',
+        tmpdir=TMPDIR,
         calc_distances=False,
         compression=None,
         analysis=None,
@@ -141,19 +144,35 @@ class Collection(object):
                 taxon_set=self.taxon_set)
             rec.tree = TrClTree.cast(rec.tree)
 
-    def calc_ML_trees(self, verbosity=0):
+    def calc_ML_trees(self, lsf=False, verbosity=0):
         self.analysis = 'ml'
-        for rec in self.records:
-            runPhyml(rec, self.tmpdir, analysis=self.analysis,
-                verbosity=verbosity, taxon_set=self.taxon_set)
-            rec.tree = TrClTree.cast(rec.tree)
+        if lsf:
+            trees = runLSFPhyml(self.records,
+                                self.tmpdir,
+                                analysis=self.analysis,
+                                verbosity=verbosity)
+            for rec, tree in zip(self.records, trees):
+                rec.tree = TrClTree.cast(tree)
+        else:
+            for rec in self.records:
+                runPhyml(rec, self.tmpdir, analysis=self.analysis,
+                    verbosity=verbosity, taxon_set=self.taxon_set)
+                rec.tree = TrClTree.cast(rec.tree)
 
-    def calc_NJ_trees(self, analysis='nj', verbosity=0):
+    def calc_NJ_trees(self, lsf=False, analysis='nj', verbosity=0):
         self.analysis = analysis
-        for rec in self.records:
-            runPhyml(rec, self.tmpdir, analysis=analysis, verbosity=verbosity,
-                taxon_set=self.taxon_set)
-            rec.tree = TrClTree.cast(rec.tree)
+        if lsf:
+            trees = runLSFPhyml(self.records,
+                                self.tmpdir,
+                                analysis=self.analysis,
+                                verbosity=verbosity)
+            for rec, tree in zip(self.records, trees):
+                rec.tree = TrClTree.cast(tree)
+        else:
+            for rec in self.records:
+                runPhyml(rec, self.tmpdir, analysis=analysis, verbosity=verbosity,
+                    taxon_set=self.taxon_set)
+                rec.tree = TrClTree.cast(rec.tree)
         if verbosity == 1:
             print
 
@@ -187,6 +206,7 @@ class Scorer(object):
         self,
         records,
         analysis,
+        lsf=False,
         max_guidetrees=10,
         tmpdir=None,
         datatype=None,
@@ -196,6 +216,7 @@ class Scorer(object):
         self.analysis = optioncheck(analysis, ['ml', 'nj', 'lr',
                         'TreeCollection'])
         self.max_guidetrees = max_guidetrees
+        self.lsf = lsf
         self.records = records
         self.datatype = datatype or records[0].datatype
         self.verbosity = verbosity
@@ -206,18 +227,32 @@ class Scorer(object):
         self.history = []
         self.populate_cache()
 
-    def add(self, index_list):
+    def get_trees_from_partition_with_lsf(self, partition):
+        index_tuples = partition.get_membership()
+        missing = sorted(set(index_tuples).difference(self.concats.keys()))
+        supermatrices = [self.concatenate(index_tuple)
+                         for index_tuple in index_tuples]
+        trees = runLSFPhyml(supermatrices,
+                            self.tmpdir,
+                            analysis=self.analysis,
+                            verbosity=self.verbosity)
+        for tree in trees:
+            tree = TrClTree.cast(tree)
+        for index_tuple, tree in zip(missing, trees):
+            self.concats[index_tuple] = tree
+
+    def add(self, index_tuple):
         """ Takes a tuple of indices. Concatenates the records in the record
         list at these indices, and builds a tree. Returns the tree """
 
-        if index_list in self.concats:
-            return self.concats[index_list]
+        if index_tuple in self.concats:
+            return self.concats[index_tuple]
 
-        concat = self.concatenate(index_list)
+        concat = self.concatenate(index_tuple)
 
         if self.analysis == 'TreeCollection':
             guidetrees = [self.records[n].tree for n in
-                          index_list][:self.max_guidetrees]
+                          index_tuple][:self.max_guidetrees]
             tree = TrClTree.cast(runTC(concat, self.tmpdir, guidetrees,
                                 verbosity=self.verbosity))
         else:
@@ -230,39 +265,39 @@ class Scorer(object):
 
         # concat local variable dies here and goes to garbage collect
 
-        self.concats[index_list] = tree
+        self.concats[index_tuple] = tree
         return tree
 
-    def concatenate(self, index_list):
+    def concatenate(self, index_tuple):
         """ NB: had a version of this which used a reduce construct to
         concatenate the alignments - reduce(lambda x,y: x+y, records_list) - but
         this led to problems of the original object being modified. Deepcopying
         the first record, ensuring a new memory address for the concatenation,
         seems more robust. """
 
-        member_records = self.members(index_list)
+        member_records = self.members(index_tuple)
         concat = concatenate(member_records)
-        concat.name = '-'.join(str(x) for x in index_list)
+        concat.name = '-'.join(str(x) for x in index_tuple)
         return concat
 
-    def update_history(self, score, index_list):
+    def update_history(self, score, index_tuple):
         time = timeit.default_timer()
-        self.history.append([time, score, index_list, len(index_list)])
+        self.history.append([time, score, index_tuple, len(index_tuple)])
 
     def print_history(self, fh=sys.stdout):
-        for iteration, (time, score, index_list, nclusters) in enumerate(
+        for iteration, (time, score, index_tuple, nclusters) in enumerate(
                 self.history):
             fh.write(str(iteration) + "\t")
             fh.write(str(time) + "\t")
             fh.write(str(score) + "\t")
-            fh.write(str(index_list) + "\t")
+            fh.write(str(index_tuple) + "\t")
             fh.write(str(nclusters) + "\n")
 
     def clear_history(self):
         self.history = []
 
-    def members(self, index_list):
-        return [self.records[n] for n in index_list]
+    def members(self, index_tuple):
+        return [self.records[n] for n in index_tuple]
 
     def populate_cache(self):
         for i, rec in enumerate(self.records):
@@ -275,12 +310,15 @@ class Scorer(object):
         for each one, and returns the sum """
 
         inds = partition_object.get_membership()
-        likelihood = sum([self.add(index_list, **kwargs).score for index_list in inds])
+        if self.lsf and not self.analysis == 'TreeCollection':
+            self.get_trees_from_partition_with_lsf(partition_object)
+        likelihood = sum([self.add(index_tuple, **kwargs).score
+                          for index_tuple in inds])
         if history is True:
             self.update_history(likelihood, inds)
         return(likelihood)
 
-    def simulate(self, index_list, model=None):
+    def simulate(self, index_tuple, model=None):
         """ Simulate a group of sequence alignments using ALF. Uses one of
         {(GCB, JTT, LG, WAG - protein), (CPAM, ECM and ECMu - DNA)}, WAG by
         default. TO DO: add parameterised models when I have a robust (probably
@@ -305,12 +343,12 @@ class Scorer(object):
                 print 'Choose a DNA-friendly model for simulation:\n', e
                 return
 
-        member_records = self.members(index_list)
-        concat = self.concatenate(index_list)
+        member_records = self.members(index_tuple)
+        concat = self.concatenate(index_tuple)
         (lengths, names) = zip(*[(rec.seqlength, rec.name) for rec in
                                member_records])
         full_length = sum(lengths)
-        concat.tree = self.add(index_list)
+        concat.tree = self.add(index_tuple)
 
         simulated_records = simulate_from_record(
             concat,

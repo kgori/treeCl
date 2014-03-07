@@ -4,8 +4,81 @@
 from ...remote.externals.external import ExternalSoftware
 from ...remote.errors import FileError, filecheck
 from ...remote.utils import fileIO
+from bsub import bsub
 import numpy as np
 import numbers
+import os
+import shutil
+import tempfile
+import time
+
+
+class LSFGTP(ExternalSoftware):
+
+    default_binary = 'gtp.jar'
+    default_env = 'GTP_PATH'
+    local_dir = fileIO.path_to(__file__)
+
+    def __init__(self, trees, tmpdir):
+        super(LSFGTP, self).__init__(tmpdir)
+        self.trees = trees
+        self.temp_dirs = self.setup_temp_dirs()
+        self.gtp_objects = self.setup_gtp_objects()
+
+    @property
+    def trees(self):
+        return self._trees
+
+    @trees.setter
+    def trees(self, trees):
+        self._trees = trees
+
+    def write(self):
+        pass
+
+    def setup_temp_dirs(self):
+        temp_dirs = [tempfile.mkdtemp(dir=self.tmpdir) for tree in self.trees]
+        return temp_dirs
+
+    def setup_gtp_objects(self):
+        gtp_objects = [GTP(td) for td in self.temp_dirs]
+        return gtp_objects
+
+    def get_command_strings(self):
+        return [self.gtp_objects[i].run(self.trees, i, dry_run=True)
+                for i in range(len(self.trees))]
+
+    def launch_lsf(self, command_strings, verbose=False, output='/dev/null'):
+        curr_dir = os.getcwd()
+        os.chdir(self.tmpdir)
+        job_ids = [bsub('gtp_task',
+                        o='/dev/null',
+                        e='/dev/null',
+                        verbose=verbose)(cmd).job_id
+                   for cmd in command_strings]
+        bsub.poll(job_ids)
+        os.chdir(curr_dir)
+
+    def read(self):
+        rows = [gtp.read(len(self.trees), i)
+                for i, gtp in enumerate(self.gtp_objects)]
+        return np.vstack(rows)
+
+    def clean(self):
+        for gtp in self.gtp_objects:
+            gtp.clean()
+        for d in self.temp_dirs:
+            shutil.rmtree(d)
+
+    def run(self, verbose=False):
+        command_strings = self.get_command_strings()
+        self.launch_lsf(command_strings, verbose)
+        time.sleep(2)
+        matrix = self.read()
+        return matrix
+
+    def call(self):
+        pass
 
 
 class GTP(ExternalSoftware):
@@ -54,7 +127,7 @@ class GTP(ExternalSoftware):
     def allrooted(self, trees):
         return all(tree.rooted for tree in trees)
 
-    def call(self, rooted, row):
+    def call(self, rooted, row, dry_run=False):
 
         bincall = 'java -jar {0}'.format(self.binary)
         flags = []
@@ -69,14 +142,16 @@ class GTP(ExternalSoftware):
         inf = '{0}/geotrees.nwk > /dev/null'.format(self.tmpdir)
 
         cmd = ' '.join((bincall, flags, outf, inf))
-        # print cmd
+        if dry_run:
+            return cmd
         fileIO.syscall(cmd)
 
     def pairwise(self, tree1, tree2):
         return self.run((tree1, tree2))[0, 1]
 
-    def read(self, size, row, translation):
+    def read(self, size, row, translation=None):
         row = self.check_row_value(row, size)
+        translation = translation or self.translation
         if row is not None:
             matrix = np.zeros((1,size))
         else:
@@ -106,11 +181,13 @@ class GTP(ExternalSoftware):
             print 'Geodesic distances couldn\'t be calculated'
             raise
 
-    def run(self, trees, row=None):
+    def run(self, trees, row=None, dry_run=False):
         row = self.check_row_value(row, len(trees))
         translation = self.write(trees, row)
         rooted = self.allrooted(trees)
-        self.call(rooted, row)
+        cmd = self.call(rooted, row, dry_run)
+        if dry_run:
+            return cmd
         try:
             matrix = self.read(len(trees), row, translation)
             self.clean()
@@ -142,7 +219,8 @@ class GTP(ExternalSoftware):
                         translation.append((i, i))
 
         self.add_tempfile('{0}/geotrees.nwk'.format(self.tmpdir))
-        return dict(translation) # key:pos_new_list => value:pos_orig_list
+        self.translation = dict(translation)
+        return self.translation # key:pos_new_list => value:pos_orig_list
 
 
 def breakpoints(n, m=100):
@@ -204,16 +282,13 @@ def geodist_offdiagonals(matrix, trees, breakpoints, calculator):
     for (r,c) in zip(*offdiagonal_indices(breakpoints)):
         matrix[r,c] = matrix[c,r] = calculator.pairwise(trees[r], trees[c])
 
-def geodist(trees, tmpdir, row=None, breaks=None):
+def geodist(trees, tmpdir, row=None, lsf=False):
 
-    g = GTP(tmpdir=tmpdir)
-    l = len(trees)
-    row = g.check_row_value(row, l)
-    if breaks is None:
+    if lsf and row is None:
+        lsfgtp = LSFGTP(trees, tmpdir)
+        return lsfgtp.run()
+    else:
+        g = GTP(tmpdir=tmpdir)
+        l = len(trees)
+        row = g.check_row_value(row, l)
         return g.run(trees, row)
-
-    bps = breakpoints(l, breaks)
-    matrix = np.zeros((l,l))
-    geodist_diagonals(matrix, trees, bps, g)
-    geodist_offdiagonals(matrix, trees, bps, g)
-    return matrix

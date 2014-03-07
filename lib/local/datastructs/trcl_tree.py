@@ -3,11 +3,12 @@
 
 from ..externals.gtp import GTP
 from ...remote.datastructs.tree import Tree
+from ....constants import TMPDIR
 
 class TrClTree(Tree):
 
     def geodist(self, other, tmpdir=None, normalise=False):
-        tmpdir = tmpdir or '/tmp'
+        tmpdir = tmpdir or TMPDIR
         gtp = GTP(tmpdir=tmpdir)
         if self ^ other:
             t1, t2 = self.__class__.pruned_pair(self, other)

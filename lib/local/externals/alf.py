@@ -6,6 +6,7 @@ from ..utils import phymlIO
 from ...remote.errors import filecheck, directorymake, directoryquit, \
     optioncheck, OptionError, directorycheck
 from ..datastructs.trcl_seq import TrClSeq
+from ....constants import TMPDIR
 from textwrap import dedent
 import glob
 import re
@@ -580,7 +581,7 @@ def simulate_from_tree(
     tree,
     length,
     datatype='protein',
-    tmpdir='/tmp',
+    tmpdir=TMPDIR,
     model='WAG',
     split_lengths=None,
     gene_names=None,
@@ -622,7 +623,7 @@ def simulate_from_tree(
 def simulate_from_record(
     record,
     length=None,
-    tmpdir='/tmp',
+    tmpdir=TMPDIR,
     model='WAG',
     allow_nonsense=True,
     split_lengths=None,
@@ -692,7 +693,7 @@ def simulate_from_record_GTR(
     record,
     output_dir,
     name='tempsim',
-    tmpdir='/tmp',
+    tmpdir=TMPDIR,
     allow_nonsense=True,
     split_lengths=None,
     gene_names=None,

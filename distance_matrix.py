@@ -3,6 +3,7 @@
 import numpy as np
 from lib.local.externals.gtp import geodist
 from lib.remote.errors import optioncheck
+from .constants import TMPDIR
 
 
 def get_dendropy_distances(trees, fn, dec_places=None, **kwargs):
@@ -18,12 +19,9 @@ def get_dendropy_distances(trees, fn, dec_places=None, **kwargs):
     return matrix
 
 
-def get_geo_distances(trees, dec_places=None, tmpdir=None):
+def get_geo_distances(trees, dec_places=None, tmpdir=None, lsf=False):
 
-    if len(trees) > 100:
-        matrix = geodist(trees, tmpdir, 100)
-    else:
-        matrix = geodist(trees, tmpdir)
+    matrix = geodist(trees, tmpdir, lsf=lsf)
 
     if dec_places is not None:
         matrix.round(dec_places, out=matrix)
@@ -38,7 +36,8 @@ def get_distance_matrix(trees, metric, tmpdir, dec_places, **kwargs):
     lengths (='geo') """
 
     if metric == 'geo':
-        return get_geo_distances(trees, dec_places, tmpdir=tmpdir)
+        lsf = kwargs.pop('lsf', False)
+        return get_geo_distances(trees, dec_places, tmpdir=tmpdir, lsf=lsf)
 
     if metric == 'rf':
         # n = len(trees[0])
@@ -115,15 +114,16 @@ class DistanceMatrix(np.ndarray):
         cls,
         trees,
         metric,
-        tmpdir='/tmp',
+        tmpdir=TMPDIR,
         dtype=float,
         add_noise=False,
         normalise=False,
         dec_places=None,
+        lsf=False,
         ):
         optioncheck(metric, ['euc', 'geo', 'rf', 'wrf'])
         input_array = get_distance_matrix(trees, metric, tmpdir,
-            normalise=normalise, dec_places=dec_places)
+            normalise=normalise, dec_places=dec_places, lsf=lsf)
         obj = np.asarray(input_array, dtype).view(cls)
         obj.metric = metric
         obj.tmpdir = tmpdir
