@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from treeCl.lib.remote.datastructs.seq import Seq
+from ..datastructs.seq import Seq
 
 docstring = '''
 Combine two unphased sequences into a single sequence with ambiguity codes

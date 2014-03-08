@@ -2,21 +2,20 @@
 from UserDict import UserDict
 import re
 
-
 class Translator(UserDict):
 
     """ From http://code.activestate.com/recipes/81330-single-pass-multiple-
     replace/ """
 
-    def _make_regex(self): 
+    def _make_regex(self):
 
         """ Build a regular expression object based on the keys of
         the current dictionary """
 
-        return re.compile("(%s)" % "|".join(map(re.escape, self.keys()))) 
+        return re.compile("(%s)" % "|".join(map(re.escape, self.keys())))
 
-    def __call__(self, mo): 
-    
+    def __call__(self, mo):
+
         """ This handler will be invoked for each regex match """
 
         # Count substitutions
@@ -24,12 +23,12 @@ class Translator(UserDict):
 
         return self[mo.string[mo.start():mo.end()]]
 
-    def translate(self, text): 
+    def translate(self, text):
 
-        """ Translate text, returns the modified text. """ 
+        """ Translate text, returns the modified text. """
 
         # Reset substitution counter
-        self.count = 0 
+        self.count = 0
 
         # Process text
         return self._make_regex().sub(self, text)

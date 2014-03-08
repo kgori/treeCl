@@ -1,15 +1,20 @@
 #!/usr/bin/env python
 
-from external import ExternalSoftware, TreeSoftware
-from errors.errors import filecheck, optioncheck
-from ..datastructs.tree import Tree
-from ..utils import fileIO
-from ..utils.printing import print_and_return
-from bsub import bsub
+# standard library
 import os
 import re
 import shutil
 import tempfile
+
+# third party
+from bsub import bsub
+
+# treeCl
+from external import ExternalSoftware, TreeSoftware
+from ..errors import filecheck, optioncheck
+from ..datastructs.tree import Tree
+from ..utils import fileIO
+from ..utils.printing import print_and_return
 
 
 ANALYSES = ['tlr', 'lr', 'l', 'r', 'ml', 'full', 'nj', 'bionj', 'bionj+', 'lk']

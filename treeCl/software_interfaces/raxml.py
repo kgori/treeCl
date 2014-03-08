@@ -1,14 +1,17 @@
 #!/usr/bin/env python
 
-from external import TreeSoftware
-from ..errors import filecheck
-from ..datastructs.tree import Tree
-from ..datastructs.seq import qfile, concatenate
-from ..utils import fileIO
-from ..utils.printing import print_and_return
+# standard library
 import os
 import re
 import random
+
+# treeCl
+from external import TreeSoftware
+from ..datastructs.tree import Tree
+from ..datastructs.seq import qfile
+from ..errors import filecheck
+from ..utils import fileIO
+from ..utils.printing import print_and_return
 
 PATTERNS_PER_THREAD_DNA = 500
 PATTERNS_PER_THREAD_AA  = 200

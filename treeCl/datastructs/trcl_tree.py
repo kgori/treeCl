@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
-
-from ..software_interfaces.gtp import GTP
+# treeCl
 from tree import Tree
-from treeCl.constants import TMPDIR
+from ..constants import TMPDIR
+from ..software_interfaces.gtp import GTP
 
 class TrClTree(Tree):
 

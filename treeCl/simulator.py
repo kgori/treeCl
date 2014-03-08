@@ -5,10 +5,10 @@ import shutil
 
 # treeCl
 from clustering import Partition
-from lib.datastructs.trcl_tree import TrClTree
-from lib.externals.alf import ALF
-from lib.utils import fileIO
-from errors import errors
+from datastructs.trcl_tree import TrClTree
+import errors
+from software_interfaces.alf import ALF
+from utils import fileIO
 
 
 class Simulator(object):
@@ -204,9 +204,6 @@ class Simulator(object):
         for k in range(len(self.class_list)):
             l.extend([k+1]*self.class_list[k])
         self.true_partition = Partition(l)
-
-
-
 
 
 if __name__ == '__main__':

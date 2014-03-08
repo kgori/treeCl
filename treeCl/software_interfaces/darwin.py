@@ -1,9 +1,12 @@
 #!/usr/bin/env python
 
-from external import ExternalSoftware
-from errors.errors import filecheck, FileError, directorymake
-from lib.utils import fileIO
+# third party
 import numpy as np
+
+# treeCl
+from external import ExternalSoftware
+from ..errors import filecheck, FileError, directorymake
+from ..utils import fileIO
 
 class Darwin(ExternalSoftware):
 

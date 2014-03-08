@@ -46,7 +46,6 @@ setup(name = "treeCl",
     description='TODO',
     url='https://github.com/kgori/treeCl.git',
     packages=find_packages(),
-    # packages=['treeCl'],
     scripts=[
         'bin/simulator',
         'bin/treeCl',

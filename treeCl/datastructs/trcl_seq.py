@@ -6,12 +6,12 @@ import re
 
 # treeCl
 from seq import Seq
+from trcl_tree import Tree, TrClTree
+from ..constants import TMPDIR
+from ..errors import directorycheck
+from ..software_interfaces.DVscript import runDV
 from ..software_interfaces.phyml import Phyml, runPhyml
 from ..software_interfaces.treecollection import TreeCollection
-from ..software_interfaces.DVscript import runDV
-from errors.errors import directorycheck
-from treeCl.constants import TMPDIR
-from trcl_tree import Tree, TrClTree
 
 def sample_wr(population, k):
     _int = int

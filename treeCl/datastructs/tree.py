@@ -9,7 +9,7 @@ import dendropy
 import numpy as np
 
 # treeCl
-from errors.errors import FileError, filecheck, optioncheck
+from ..errors import FileError, filecheck, optioncheck
 
 
 def cast(dendropy_tree):

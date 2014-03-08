@@ -4,4 +4,4 @@ from distance_matrix import DistanceMatrix
 from optimiser import Optimiser
 from plotter import Plotter
 from simulator import Simulator
-from lib.utils import fileIO
+from utils import fileIO

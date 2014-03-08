@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from errors.errors import FileError
+from ..errors import FileError
 from ..utils import fileIO
 
 

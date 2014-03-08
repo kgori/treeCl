@@ -4,9 +4,9 @@
 import numpy as np
 
 # treeCl
-from lib.software_interfaces.gtp import geodist
-from errors.errors import optioncheck
-from .constants import TMPDIR
+from software_interfaces.gtp import geodist
+from errors import optioncheck
+from constants import TMPDIR
 
 
 def get_dendropy_distances(trees, fn, dec_places=None, **kwargs):

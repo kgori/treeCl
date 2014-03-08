@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 
+# standard library
 import os
 import sys
+
 __all__ = [
     'FileError',
     'DirectoryError',
@@ -16,11 +18,6 @@ __all__ = [
     'optioncheck',
     'rangecheck',
     ]
-
-# Constants
-
-POSINF = float('inf')
-NEGINF = -POSINF
 
 
 class FileError(Exception):

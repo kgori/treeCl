@@ -11,9 +11,10 @@ import random
 import numpy as np
 
 # treeCl
-from treeCl import Collection, Scorer, Partition
-from lib.software_interfaces.phyml import Phyml
-from .constants import EPS, MINUS_INF, TMPDIR
+from collection import Collection, Scorer
+from clustering import Partition
+from software_interfaces.phyml import Phyml
+from constants import EPS, NEGINF, TMPDIR
 
 
 class Optimiser(object):
@@ -39,7 +40,7 @@ class Optimiser(object):
 
         print 'Calculating initial scores...'
         if initial_assignment is None:
-            initial_assignment = Partition(tuple([x]*len(collection)))
+            initial_assignment = Partition(tuple([0]*len(collection)))
             # initial_assignment = self.random_partition(nclusters)
 
         self.global_best_scores = {}
@@ -79,7 +80,7 @@ class Optimiser(object):
         method for working interactively and keeping nclusters correct
         """
         nclusters = len(assignment) # len(assignment) == number of clusters
-        best_score = self.global_best_scores.get(nclusters, MINUS_INF)
+        best_score = self.global_best_scores.get(nclusters, NEGINF)
         curr_score = self.scorer.score(assignment, history=False)
         if (curr_score - best_score) > EPS:
             self.global_best_assignments[nclusters] = assignment
@@ -188,7 +189,7 @@ class Optimiser(object):
     def merge_closest(self, assignment):
         print 'Finding clusters to merge...'
         clusters = self.get_clusters(assignment)
-        best_score = MINUS_INF
+        best_score = NEGINF
         merging = [None, None]
 
         for i in clusters:
@@ -271,7 +272,7 @@ class Optimiser(object):
     def split_search(self, assignment, update=True):
         clusters = self.get_clusters(assignment)
         k = len(assignment)
-        best_score = MINUS_INF
+        best_score = NEGINF
 
         for i in clusters:
             print 'i: {0}'.format(i)

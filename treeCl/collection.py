@@ -9,19 +9,19 @@ import timeit
 from dendropy import TaxonSet
 
 # treeCl
-from lib.datastructs.trcl_seq import TrClSeq
-from lib.datastructs.seq import concatenate
-from lib.datastructs.trcl_tree import TrClTree
-from lib.software_interfaces.alf import simulate_from_record
-from lib.software_interfaces.phyml import runPhyml, runLSFPhyml
-from lib.software_interfaces.treecollection import runTC
-from lib.software_interfaces.DVscript import runDV
-from lib.utils import flatten_list
+from datastructs.seq import concatenate
+from datastructs.trcl_seq import TrClSeq
+from datastructs.trcl_tree import TrClTree
 from distance_matrix import DistanceMatrix
-from errors.errors import  OptionError, optioncheck, directorymake,\
+from software_interfaces.alf import simulate_from_record
+from software_interfaces.DVscript import runDV
+from software_interfaces.phyml import runPhyml, runLSFPhyml
+from software_interfaces.treecollection import runTC
+from utils import flatten_list
+from errors import  OptionError, optioncheck, directorymake,\
     directorycheck
-from lib.utils import fileIO
-from .constants import TMPDIR, SORT_KEY, ANALYSES
+from utils import fileIO
+from constants import TMPDIR, SORT_KEY, ANALYSES
 
 
 class NoRecordsError(Exception):
@@ -37,6 +37,7 @@ class NoRecordsError(Exception):
             '\tcompression = {2}'.format(self.input_dir,
                 self.file_format, self.compression))
         return msg
+
 
 class Collection(object):
 

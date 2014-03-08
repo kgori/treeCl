@@ -6,8 +6,8 @@ import subprocess as sb
 
 # treeCl
 from treeCl import Collection, Clustering, Scorer
-from treeCl.lib.utils import fileIO
-from treeCl.errors.errors import directorycheck, directorymake, filecheck
+from treeCl.utils import fileIO
+from treeCl.errors import directorycheck, directorymake, filecheck
 
 # def dump_cache(cache_dir, collection, clustering,
 #                distance_matrix, partition, scorer):

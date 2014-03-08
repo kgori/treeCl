@@ -2,7 +2,7 @@
 
 # treeCl
 from treeCl import Simulator
-from treeCl.lib.utils import fileIO
+from treeCl.utils import fileIO
 
 
 if __name__ == '__main__':

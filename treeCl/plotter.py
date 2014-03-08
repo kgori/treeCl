@@ -7,10 +7,10 @@ from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 
 # treeCl
-from errors.errors import optioncheck
 from collection import Collection
 from clustering import Clustering, Partition
 from distance_matrix import DistanceMatrix
+from errors import optioncheck
 
 class Plotter(object):
 

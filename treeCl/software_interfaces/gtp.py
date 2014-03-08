@@ -1,21 +1,24 @@
-
 #!/usr/bin/env python
 
-from external import ExternalSoftware
-from errors.errors import FileError, filecheck
-from ..utils import fileIO
-from bsub import bsub
-import numpy as np
+# standard library
 import numbers
 import os
 import shutil
 import tempfile
 import time
 
+# third party
+from bsub import bsub
+import numpy as np
+
+# treeCl
+from external import ExternalSoftware
+from ..utils import fileIO
+
 
 class LSFGTP(ExternalSoftware):
 
-    default_binary = 'gtp.jar'
+    default_binary = 'dependecies/gtp.jar'
     default_env = 'GTP_PATH'
     local_dir = fileIO.path_to(__file__)
 

@@ -8,12 +8,12 @@ from textwrap import dedent
 
 # treeCl
 from external import ExternalSoftware
+from ..constants import TMPDIR
+from ..datastructs.trcl_seq import TrClSeq
+from ..errors import filecheck, directorymake, directoryquit, \
+    optioncheck, OptionError, directorycheck
 from ..utils.gapmasker import GapMasker
 from ..utils import phymlIO
-from errors.errors import filecheck, directorymake, directoryquit, \
-    optioncheck, OptionError, directorycheck
-from ..datastructs.trcl_seq import TrClSeq
-from treeCl.constants import TMPDIR
 
 
 class Params(object):

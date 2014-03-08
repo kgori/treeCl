@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 
-from pylogeny.datastructs.seq import Seq
-from pylogeny.utils import fileIO
-from pylogeny.errors import filecheck, optioncheck
+# standard library
 import argparse
 import sys
 
+# treeCl
+import fileIO
+from ..datastructs.seq import Seq
+from ..errors import filecheck
 
 def change_case(rec, case):
     if case.startswith('u'):
@@ -23,7 +25,6 @@ def sort(rec, scheme):
     elif scheme == 'nr':
         rec.sort_by_name(reverse=True)
 
-
 def write(rec, outfile, to_format='phylip',
           interleaved=False, linebreaks=None,
           datatype='protein'):
@@ -35,7 +36,6 @@ def write(rec, outfile, to_format='phylip',
     elif to_format == 'phylip':
         rec.write_phylip(outfile, interleaved=interleaved,
             linebreaks=linebreaks)
-
 
 def parse_args():
     prog = fileIO.basename(sys.argv[0])
@@ -76,7 +76,6 @@ def parse_args():
         choices=c_choices, help='Change case of sequences')
 
     return parser.parse_args()
-
 
 def main():
     args = parse_args()

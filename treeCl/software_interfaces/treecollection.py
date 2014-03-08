@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 
+# treeCl
 from external import TreeSoftware
-from errors.errors import filecheck, TreeBuildingError
+from phyml import Phyml
 from ..datastructs.tree import Tree
+from ..errors import TreeBuildingError
 from ..utils import fileIO
 from ..utils.printing import print_and_return
-from phyml import Phyml
 
 
 class TreeCollection(TreeSoftware):

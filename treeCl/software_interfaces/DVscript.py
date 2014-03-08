@@ -3,8 +3,8 @@ from copy import copy
 
 # treeCl
 from darwin import Darwin
+from ..errors import filecheck, FileError
 from ..utils import fileIO
-from errors.errors import filecheck, FileError
 
 def guess_seqtype(rec, threshold=0.8):
     """ Looks at proportion of As, Cs, Gs and Ts across all

@@ -26,7 +26,7 @@ try:
 except ImportError:
     # print 'evrot is not currently in use'
     pass
-from lib.utils import fileIO
+from utils import fileIO
 
 
 class Clustering(object):

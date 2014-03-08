@@ -1,15 +1,15 @@
 #!/usr/bin/env python
 
 # standard library
+from copy import deepcopy
 import hashlib
 import itertools
 import re
 
 # treeCl
+from ..constants import DNA_ACGT_THRESHOLD
+from ..errors import optioncheck, directorycheck
 from ..utils import fileIO
-from errors.errors import optioncheck, directorycheck
-from copy import deepcopy
-from treeCl.constants import DNA_ACGT_THRESHOLD
 
 class Seq(object):
 
