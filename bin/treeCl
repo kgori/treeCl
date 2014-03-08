@@ -105,7 +105,7 @@ def parse_args():
                 'nj=BioNJ, lr=BioNJ topology, optimised lengths and rates'),
         'z': 'Compression (if input files are compressed)',
         'n': 'Number of classes',
-        'e': 'Enumerate classes (go from 1 to N classes)'
+        'e': 'Enumerate classes (go from 1 to N classes)',
         'p': 'Precomputed cache directory NOT YET IMPLEMENTED',
         'k': 'Dump cache to directory NOT YET IMPLEMENTED',
         'v': 'Verbosity level: 0-3',
@@ -189,6 +189,7 @@ if __name__ == "__main__":
         partitions = [cluster(clustering, args.c, args.n,
                               (True if args.m == 'rf' else False))]
     scorer = Scorer(collection.records, args.l, lsf=args.b, verbosity=args.v)
+    scorer.add_partition_list(partitions)
     for partition in partitions:
         score = scorer.score(partition)
 

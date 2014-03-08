@@ -35,8 +35,8 @@ def get_distance_matrix(trees, metric, tmpdir, dec_places, **kwargs):
     Felsenstein's branch lengths distance (='euc') Geodesic distance - branch
     lengths (='geo') """
 
+    lsf = kwargs.pop('lsf', False)
     if metric == 'geo':
-        lsf = kwargs.pop('lsf', False)
         return get_geo_distances(trees, dec_places, tmpdir=tmpdir, lsf=lsf)
 
     if metric == 'rf':

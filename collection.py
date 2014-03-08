@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 
 import sys
-import re
-import os
+import itertools
 import timeit
 from dendropy import TaxonSet
 from lib.local.datastructs.trcl_seq import TrClSeq
@@ -17,7 +16,8 @@ from distance_matrix import DistanceMatrix
 from lib.remote.errors import  OptionError, optioncheck, directorymake,\
     directorycheck
 from lib.remote.utils import fileIO
-from .constants import TMPDIR, SORT_KEY
+from .constants import TMPDIR, SORT_KEY, ANALYSES
+
 
 
 class NoRecordsError(Exception):
@@ -163,6 +163,7 @@ class Collection(object):
         self.calc_phyml_trees(self, lsf, analysis, verbosity)
 
     def calc_phyml_trees(self, lsf=False, analysis='nj', verbosity=0):
+        optioncheck(analysis, ANALYSES)
         self.analysis = analysis
         if lsf:
             trees = runLSFPhyml(self.records,
@@ -216,8 +217,7 @@ class Scorer(object):
         verbosity=0,
         ):
 
-        self.analysis = optioncheck(analysis, ['ml', 'nj', 'lr',
-                        'TreeCollection'])
+        self.analysis = optioncheck(analysis, ANALYSES + ['TreeCollection'])
         self.max_guidetrees = max_guidetrees
         self.lsf = lsf
         self.records = records
@@ -230,19 +230,24 @@ class Scorer(object):
         self.history = []
         self.populate_cache()
 
-    def get_trees_from_partition_with_lsf(self, partition):
-        index_tuples = partition.get_membership()
+    def add_partition_list(self, partition_list):
+        index_tuples = list(itertools.chain(*[partition.get_membership()
+                                              for partition in partition_list]))
         missing = sorted(set(index_tuples).difference(self.concats.keys()))
-        supermatrices = [self.concatenate(index_tuple)
-                         for index_tuple in index_tuples]
-        trees = runLSFPhyml(supermatrices,
-                            self.tmpdir,
-                            analysis=self.analysis,
-                            verbosity=self.verbosity)
-        for tree in trees:
-            tree = TrClTree.cast(tree)
-        for index_tuple, tree in zip(missing, trees):
-            self.concats[index_tuple] = tree
+        if self.lsf and not self.analysis == 'TreeCollection':
+            supermatrices = [self.concatenate(index_tuple)
+                             for index_tuple in index_tuples]
+            trees = runLSFPhyml(supermatrices,
+                                self.tmpdir,
+                                analysis=self.analysis,
+                                verbosity=self.verbosity)
+            for tree in trees:
+                tree = TrClTree.cast(tree)
+            for index_tuple, tree in zip(missing, trees):
+                self.concats[index_tuple] = tree
+        else:
+            for index_tuple in missing:
+                self.add(index_tuple)
 
     def add(self, index_tuple):
         """ Takes a tuple of indices. Concatenates the records in the record
@@ -313,8 +318,7 @@ class Scorer(object):
         for each one, and returns the sum """
 
         inds = partition_object.get_membership()
-        if self.lsf and not self.analysis == 'TreeCollection':
-            self.get_trees_from_partition_with_lsf(partition_object)
+        self.add_partition_list([partition_object])
         likelihood = sum([self.add(index_tuple, **kwargs).score
                           for index_tuple in inds])
         if history is True:
