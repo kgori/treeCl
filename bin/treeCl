@@ -3,6 +3,7 @@ from treeCl import Collection, Clustering, Scorer
 from treeCl.lib.remote.utils import fileIO
 from treeCl.lib.remote.errors import directorycheck, directorymake, filecheck
 import os
+import subprocess as sb
 
 # def dump_cache(cache_dir, collection, clustering,
 #                distance_matrix, partition, scorer):
@@ -71,7 +72,10 @@ def cluster(clustering, method, nclasses, noise=False):
         decomp = clustering.MDS_decomp()
         return clustering.MDS_cluster(nclasses, decomp)
 
-    elif method == 'single' or method == 'complete' or method == 'average' or method == 'ward':
+    elif (method == 'single' or
+          method == 'complete' or
+          method == 'average' or
+          method == 'ward'):
         return clustering.hierarchical(nclasses, method, noise)
 
     elif method == 'kmedoids':
@@ -82,27 +86,62 @@ def parse_args():
     import argparse
     fchoices = ['fasta', 'phylip']
     dchoices = ['protein', 'dna']
-    cchoices = ['spectral', 'mds', 'single', 'complete', 'average', 'ward', 'kmedoids']
+    cchoices = ['spectral', 'mds', 'single', 'complete', 'average', 'ward',
+                'kmedoids']
     mchoices = ['geo', 'euc', 'rf', 'wrf']
     zchoices = ['gz', 'bz2', None]
-    lchoices = ['ml', 'nj', 'lr']
+    lchoices = ['ml', 'nj', 'lr', 'l', 'r']
     vchoices = [0, 1, 2, 3]
-    lhelp = '''Tree search strategy: ml=full maximum likelihood, nj=BioNJ, lr=BioNJ topology, optimised lengths and rates'''
+
+    help_messages = {
+        'i': 'Input directory',
+        'o': 'Output directory',
+        't': 'Temporary directory',
+        'f': 'File format',
+        'd': 'Datatype',
+        'c': 'Clustering method',
+        'm': 'Distance metric',
+        'l': ('Tree search strategy: ml=full maximum likelihood, '
+                'nj=BioNJ, lr=BioNJ topology, optimised lengths and rates'),
+        'z': 'Compression (if input files are compressed)',
+        'n': 'Number of classes',
+        'e': 'Enumerate classes (go from 1 to N classes)'
+        'p': 'Precomputed cache directory NOT YET IMPLEMENTED',
+        'k': 'Dump cache to directory NOT YET IMPLEMENTED',
+        'v': 'Verbosity level: 0-3',
+        'b': 'Use LSF bsub if available',
+        's': 'Do parametric bootstraps to find number of clusters [Simulation]',
+        'r': 'Do permutation to find number of clusters [Randomisation]',
+    }
 
     parser = argparse.ArgumentParser(description=fileIO.basename(__file__))
-    parser.add_argument('-i', type=str, help='Input directory', required=True)
-    parser.add_argument('-o', type=str, help='Output directory', required=True)
-    parser.add_argument('-t', type=str, help='Temporary directory', required=True)
-    parser.add_argument('-f', type=str, choices=fchoices, help='File format', required=True)
-    parser.add_argument('-d', type=str, choices=dchoices, help='Datatype', required=True)
-    parser.add_argument('-c', type=str, choices=cchoices, help='Clustering method', required=True)
-    parser.add_argument('-m', type=str, choices=mchoices, help='Distance metric', required=True)
-    parser.add_argument('-l', type=str, choices=lchoices, help=lhelp, required=True)
-    parser.add_argument('-z', type=str, choices=zchoices, help='Compression (if input files are compressed)', default=None)
-    parser.add_argument('-n', type=int, help='Number of classes', required=True)
-    parser.add_argument('-p', type=str, help='Precomputed cache directory')
-    parser.add_argument('-k', type=str, help='Dump cache to directory')
-    parser.add_argument('-v', type=int, choices=vchoices, help='Verbosity level: 0-3', default=1)
+    parser.add_argument('-i', type=str,
+                        help=help_messages['i'], required=True)
+    parser.add_argument('-o', type=str,
+                        help=help_messages['o'], required=True)
+    parser.add_argument('-t', type=str,
+                        help=help_messages['t'], required=True)
+    parser.add_argument('-f', type=str, choices=fchoices,
+                        help=help_messages['f'], required=True)
+    parser.add_argument('-d', type=str, choices=dchoices,
+                        help=help_messages['d'], required=True)
+    parser.add_argument('-c', type=str, choices=cchoices,
+                        help=help_messages['c'], required=True)
+    parser.add_argument('-m', type=str, choices=mchoices,
+                        help=help_messages['m'], required=True)
+    parser.add_argument('-l', type=str, choices=lchoices,
+                        help=help_messages['l'], required=True)
+    parser.add_argument('-z', type=str, choices=zchoices,
+                        help=help_messages['z'], default=None)
+    parser.add_argument('-n', type=int, help=help_messages['n'], required=True)
+    parser.add_argument('-p', type=str, help=help_messages['p'])
+    parser.add_argument('-k', type=str, help=help_messages['k'])
+    parser.add_argument('-v', type=int, choices=vchoices,
+                        help=help_messages['v'], default=1)
+    parser.add_argument('-b', action='store_true', help=help_messages['b'])
+    parser.add_argument('-s', action='store_true', help=help_messages['s'])
+    parser.add_argument('-r', action='store_true', help=help_messages['r'])
+    parser.add_argument('-e', action='store_true', help=help_messages['e'])
     return parser.parse_args()
 
 def validate_args(args):
@@ -112,6 +151,11 @@ def validate_args(args):
         directorycheck(args.p)
     if args.k:
         directorymake(args.k)
+    if args.b:
+        args.b = sb.call('type bsub',
+                         stderr=sb.PIPE,
+                         stdout=sb.PIPE,
+                         shell=True)==0
 
 if __name__ == "__main__":
     args = parse_args()
@@ -121,13 +165,12 @@ if __name__ == "__main__":
 
 
     if not args.p:
-        collection = Collection(input_dir=args.i, datatype=args.d, file_format=args.f,
-                       compression=args.z, tmpdir=tmpdir)
+        collection = Collection(input_dir=args.i, datatype=args.d,
+                                file_format=args.f, compression=args.z,
+                                tmpdir=tmpdir)
 
-        if args.l == 'ml':
-            collection.calc_ML_trees(verbosity=args.v)
-        else:
-            collection.calc_NJ_trees(analysis=args.l, verbosity=args.v)
+        collection.calc_phyml_trees(analysis=args.l, lsf=args.b,
+                                    verbosity=args.v)
 
         if args.k:
             fileIO.gpickle(collection,
@@ -136,12 +179,18 @@ if __name__ == "__main__":
     else:
         collection = load_cache(args.p)
 
-    distance_matrix = collection.distance_matrix(args.m)
+    distance_matrix = collection.distance_matrix(args.m, lsf=args.b)
     clustering = Clustering(distance_matrix)
-    partition = cluster(clustering, args.c, args.n,
-                        (True if args.m == 'rf' else False))
-    scorer = Scorer(collection.records, args.l, verbosity=args.v)
-    score = scorer.score(partition)
+    if args.e:
+        partitions = [cluster(clustering, args.c, n,
+                              (True if args.m == 'rf' else False))
+                      for n in range(1, args.n+1)]
+    else:
+        partitions = [cluster(clustering, args.c, args.n,
+                              (True if args.m == 'rf' else False))]
+    scorer = Scorer(collection.records, args.l, lsf=args.b, verbosity=args.v)
+    for partition in partitions:
+        score = scorer.score(partition)
 
     outfiles = {'memberships': '{0}/memberships.txt'.format(args.o),
                 'trees': '{0}/trees.nwk'.format(args.o),

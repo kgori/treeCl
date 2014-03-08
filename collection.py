@@ -17,10 +17,7 @@ from distance_matrix import DistanceMatrix
 from lib.remote.errors import  OptionError, optioncheck, directorymake,\
     directorycheck
 from lib.remote.utils import fileIO
-from .constants import TMPDIR
-
-sort_key = lambda item: tuple((int(num) if num else alpha) for (num, alpha) in
-                              re.findall(r'(\d+)|(\D+)', item))
+from .constants import TMPDIR, SORT_KEY
 
 
 class NoRecordsError(Exception):
@@ -126,7 +123,7 @@ class Collection(object):
             extensions = ['.'.join([x, compression]) for x in extensions]
 
         files = fileIO.glob_by_extensions(input_dir, extensions)
-        files.sort(key=sort_key)
+        files.sort(key=SORT_KEY)
 
         return [TrClSeq(f, file_format=file_format, datatype=self.datatype,
                         name=fileIO.strip_extensions(f),
@@ -145,6 +142,8 @@ class Collection(object):
             rec.tree = TrClTree.cast(rec.tree)
 
     def calc_ML_trees(self, lsf=False, verbosity=0):
+        """ Deprecated"""
+        print 'deprecated: use calc_phyml_trees instead'
         self.analysis = 'ml'
         if lsf:
             trees = runLSFPhyml(self.records,
@@ -160,6 +159,10 @@ class Collection(object):
                 rec.tree = TrClTree.cast(rec.tree)
 
     def calc_NJ_trees(self, lsf=False, analysis='nj', verbosity=0):
+        print 'Deprecated:use calc_phyml_trees instead'
+        self.calc_phyml_trees(self, lsf, analysis, verbosity)
+
+    def calc_phyml_trees(self, lsf=False, analysis='nj', verbosity=0):
         self.analysis = analysis
         if lsf:
             trees = runLSFPhyml(self.records,
@@ -170,8 +173,8 @@ class Collection(object):
                 rec.tree = TrClTree.cast(tree)
         else:
             for rec in self.records:
-                runPhyml(rec, self.tmpdir, analysis=analysis, verbosity=verbosity,
-                    taxon_set=self.taxon_set)
+                runPhyml(rec, self.tmpdir, analysis=analysis,
+                         verbosity=verbosity, taxon_set=self.taxon_set)
                 rec.tree = TrClTree.cast(rec.tree)
         if verbosity == 1:
             print
