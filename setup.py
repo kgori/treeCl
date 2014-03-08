@@ -4,10 +4,23 @@ except ImportError:
     from distutils.core import setup, Extension
     def find_packages():
         return ['treeCl']
-from Cython.Distutils import build_ext
-from numpy import get_include as numpy_get_include
-# from distutils.core import Extension
-# from numpy.distutils.core import Extension as npExtension
+try:
+    from Cython.Distutils import build_ext
+except ImportError:
+    print 'You don\'t seem to have Cython installed.'
+    print 'Cython and Numpy are required for the'
+    print 'installation process, all other dependencies'
+    print 'will be installed automatically.'
+    print 'Install Cython [and Numpy] and try again.'
+
+try:
+    from numpy import get_include as numpy_get_include
+except ImportError:
+    print 'You don\'t seem to have Numpy installed.'
+    print 'Numpy and Cython are required for the'
+    print 'installation process, all other dependencies'
+    print 'will be installed automatically.'
+    print 'Install Numpy [and Cython] and try again.'
 
 extensions = [
     Extension(name='tree_collection',
@@ -26,13 +39,12 @@ extensions = [
     ),
 ]
 
-
 setup(name = "treeCl",
     version='1.0.0',
     author='Kevin Gori',
     author_email='kgori@ebi.ac.uk',
     description='TODO',
-    url='https://github.com/kgori/gapmasker.git',
+    url='https://github.com/kgori/treeCl.git',
     packages=find_packages(),
     # packages=['treeCl'],
     scripts=[
@@ -44,20 +56,11 @@ setup(name = "treeCl",
         'bsub',
         'cython',
         'dendropy',
+        'matplotlib',
         'numpy',
         'scikit-learn',
+        'scipy',
     ],
     cmdclass = { 'build_ext': build_ext},
     ext_modules = extensions,
 )
-
-# setup(
-#     name=name,
-#     version='0.5.0',
-#     author='Adrian Altenhoff',
-#     author_email='adrian.altenhoff@inf.ethz.ch',
-#     description='todoc',
-#     packages=find_packages(),
-#     install_requires=['lxml', 'progressbar-latest'],
-#     scripts=['bin/familyanalyzer']
-# )
