@@ -1,0 +1,48 @@
+from treeCl import Partition
+from treeCl.lib.local.datastructs.trcl_tree import TrClTree
+# from treeCl.lib.remote.datastructs.tree import SPR, NNI, LGT
+from treeCl.lib.local.externals.alf import ALF
+from treeCl.lib.remote.utils import fileIO
+from treeCl.lib.remote import errors
+import shutil
+
+if __name__ == '__main__':
+
+    import argparse
+    prog = fileIO.basename(__file__)
+    parser = argparse.ArgumentParser(description='{0}'.format(prog))
+    parser.add_argument('classes', type=int, nargs='+')
+    parser.add_argument('-p', '--permutations', type=int, nargs='+')
+    parser.add_argument('-s', '--species', type=int, default=12)
+    parser.add_argument('-d', '--datatype', type=str, default='protein')
+    parser.add_argument('-g', '--tree_generator', type=str, default='yule')
+    parser.add_argument('-t', '--tree', type=str)
+    parser.add_argument('--permuter', type=str, default='lgt')
+    parser.add_argument('-l', '--gamma_params', type=float, nargs=2,
+        default=(1.7719, 279.9))
+    parser.add_argument('-m', '--min_length', type=str, default=10)
+    parser.add_argument('--tmp', type=str, default='/tmp')
+    parser.add_argument('-o', '--output', type=str)
+    args = parser.parse_args()
+
+    if args.permutations is None:
+        args.permutations = [1 for _ in args.classes]
+
+    sim = Simulator(
+        class_list=args.classes,
+        permutations_list=args.permutations,
+        nspecies=args.species,
+        datatype=args.datatype,
+        master_tree_generator_method=args.tree_generator,
+        master_tree=args.tree,
+        class_tree_permuter=args.permuter,
+        gene_length_kappa=args.gamma_params[0],
+        gene_length_theta=args.gamma_params[1],
+        gene_length_min=args.min_length,
+        tmpdir=args.tmp,
+        outdir=args.output)
+
+    sim.run()
+    recs = sim.result
+    if args.output is not None:
+        sim.write()
