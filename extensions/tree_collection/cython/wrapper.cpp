@@ -1,6 +1,6 @@
 #include <utility>
-#include "../MinSqTree.h"
-#include "../ProblemParser.h"
+#include "../src/MinSqTree.h"
+#include "../src/ProblemParser.h"
 
 using namespace std;
 
