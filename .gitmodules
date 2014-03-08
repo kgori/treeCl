@@ -1,3 +1,0 @@
-[submodule "lib/remote"]
-	path = lib/remote
-	url = git://github.com/kgori/pylogeny.git
