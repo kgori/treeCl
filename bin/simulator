@@ -1,10 +1,9 @@
-from treeCl import Partition
-from treeCl.lib.local.datastructs.trcl_tree import TrClTree
-# from treeCl.lib.remote.datastructs.tree import SPR, NNI, LGT
-from treeCl.lib.local.externals.alf import ALF
-from treeCl.lib.remote.utils import fileIO
-from treeCl.lib.remote import errors
-import shutil
+#!/usr/bin/env python
+
+# treeCl
+from treeCl import Simulator
+from treeCl.lib.utils import fileIO
+
 
 if __name__ == '__main__':
 
