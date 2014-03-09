@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 try:
     from setuptools import setup, find_packages, Extension
 except ImportError:
@@ -62,6 +63,13 @@ setup(name = "treeCl",
     description='TODO',
     url='https://github.com/kgori/treeCl.git',
     packages=find_packages(),
+    include_package_data=True,
+    package_data={
+        'treeCl': ['software_interfaces/gtp.jar']
+    },
+    # data_files=[
+    #     ('treeCl/software_interfaces', ['treeCl/software_interfaces/gtp.jar']),
+    # ],
     scripts=[
         'bin/simulator',
         'bin/treeCl',
