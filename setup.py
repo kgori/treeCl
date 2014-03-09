@@ -12,6 +12,8 @@ except ImportError:
     print 'installation process, all other dependencies'
     print 'will be installed automatically.'
     print 'Install Cython [and Numpy] and try again.'
+    import sys
+    sys.exit()
 
 try:
     from numpy import get_include as numpy_get_include
@@ -21,6 +23,20 @@ except ImportError:
     print 'installation process, all other dependencies'
     print 'will be installed automatically.'
     print 'Install Numpy [and Cython] and try again.'
+    import sys
+    sys.exit()
+
+logo = """
+═══════════ ╔═╗┬
+┌┬┐┬─┐┌─┐┌─┐║  │
+ │ ├┬┘├┤ ├┤ ╚═╝┴─┘
+ ┴ ┴└─└─┘└─┘╭─────
+┈┈┄┄┄┄┄┄────┤  ╭──
+            ╰──┤
+══════════════ ╰──
+"""
+
+print logo
 
 extensions = [
     Extension(name='tree_collection',

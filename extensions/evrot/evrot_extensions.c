@@ -12,7 +12,7 @@ double *pyvector_to_Carrayptrs(PyArrayObject *arrayin) {
     return (double *) arrayin->data;
 }
 
-double **pymatrix_to_Carrayptrs(PyArrayObject *arrayin) { 
+double **pymatrix_to_Carrayptrs(PyArrayObject *arrayin) {
    double **c, *a;
    int i,n,m;
 
@@ -25,7 +25,7 @@ double **pymatrix_to_Carrayptrs(PyArrayObject *arrayin) {
    return c;
 }
 
-double **ptrvector(long n) { 
+double **ptrvector(long n) {
    double **v;
    v=(double **)malloc((size_t) (n*sizeof(double)));
    if (!v)   {
@@ -34,7 +34,7 @@ double **ptrvector(long n) {
    return v;
 }
 
-void free_Carrayptrs(double **v) { 
+void free_Carrayptrs(double **v) {
    free((char*) v);
 }
 
@@ -58,7 +58,7 @@ static PyObject *sum_dJ(PyObject *self, PyObject *args) {
         &PyArray_Type, &mv_sq,
         &PyArray_Type, &mv_cb,
         &PyArray_Type, &max_A_values,
-        &dim, &ndata)) return NULL; 
+        &dim, &ndata)) return NULL;
 
     // type checking
     if (A_x_Y->nd != 2 || A_x_Y->descr->type_num != NPY_DOUBLE) {
@@ -107,13 +107,13 @@ static PyObject *sum_dJ(PyObject *self, PyObject *args) {
     // free allocated memory from 2D array pointers
     free_Carrayptrs(p_A_x_Y);
     free_Carrayptrs(p_Y_sq);
-    
+
     return Py_BuildValue("d",dJ);
 
 }
 
 static PyObject *build_Uab(PyObject *self, PyObject *args) {
-    
+
     // arguments
     PyArrayObject *theta, *ik, *jk;
     int a, b, dim;
@@ -129,8 +129,8 @@ static PyObject *build_Uab(PyObject *self, PyObject *args) {
 
     // parse input
     if (!PyArg_ParseTuple(args, "O!iiO!O!i",
-        &PyArray_Type, &theta, 
-        &a, &b, 
+        &PyArray_Type, &theta,
+        &a, &b,
         &PyArray_Type, &ik,
         &PyArray_Type, &jk,
         &dim)) return NULL;
@@ -159,7 +159,7 @@ static PyObject *build_Uab(PyObject *self, PyObject *args) {
     // pointers
     p_theta = pyvector_to_Carrayptrs(theta);
     p_Uab = pymatrix_to_Carrayptrs(Uab); // remember to free this memory!
-    
+
     // make Identity matrix of size dim
     for (i=0; i < dim; i++){
         // set diagonal to 1
@@ -193,7 +193,7 @@ static PyObject *build_Uab(PyObject *self, PyObject *args) {
         }
     }
     free_Carrayptrs(p_Uab); // free 2D array pointer
-    return PyArray_Return(Uab); 
+    return PyArray_Return(Uab);
 }
 
 static PyMethodDef evrot_extensions_methods[] = {

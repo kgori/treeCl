@@ -18,7 +18,7 @@ from ..utils import fileIO
 
 class LSFGTP(ExternalSoftware):
 
-    default_binary = 'dependecies/gtp.jar'
+    default_binary = 'gtp.jar'
     default_env = 'GTP_PATH'
     local_dir = fileIO.path_to(__file__)
 
