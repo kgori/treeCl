@@ -634,8 +634,8 @@ class ALF(ExternalSoftware):
     def read(self, verbosity=0, length_is_strict=False):
 
         if self.check_output_exists():
-        alf_tree_file = ('{0}/{1}/RealTree.nwk'.format(
-                                      self.working_dir, self.name))
+            alf_tree_file = ('{0}/{1}/RealTree.nwk'.format(
+                             self.working_dir, self.name))
 
         else:
             if self._retries < self.maxtries:
