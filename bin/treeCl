@@ -155,9 +155,12 @@ def validate_args(args):
 if __name__ == "__main__":
     args = parse_args()
     validate_args(args)
-    tmpdir = os.getenv('TEMPORARY_DIRECTORY') or args.t
+    tmpdir = os.getenv('TMPDIR') or args.t
     directorymake(tmpdir)
 
+    #================================================================#
+    # CALCULATION                                                    #
+    #================================================================#
     collection = Collection(
         input_dir=args.i,
         datatype=args.d,
@@ -191,32 +194,9 @@ if __name__ == "__main__":
     scorer = Scorer(collection.records, args.g, lsf=args.b, verbosity=args.v)
     scorer.add_partition_list(partitions_list)
 
-
-    #===========================#
-    # PARAMETRIC BOOTSTRAPPING #
-    #=========================#
-    for partition in partitions_list:
-        score = scorer.score(partition)
-        for i in range(1, args.s + 1):
-            n = len(partition)
-            sim_recs = scorer.simulate_from_result(partition)
-            d = directorymake('{0}/parametric_bootstraps/{1}_clusters/{2}'
-                              .format(args.o, n, i))
-            for rec in sim_recs:
-                rec.write_phylip('{0}/{1}_{2:0>{3}}.phy.gz'.format(d, rec.name,
-                    i, len(str(args.s))))
-
-    #===============================#
-    # NON-PARAMETRIC BOOTSTRAPPING #
-    #=============================#
-        for j in range(1, args.r + 1):
-            perm = collection.permuted_copy()
-            d = directorymake('{0}/nonparametric_bootstraps/{1}'.format(
-                          args.o, j))
-            for rec in perm.records:
-                rec.write_phylip('{0}/{1}_{2:0>{3}}.phy.gz'.format(d, rec.name,
-                    j, len(str(args.s))))
-
+    #================================================================#
+    # WRITE RESULTS                                                  #
+    #================================================================#
     outfiles = {
         'memberships': '{0}/memberships.txt'.format(args.o),
         'trees': '{0}/trees.nwk'.format(args.o),
@@ -229,3 +209,40 @@ if __name__ == "__main__":
     write_cluster_trees(outfiles['trees'], partitions_list, scorer)
     write_tree_details(outfiles['tree_details'], partitions_list, scorer)
     write_summary(outfiles['summary'], args.m, args.c, scorer, partitions_list)
+
+    #================================================================#
+    # PARAMETRIC BOOTSTRAPPING                                       #
+    #================================================================#
+    for partition in partitions_list:
+        if not args.b:
+            for i in range(1, args.s + 1):
+                n = len(partition)
+                sim_recs = scorer.simulate_from_result(partition)
+                d = directorymake('{0}/parametric_bootstraps/{1}_clusters/{2}'
+                                  .format(args.o, n, i))
+                for rec in sim_recs:
+                    rec.write_phylip('{0}/{1}_{2:0>{3}}.phy.gz'.format(d,
+                        rec.name, i, len(str(args.s))))
+        else:
+            n = len(partition)
+            sims = scorer.simulate_from_result(partition,
+                                               lsf=args.b,
+                                               ntimes=args.s)
+            for i, sim_recs in enumerate(sims, start=1):
+                d = directorymake('{0}/parametric_bootstraps/{1}_clusters/{2}'
+                                  .format(args.o, n, i))
+                for rec in sim_recs:
+                    rec.write_phylip('{0}/{1}_{2:0>{3}}.phy.gz'.format(d,
+                        rec.name, i, len(str(args.s))))
+
+    #================================================================#
+    # NON-PARAMETRIC BOOTSTRAPPING                                   #
+    #================================================================#
+    for partition in partitions_list:
+        for j in range(1, args.r + 1):
+            perm = collection.permuted_copy()
+            d = directorymake('{0}/nonparametric_bootstraps/{1}'.format(
+                          args.o, j))
+            for rec in perm.records:
+                rec.write_phylip('{0}/{1}_{2:0>{3}}.phy.gz'.format(d, rec.name,
+                    j, len(str(args.s))))
