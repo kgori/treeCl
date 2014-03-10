@@ -1,6 +1,6 @@
 # ``treeCl`` - Phylogenetic Tree Clustering
 
-*treeCl* is a python package for clustering gene families by
+``treeCl`` is a python package for clustering gene families by
 phylogenetic similarity. It takes a collection of alignments, infers their phylogenetic trees,
 and clusters them based on a matrix of between-tree distances. Finally, it calculates a single representative tree for each cluster.
 
