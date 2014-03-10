@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 # standard library
+from glob import glob
 import os
 import re
 import shutil
@@ -84,9 +85,9 @@ class LSFPhyml(ExternalSoftware):
             phyml.clean()
         for d in self.temp_dirs:
             shutil.rmtree(d)
-        for f in os.listdir(self.tmpdir):
-            if (f.endswith('.out') or f.endswith('.err')):
-                os.remove(f)
+        for f in (glob(os.path.join(self.tmpdir, '*.out') +
+                  glob(os.path.join(self.tmpdir, '*.err')):
+            os.remove(os.path.join(self.tmpdir, f))
 
     def run(self, analysis, verbose=False):
         command_strings = self.get_command_strings(analysis)

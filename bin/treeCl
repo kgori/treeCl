@@ -113,7 +113,7 @@ def parse_args():
     parser.add_argument('-f', type=str, choices=fchoices,
                         help=help_messages['f'], required=True)
     parser.add_argument('-g', type=str, choices=lchoices,
-                        help=help_messages['l'], required=True)
+                        help=help_messages['g'], required=True)
     parser.add_argument('-i', type=str,
                         help=help_messages['i'], required=True)
     parser.add_argument('-l', type=int, help=help_messages['l'], default=0)
