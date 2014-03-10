@@ -15,11 +15,13 @@ from bsub import bsub
 from external import ExternalSoftware
 from ..constants import TMPDIR
 from ..datastructs.trcl_seq import TrClSeq
-from ..errors import filecheck, directorymake, directoryquit, \
+from ..errors import filecheck, FileError, directorymake, directoryquit, \
     optioncheck, OptionError, directorycheck
 from ..utils.gapmasker import GapMasker
 from ..utils import phymlIO
 
+class ALFError(Exception):
+    pass
 
 class Params(object):
 
@@ -459,7 +461,7 @@ class LSFALF(ExternalSoftware):
 
     def __init__(self, tree, datatype, tmpdir, ntimes, num_genes=1,
         seqlength=10, gene_length_kappa=1, gene_length_theta=1,
-        name='no_name', **kwargs):
+        name='no_name', max_retries=1, **kwargs):
 
         super(LSFALF, self).__init__(tmpdir)
         self.temp_dirs = self.setup_temp_dirs(ntimes)
@@ -467,8 +469,8 @@ class LSFALF(ExternalSoftware):
                                                   self.temp_dirs, num_genes,
                                                   seqlength, gene_length_kappa,
                                                   gene_length_theta,
-                                                  name, **kwargs) # alf_objects
-
+                                                  name, **kwargs)
+        self._retries = 0
 
     def write(self):
         pass
@@ -501,6 +503,15 @@ class LSFALF(ExternalSoftware):
         bsub.poll(job_ids)
         os.chdir(curr_dir)
 
+    def check_output(self):
+        command_strings = []
+        for alf in self.alf_objects:
+            if not alf.check_output_exists():
+                alf.clean()
+                alf.write()
+                command_strings.append(alf.run(dry_run))
+        return command_strings
+
     def read(self, length_is_strict=False):
         return [alf.read(length_is_strict=length_is_strict)
                 for alf in self.alf_objects]
@@ -515,6 +526,15 @@ class LSFALF(ExternalSoftware):
     def run(self, verbose=False, length_is_strict=False):
         command_strings = self.get_command_strings()
         self.launch_lsf(command_strings, verbose)
+
+        # relaunch missing jobs if not successful
+        missing = self.check_output()
+        while missing > [] and self._retries < self.max_retries:
+            self._retries += 1
+            if verbose:
+                print 'Relaunching'
+            self.launch_lsf(missing, verbose)
+            missing = self.check_output()
         results = self.read(length_is_strict=length_is_strict)
         if len(results) == len(command_strings):
             self.clean()
@@ -539,19 +559,22 @@ class ALF(ExternalSoftware):
         gene_length_kappa=1,
         gene_length_theta=1,
         name='no_name',
+        max_tries=1,
         **kwargs
         ):
 
         super(ALF, self).__init__(tmpdir, **kwargs)
-        self.tree = tree
-        self.name = name
-        self.num_genes = num_genes
-        self.seqlength = seqlength
-        self.datatype = optioncheck(datatype, ['protein', 'dna'])
-        self.param_dir = \
-            directorymake('{0}/alfsim_param_dir'.format(self.tmpdir))
-        self.working_dir = \
-            directorymake('{0}/alfsim_working_dir'.format(self.tmpdir))
+        self.tree        = tree
+        self.name        = name
+        self.num_genes   = num_genes
+        self.seqlength   = seqlength
+        self.datatype    = optioncheck(datatype, ['protein', 'dna'])
+        self.param_dir   = tempfile.mkdtemp(prefix='alfsim_param_',
+                                            dir=self.tmpdir)
+        self.working_dir = tempfile.mkdtemp(prefix='alfsim_working_',
+                                            dir=self.tmpdir)
+        self.max_tries   = max_tries
+        self._retries    = 0 # if the thing fails, try again
 
         if datatype == 'dna':               # Length correction as ALF assumes
             seqlength = (seqlength / 3) + 1 # we mean amino acid sequences
@@ -600,24 +623,40 @@ class ALF(ExternalSoftware):
         record.sort_by_name()
         return record
 
+    def check_output_exists(self):
+        try:
+            filecheck(filecheck('{0}/{1}/RealTree.nwk'.format(
+                                self.working_dir, self.name)))
+            return True
+        except FileError:
+            return False
+
     def read(self, verbosity=0, length_is_strict=False):
-        alf_tree_file = \
-            filecheck('{0}/{1}/RealTree.nwk'.format(self.working_dir,
-                                self.name))
+
+        if self.check_output_exists():
+        alf_tree_file = ('{0}/{1}/RealTree.nwk'.format(
+                                      self.working_dir, self.name))
+
+        else:
+            if self._retries < self.maxtries:
+                self._retries += 1
+                self.clean()
+                self.run()
+            else:
+                raise ALFError('Failed after {} attempts'.format(self._retries))
+
         alf_tree = open(alf_tree_file).read()
         replacement_dict = dict(zip(re.findall(r'(\w+)(?=:)', alf_tree),
-                                re.findall(r'(\w+)(?=:)', self.tree.newick)))  # bug correction
+                                re.findall(r'(\w+)(?=:)', self.tree.newick)))
         if verbosity > 0:
             print 'replacement_dict =', replacement_dict
         if self.datatype == 'dna':  # !!! ALF doesn't always write DNA
                                     # alignments
-            alignments = \
-                glob('{0}/{1}/MSA/MSA_*_dna.fa'.format(self.working_dir,
-                                    self.name))
+            alignments = glob('{0}/{1}/MSA/MSA_*_dna.fa'.format(
+                              self.working_dir, self.name))
         else:
-            alignments = \
-                glob('{0}/{1}/MSA/MSA_*_aa.fa'.format(self.working_dir,
-                                    self.name))
+            alignments = glob('{0}/{1}/MSA/MSA_*_aa.fa'.format(
+                              self.working_dir, self.name))
         if verbosity > 1:
             print alignments
 

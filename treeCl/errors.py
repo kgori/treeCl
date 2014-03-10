@@ -92,7 +92,6 @@ def filecheck(filename):
         raise FileError(filename)
     return filename
 
-
 def filequit(filename):
     try:
         filecheck(filename)
@@ -100,12 +99,10 @@ def filequit(filename):
         print e
         sys.exit()
 
-
 def directorycheck(directory):
     if not os.path.isdir(directory):
         raise DirectoryError(directory)
     return directory
-
 
 def directoryquit(directory):
     try:
@@ -114,7 +111,6 @@ def directoryquit(directory):
     except DirectoryError, e:
         print e
         sys.exit()
-
 
 def directorymake(directory, verbosity=0):
     try:
@@ -127,12 +123,10 @@ def directorymake(directory, verbosity=0):
         os.makedirs(directory)
     return directorycheck(directory)
 
-
 def optioncheck(option, choices):
     if option not in choices:
         raise OptionError(option, choices)
     return option
-
 
 def rangecheck(n, lower, upper):
     if n < lower or n > upper:
