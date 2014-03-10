@@ -2,9 +2,6 @@
 import os
 import re
 
-# third party
-import numpy as np
-
 TMPDIR = os.getenv('TMPDIR', '/tmp')
 EPS = 1e-8 # a small number
 SORT_KEY = lambda item: tuple((int(num) if num else alpha) for (num, alpha) in

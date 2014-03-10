@@ -13,34 +13,43 @@ def load_cache(cache_dir):
     collection = fileIO.gunpickle(filecheck('{0}/collection.pkl.gz'.format(cache_dir)))
     return collection
 
-def write_memberships(outfile, partition, scorer):
-    inds = partition.get_membership()
+def write_memberships(outfile, partitions_list, scorer):
     with open(outfile, 'w') as file_:
-        for cluster, ix in enumerate(inds, start=1):
-            names = [scorer.records[i].name for i in ix]
-            names_string = ' '.join(names)
-            file_.write('{0}\t{1}\n'.format(cluster, names_string))
+        for partition in partitions_list:
+            inds = partition.get_membership()
+            for cluster, ix in enumerate(inds, start=1):
+                names = [scorer.records[i].name for i in ix]
+                names_string = ' '.join(names)
+                file_.write('{0}\t{1}\n'.format(cluster, names_string))
+            file_.write('\n')
 
-def write_trees(outfile, partition, scorer):
-    inds = partition.get_membership()
+def write_trees(outfile, partitions_list, scorer):
     with open(outfile, 'w') as file_:
-        for ix in inds:
-            tree = scorer.concats[ix]
-            file_.write(tree.newick + '\n')
+        for partition in partitions_list:
+            inds = partition.get_membership()
+            for ix in inds:
+                tree = scorer.concats[ix]
+                file_.write(tree.newick + '\n')
+            file_.write('\n')
 
-def write_tree_details(outfile, partition, scorer):
-    inds = partition.get_membership()
+def write_tree_details(outfile, partitions_list, scorer):
     with open(outfile, 'w') as file_:
-        for ix in inds:
-            tree = scorer.concats[ix]
-            file_.write(tree.output +'\n')
+        for partition in partitions_list:
+            inds = partition.get_membership()
+            for ix in inds:
+                tree = scorer.concats[ix]
+                file_.write(tree.output +'\n')
+            file_.write('\n')
 
-def write_summary(outfile, metric, method, likelihood, partition):
+def write_summary(outfile, metric, method, scorer, partitions_list):
     with open(outfile, 'w') as file_:
         file_.write('metric = {0}\n'.format(metric))
         file_.write('method = {0}\n'.format(method))
-        file_.write('likelihood = {0}\n'.format(likelihood))
-        file_.write('partition = {0}\n'.format(partition))
+        for partition in partitions_list:
+            file_.write('{0} clusters:\n'.format(len(partition)))
+            file_.write('\tlikelihood = {0}\n'.format(scorer.score(partition)))
+            file_.write('\tpartition = {0}\n'.format(partition))
+        file_.write('\n')
 
 def cluster(clustering, method, nclasses, noise=False):
 
@@ -73,22 +82,23 @@ def parse_args():
     vchoices = [0, 1, 2, 3]
 
     help_messages = {
-        'b': 'Use LSF bsub if available',
-        'c': 'Clustering method',
-        'd': 'Datatype',
+        'b': 'Use LSF [b]sub if available',
+        'c': '[c]lustering method',
+        'd': '[d]atatype',
         'e': 'Enumerate classes (go from 1 to N classes)',
-        'f': 'File format',
-        'i': 'Input directory',
-        'k': 'Dump cache to directory NOT YET IMPLEMENTED',
-        'l': ('Tree search strategy: ml=full maximum likelihood, '
+        'f': '[f]ile format',
+        'g': ('Tree search strate[g]y: ml=full maximum likelihood, '
                 'nj=BioNJ, lr=BioNJ topology, optimised lengths and rates'),
-        'm': 'Distance metric',
-        'n': 'Number of classes',
+        'i': '[i]nput directory',
+        'k': 'Dump [k]ache to directory NOT YET IMPLEMENTED',
+        'l': 'number of classes - [l]ower bound',
+        'm': 'Distance [m]etric',
         'o': 'Output directory',
         'p': 'Precomputed cache directory NOT YET IMPLEMENTED',
         'r': 'Do permutation to find number of clusters [Randomisation]',
         's': 'Do parametric bootstraps to find number of clusters [Simulation]',
         't': 'Temporary directory',
+        'u': 'number of classes - [u]pper bound',
         'v': 'Verbosity level: 0-3',
         'z': 'Compression (if input files are compressed)',
     }
@@ -102,21 +112,21 @@ def parse_args():
     parser.add_argument('-e', action='store_true', help=help_messages['e'])
     parser.add_argument('-f', type=str, choices=fchoices,
                         help=help_messages['f'], required=True)
+    parser.add_argument('-g', type=str, choices=lchoices,
+                        help=help_messages['l'], required=True)
     parser.add_argument('-i', type=str,
                         help=help_messages['i'], required=True)
-    parser.add_argument('-k', type=str, help=help_messages['k'])
-    parser.add_argument('-l', type=str, choices=lchoices,
-                        help=help_messages['l'], required=True)
+    parser.add_argument('-l', type=int, help=help_messages['l'], default=0)
     parser.add_argument('-m', type=str, choices=mchoices,
                         help=help_messages['m'], required=True)
-    parser.add_argument('-n', type=int, help=help_messages['n'], required=True)
     parser.add_argument('-o', type=str,
                         help=help_messages['o'], required=True)
-    parser.add_argument('-p', type=str, help=help_messages['p'])
+    # parser.add_argument('-p', type=str, help=help_messages['p'])
     parser.add_argument('-r', type=int, help=help_messages['r'], default=0)
     parser.add_argument('-s', type=int, help=help_messages['s'], default=0)
     parser.add_argument('-t', type=str,
                         help=help_messages['t'], required=True)
+    parser.add_argument('-u', type=int, help=help_messages['n'], required=True)
     parser.add_argument('-v', type=int, choices=vchoices,
                         help=help_messages['v'], default=1)
     parser.add_argument('-z', type=str, choices=zchoices,
@@ -125,16 +135,14 @@ def parse_args():
 
 def validate_args(args):
     directorycheck(args.i)
+    directorycheck(args.t)
     directorymake(args.o)
-    if args.p:
-        directorycheck(args.p)
-    if args.k:
-        directorymake(args.k)
     if args.b:
         args.b = sb.call('type bsub',
                          stderr=sb.PIPE,
                          stdout=sb.PIPE,
                          shell=True)==0
+
 
 if __name__ == "__main__":
     args = parse_args()
@@ -142,33 +150,33 @@ if __name__ == "__main__":
     tmpdir = os.getenv('TEMPORARY_DIRECTORY') or args.t
     directorymake(tmpdir)
 
-    if not args.p:
-        collection = Collection(input_dir=args.i, datatype=args.d,
-                                file_format=args.f, compression=args.z,
-                                tmpdir=tmpdir)
+    collection = Collection(input_dir=args.i, datatype=args.d,
+                            file_format=args.f, compression=args.z,
+                            tmpdir=tmpdir)
 
-        collection.calc_phyml_trees(analysis=args.l, lsf=args.b,
-                                    verbosity=args.v)
+    collection.calc_phyml_trees(analysis=args.g, lsf=args.b,
+                                verbosity=args.v)
 
-        if args.k:
-            fileIO.gpickle(collection,
-                '{0}/collection.pkl.gz'.format(args.k))
-
-    else:
-        collection = load_cache(args.p)
 
     distance_matrix = collection.distance_matrix(args.m, lsf=args.b)
     clustering = Clustering(distance_matrix)
-    if args.e:
-        partitions = [cluster(clustering, args.c, n,
-                              (True if args.m == 'rf' else False))
-                      for n in range(1, args.n+1)]
-    else:
-        partitions = [cluster(clustering, args.c, args.n,
-                              (True if args.m == 'rf' else False))]
+
+    if args.l == 0:
+        args.l = args.u
+
+    assert args.l <= args.u
+
+    partitions_list = [
+        cluster(
+            clustering, args.c, n,
+            (True if args.m == 'rf' else False)
+        ) # /cluster
+        for n in range(args.l, args.u+1)
+    ] # /partitions_list
+
     scorer = Scorer(collection.records, args.l, lsf=args.b, verbosity=args.v)
-    scorer.add_partition_list(partitions)
-    for partition in partitions:
+    scorer.add_partition_list(partitions_list)
+    for partition in partitions_list:
         score = scorer.score(partition)
         for i in range(1, args.s + 1):
             n = len(partition)
@@ -191,7 +199,7 @@ if __name__ == "__main__":
                 'tree_details': '{0}/trees_details.txt'.format(args.o),
                 'summary': '{0}/summary.txt'.format(args.o)}
 
-    write_memberships(outfiles['memberships'], partition, scorer)
-    write_trees(outfiles['trees'], partition, scorer)
-    write_tree_details(outfiles['tree_details'], partition, scorer)
-    write_summary(outfiles['summary'], args.m, args.c, score, partition)
+    write_memberships(outfiles['memberships'], partitions_list, scorer)
+    write_trees(outfiles['trees'], partitions_list, scorer)
+    write_tree_details(outfiles['tree_details'], partitions_list, scorer)
+    write_summary(outfiles['summary'], args.m, args.c, scorer, partitions_list)
