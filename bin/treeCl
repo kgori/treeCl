@@ -126,7 +126,7 @@ def parse_args():
     parser.add_argument('-s', type=int, help=help_messages['s'], default=0)
     parser.add_argument('-t', type=str,
                         help=help_messages['t'], required=True)
-    parser.add_argument('-u', type=int, help=help_messages['n'], required=True)
+    parser.add_argument('-u', type=int, help=help_messages['u'], required=True)
     parser.add_argument('-v', type=int, choices=vchoices,
                         help=help_messages['v'], default=1)
     parser.add_argument('-z', type=str, choices=zchoices,
