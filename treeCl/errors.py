@@ -40,7 +40,7 @@ class DirectoryError(FileError):
     def __str__(self):
         line1 = 'Error opening directory \'{0}\''.format(self.value)
         line2 = 'Directory doesn\'t exist'
-        return '\n'.join((line1, line2))
+        return '.'.join((line1, line2))
 
 
 class OptionError(Exception):
@@ -116,12 +116,13 @@ def directoryquit(directory):
         sys.exit()
 
 
-def directorymake(directory, verbose=True):
+def directorymake(directory, verbosity=0):
     try:
         directorycheck(directory)
     except DirectoryError, e:
-        if verbose:
+        if verbosity > 1:
             print e
+        if verbosity > 0:
             print 'Creating \'{0}\''.format(directory)
         os.makedirs(directory)
     return directorycheck(directory)
