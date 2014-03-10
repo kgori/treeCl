@@ -1,6 +1,6 @@
-# ``TreeCl`` - Phylogenetic Tree Clustering
+# ``treeCl`` - Phylogenetic Tree Clustering
 
-TreeCl is a python package for clustering gene families by
+*treeCl* is a python package for clustering gene families by
 phylogenetic similarity. It takes a collection of alignments, infers their phylogenetic trees,
 and clusters them based on a matrix of between-tree distances. Finally, it calculates a single representative tree for each cluster.
 
@@ -9,18 +9,24 @@ to the data.
 
 ## Installation
 
-0. Make sure you have the dependencies required for installation - numpy, and cython (```pip install cython numpy``` if you don't)
+####Make sure you have the dependencies required for installation - numpy, and cython (```pip install cython numpy``` if you don't)
+
+###The ```setup.py``` way:
 
 1. Pick a nice directory to put the files in. It can be anywhere, you won't need them again once they are installed. We'll call this ```$TEDIOUS_BUILDING_AREA```
 
 2. Clone the repo:
-    cd $TEDIOUS_BUILDING_AREA
-    git clone https://github.com/kgori/treeCl.git TIRESOME_SOFTWARE
-    cd TIRESOME_SOFTWARE
 
-3. Install using setup.py, or -even better!- pip
-    python setup.py install
-    pip install .
+    ``` bash
+cd $TEDIOUS_BUILDING_AREA
+git clone https://github.com/kgori/treeCl.git tiresome_software
+cd tiresome_software
+python setup.py install
+```
+
+###The pip way:
+
+```pip install git+https://github.com/kgori/treeCl.git```
 
 ## Dependencies
 
