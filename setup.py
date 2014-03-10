@@ -27,15 +27,17 @@ except ImportError:
     import sys
     sys.exit()
 
+VERSION='1.0.0'
+
 logo = """
 ═══════════ ╔═╗┬
 ┌┬┐┬─┐┌─┐┌─┐║  │
  │ ├┬┘├┤ ├┤ ╚═╝┴─┘
  ┴ ┴└─└─┘└─┘╭─────
-┈┈┄┄┄┄┄┄────┤  ╭──
-            ╰──┤
+┈┈┈┈┈┈┄┄┄┄┄─┤  ╭──
+   V{0:s}   ╰──┤
 ══════════════ ╰──
-"""
+""".format(VERSION)
 
 print logo
 
@@ -57,19 +59,16 @@ extensions = [
 ]
 
 setup(name = "treeCl",
-    version='1.0.0',
+    version=VERSION,
     author='Kevin Gori',
     author_email='kgori@ebi.ac.uk',
-    description='TODO',
+    description='Phylogenetic Clustering Package',
     url='https://github.com/kgori/treeCl.git',
     packages=find_packages(),
     include_package_data=True,
     package_data={
         'treeCl': ['software_interfaces/gtp.jar']
     },
-    # data_files=[
-    #     ('treeCl/software_interfaces', ['treeCl/software_interfaces/gtp.jar']),
-    # ],
     scripts=[
         'bin/simulator',
         'bin/treeCl',

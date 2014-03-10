@@ -9,29 +9,6 @@ from treeCl import Collection, Clustering, Scorer
 from treeCl.utils import fileIO
 from treeCl.errors import directorycheck, directorymake, filecheck
 
-# def dump_cache(cache_dir, collection, clustering,
-#                distance_matrix, partition, scorer):
-#     fileIO.gpickle(collection,
-#         '{0}/collection.pkl.gz'.format(cache_dir))
-#     fileIO.gpickle(clustering,
-#         '{0}/clustering.pkl.gz'.format(cache_dir))
-#     fileIO.gpickle(distance_matrix,
-#         '{0}/distance_matrix.pkl.gz'.format(cache_dir))
-#     fileIO.gpickle(scorer,
-#         '{0}/scorer.pkl.gz'.format(cache_dir))
-#     fileIO.gpickle(partition,
-#         '{0}/partition.pkl.gz'.format(cache_dir))
-
-# def load_cache(cache_dir):
-#     collection = fileIO.gunpickle(filecheck('{0}/collection.pkl.gz'.format(cache_dir)))
-#     clustering = fileIO.gunpickle(filecheck('{0}/clustering.pkl.gz'.format(cache_dir)))
-#     distance_matrix = fileIO.gunpickle(filecheck('{0}/distance_matrix.pkl.gz'.format(cache_dir)))
-#     partition = fileIO.gunpickle(filecheck('{0}/partition.pkl.gz'.format(cache_dir)))
-#     scorer = fileIO.gunpickle(filecheck('{0}/scorer.pkl.gz'.format(cache_dir)))
-#     concats = fileIO.gunpickle(filecheck('{0}/concats.pkl.gz'.format(cache_dir)))
-#     scorer.concats = concats
-#     return collection, clustering, distance_matrix, partition, scorer
-
 def load_cache(cache_dir):
     collection = fileIO.gunpickle(filecheck('{0}/collection.pkl.gz'.format(cache_dir)))
     return collection
@@ -65,7 +42,6 @@ def write_summary(outfile, metric, method, likelihood, partition):
         file_.write('likelihood = {0}\n'.format(likelihood))
         file_.write('partition = {0}\n'.format(partition))
 
-
 def cluster(clustering, method, nclasses, noise=False):
 
     if method == 'spectral':
@@ -85,7 +61,6 @@ def cluster(clustering, method, nclasses, noise=False):
     elif method == 'kmedoids':
         return clustering.kmedoids(nclasses, noise)
 
-
 def parse_args():
     import argparse
     fchoices = ['fasta', 'phylip']
@@ -98,54 +73,54 @@ def parse_args():
     vchoices = [0, 1, 2, 3]
 
     help_messages = {
-        'i': 'Input directory',
-        'o': 'Output directory',
-        't': 'Temporary directory',
-        'f': 'File format',
-        'd': 'Datatype',
+        'b': 'Use LSF bsub if available',
         'c': 'Clustering method',
-        'm': 'Distance metric',
+        'd': 'Datatype',
+        'e': 'Enumerate classes (go from 1 to N classes)',
+        'f': 'File format',
+        'i': 'Input directory',
+        'k': 'Dump cache to directory NOT YET IMPLEMENTED',
         'l': ('Tree search strategy: ml=full maximum likelihood, '
                 'nj=BioNJ, lr=BioNJ topology, optimised lengths and rates'),
-        'z': 'Compression (if input files are compressed)',
+        'm': 'Distance metric',
         'n': 'Number of classes',
-        'e': 'Enumerate classes (go from 1 to N classes)',
+        'o': 'Output directory',
         'p': 'Precomputed cache directory NOT YET IMPLEMENTED',
-        'k': 'Dump cache to directory NOT YET IMPLEMENTED',
-        'v': 'Verbosity level: 0-3',
-        'b': 'Use LSF bsub if available',
-        's': 'Do parametric bootstraps to find number of clusters [Simulation]',
         'r': 'Do permutation to find number of clusters [Randomisation]',
+        's': 'Do parametric bootstraps to find number of clusters [Simulation]',
+        't': 'Temporary directory',
+        'v': 'Verbosity level: 0-3',
+        'z': 'Compression (if input files are compressed)',
     }
 
     parser = argparse.ArgumentParser(description=fileIO.basename(__file__))
-    parser.add_argument('-i', type=str,
-                        help=help_messages['i'], required=True)
-    parser.add_argument('-o', type=str,
-                        help=help_messages['o'], required=True)
-    parser.add_argument('-t', type=str,
-                        help=help_messages['t'], required=True)
-    parser.add_argument('-f', type=str, choices=fchoices,
-                        help=help_messages['f'], required=True)
-    parser.add_argument('-d', type=str, choices=dchoices,
-                        help=help_messages['d'], required=True)
+    parser.add_argument('-b', action='store_true', help=help_messages['b'])
     parser.add_argument('-c', type=str, choices=cchoices,
                         help=help_messages['c'], required=True)
-    parser.add_argument('-m', type=str, choices=mchoices,
-                        help=help_messages['m'], required=True)
+    parser.add_argument('-d', type=str, choices=dchoices,
+                        help=help_messages['d'], required=True)
+    parser.add_argument('-e', action='store_true', help=help_messages['e'])
+    parser.add_argument('-f', type=str, choices=fchoices,
+                        help=help_messages['f'], required=True)
+    parser.add_argument('-i', type=str,
+                        help=help_messages['i'], required=True)
+    parser.add_argument('-k', type=str, help=help_messages['k'])
     parser.add_argument('-l', type=str, choices=lchoices,
                         help=help_messages['l'], required=True)
-    parser.add_argument('-z', type=str, choices=zchoices,
-                        help=help_messages['z'], default=None)
+    parser.add_argument('-m', type=str, choices=mchoices,
+                        help=help_messages['m'], required=True)
     parser.add_argument('-n', type=int, help=help_messages['n'], required=True)
+    parser.add_argument('-o', type=str,
+                        help=help_messages['o'], required=True)
     parser.add_argument('-p', type=str, help=help_messages['p'])
-    parser.add_argument('-k', type=str, help=help_messages['k'])
+    parser.add_argument('-r', type=int, help=help_messages['r'], default=0)
+    parser.add_argument('-s', type=int, help=help_messages['s'], default=0)
+    parser.add_argument('-t', type=str,
+                        help=help_messages['t'], required=True)
     parser.add_argument('-v', type=int, choices=vchoices,
                         help=help_messages['v'], default=1)
-    parser.add_argument('-b', action='store_true', help=help_messages['b'])
-    parser.add_argument('-s', action='store_true', help=help_messages['s'])
-    parser.add_argument('-r', action='store_true', help=help_messages['r'])
-    parser.add_argument('-e', action='store_true', help=help_messages['e'])
+    parser.add_argument('-z', type=str, choices=zchoices,
+                        help=help_messages['z'], default=None)
     return parser.parse_args()
 
 def validate_args(args):
@@ -166,7 +141,6 @@ if __name__ == "__main__":
     validate_args(args)
     tmpdir = os.getenv('TEMPORARY_DIRECTORY') or args.t
     directorymake(tmpdir)
-
 
     if not args.p:
         collection = Collection(input_dir=args.i, datatype=args.d,
@@ -196,6 +170,21 @@ if __name__ == "__main__":
     scorer.add_partition_list(partitions)
     for partition in partitions:
         score = scorer.score(partition)
+        for i in range(1, args.s + 1):
+            n = len(partition)
+            sim_recs = scorer.simulate_from_result(partition)
+            d = directorymake('{0}/parametric_bootstraps/{1}_clusters/{2}'
+                              .format(args.o, n, i))
+            for rec in sim_recs:
+                rec.write_phylip('{0}/{1}_{2:0>{3}}.phy.gz'.format(d, rec.name,
+                    i, len(str(args.s))))
+        for j in range(1, args.r + 1):
+            perm = collection.permuted_copy()
+            d = directorymake('{0}/nonparametric_bootstraps/{1}'.format(
+                          args.o, j))
+            for rec in perm.records:
+                rec.write_phylip('{0}/{1}_{2:0>{3}}.phy.gz'.format(d, rec.name,
+                    j, len(str(args.s))))
 
     outfiles = {'memberships': '{0}/memberships.txt'.format(args.o),
                 'trees': '{0}/trees.nwk'.format(args.o),
