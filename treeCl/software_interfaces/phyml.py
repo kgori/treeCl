@@ -167,7 +167,7 @@ class Phyml(TreeSoftware):
 
     def write(self):
         record_name = self.record.get_name(default='tmp_phyml_input')
-        with tempfile.NamedTemporaryFile(prefix=self.record.name,
+        with tempfile.NamedTemporaryFile(prefix=record_name,
                                          suffix='.phy',
                                          dir=self.tmpdir,
                                          delete=False) as file_:

@@ -1,10 +1,15 @@
 #!/usr/bin/env python
 
 # standard library
-import glob
+from glob import glob
+import os
 import re
 import shutil
+import tempfile
 from textwrap import dedent
+
+# third party
+from bsub import bsub
 
 # treeCl
 from external import ExternalSoftware
@@ -448,6 +453,76 @@ class Params(object):
         return outfile_name
 
 
+class LSFALF(ExternalSoftware):
+
+    default_binary = 'alfsim'
+
+    def __init__(self, tree, datatype, tmpdir, ntimes, num_genes=1,
+        seqlength=10, gene_length_kappa=1, gene_length_theta=1,
+        name='no_name', **kwargs):
+
+        super(LSFALF, self).__init__(tmpdir)
+        self.temp_dirs = self.setup_temp_dirs(ntimes)
+        self.alf_objects = self.setup_alf_objects(tree, datatype,
+                                                  self.temp_dirs, num_genes,
+                                                  seqlength, gene_length_kappa,
+                                                  gene_length_theta,
+                                                  name, **kwargs) # alf_objects
+
+
+    def write(self):
+        pass
+
+    def setup_temp_dirs(self, ntimes):
+        temp_dirs = [tempfile.mkdtemp(dir=self.tmpdir) for _ in range(ntimes)]
+        return temp_dirs
+
+    def setup_alf_objects(
+        self, tree, datatype, temp_dirs, num_genes,
+        seqlength, gene_length_kappa, gene_length_theta, name, **kwargs
+        ):
+        alf_objects = [ALF(tree, datatype, tmpdir, num_genes, seqlength,
+                           gene_length_kappa, gene_length_theta,
+                           name, **kwargs)
+                       for tmpdir in self.temp_dirs]
+        return alf_objects
+
+    def get_command_strings(self):
+        return [alf.run(dry_run=True) for alf in self.alf_objects]
+
+    def launch_lsf(self, command_strings, verbose=False, output='/dev/null'):
+        curr_dir = os.getcwd()
+        os.chdir(self.tmpdir)
+        job_ids = [bsub('alfsim_task',
+                        o='/dev/null',
+                        e='/dev/null',
+                        verbose=verbose)(cmd).job_id
+                   for cmd in command_strings]
+        bsub.poll(job_ids)
+        os.chdir(curr_dir)
+
+    def read(self, length_is_strict=False):
+        return [alf.read(length_is_strict=length_is_strict)
+                for alf in self.alf_objects]
+
+    def clean(self):
+        for td in self.temp_dirs:
+            shutil.rmtree(td)
+        for f in (glob(os.path.join(self.tmpdir, 'alfsim_task.*.out')) +
+                  glob(os.path.join(self.tmpdir, 'alfsim_task.*.err'))):
+            os.remove(os.path.join(self.tmpdir, f))
+
+    def run(self, verbose=False, length_is_strict=False):
+        command_strings = self.get_command_strings()
+        self.launch_lsf(command_strings, verbose)
+        results = self.read(length_is_strict=length_is_strict)
+        if len(results) == len(command_strings):
+            self.clean()
+        return results
+
+    def call(self):
+        pass
+
 class ALF(ExternalSoftware):
 
     """ This class is a front end to the ALF simulator """
@@ -537,11 +612,11 @@ class ALF(ExternalSoftware):
         if self.datatype == 'dna':  # !!! ALF doesn't always write DNA
                                     # alignments
             alignments = \
-                glob.glob('{0}/{1}/MSA/MSA_*_dna.fa'.format(self.working_dir,
+                glob('{0}/{1}/MSA/MSA_*_dna.fa'.format(self.working_dir,
                                     self.name))
         else:
             alignments = \
-                glob.glob('{0}/{1}/MSA/MSA_*_aa.fa'.format(self.working_dir,
+                glob('{0}/{1}/MSA/MSA_*_aa.fa'.format(self.working_dir,
                                     self.name))
         if verbosity > 1:
             print alignments
@@ -556,10 +631,24 @@ class ALF(ExternalSoftware):
             recs.append(rec)
         return recs
 
-    def run(self, verbosity=0, cleanup=True, length_is_strict=False):
+    def run(
+        self,
+        verbosity=0,
+        cleanup=True,
+        length_is_strict=False,
+        dry_run=False
+        ):
+
         params = self.write()
         if verbosity > 0:
             print 'Running ALF on {0}'.format(params)
+
+        # DRY RUN - get command string only
+        if dry_run:
+            cmd = self.call(dry_run=True)
+            return cmd
+
+        # RUN ALFSIM
         (stdout, stderr) = self.call()
         if verbosity > 1:
             print stdout, stderr
@@ -623,6 +712,88 @@ def simulate_from_tree(
     return record
 
 
+def lsf_simulate_from_record(
+    record,
+    ntimes,
+    length=None,
+    tmpdir=TMPDIR,
+    model='WAG',
+    allow_nonsense=True,
+    split_lengths=None,
+    gene_names=None,
+    mask_gaps=True
+    ):
+
+    if not record.tree:
+        raise Exception('Simulation template must have an associated tree')
+
+    directorycheck(tmpdir)
+    optioncheck(record.datatype, ['dna', 'protein'])
+
+    if record.datatype == 'dna':
+        optioncheck(model, ['CPAM', 'ECM', 'ECMu', 'GTR'])
+    else:
+        optioncheck(model, [
+                'CPAM',
+                'ECM',
+                'ECMu',
+                'GCB',
+                'JTT',
+                'LG',
+                'WAG',
+                ])
+
+    length = (length if length is not None else record.seqlength)
+    gamma = phymlIO.extract_gamma_parameter(record.tree)
+    GTR_parameters = None
+
+    # set up sim objects using LSFALF
+    lsfalf = LSFALF(
+        record.tree,
+        record.datatype,
+        tmpdir,
+        ntimes,
+        seqlength=length,
+    )
+    for alf in lsfalf.alf_objects:
+        if model == 'GTR':
+            GTR_parameters = phymlIO.extract_GTR_parameters(record.tree)
+            alf.params.gtr_model(
+                CtoT=GTR_parameters['CtoT'],
+                AtoT=GTR_parameters['AtoT'],
+                GtoT=GTR_parameters['GtoT'],
+                AtoC=GTR_parameters['AtoC'],
+                CtoG=GTR_parameters['CtoG'],
+                AtoG=GTR_parameters['AtoG'],
+                Afreq=GTR_parameters['Afreq'],
+                Cfreq=GTR_parameters['Cfreq'],
+                Gfreq=GTR_parameters['Gfreq'],
+                Tfreq=GTR_parameters['Tfreq'],
+                allow_nonsense=allow_nonsense,
+            )
+        else:
+            alf.params.one_word_model(model)
+        alf.params.rate_variation(gamma)
+    # finished setting up lsfalf
+
+    sim_records = list()
+    for result in lsfalf.run(length_is_strict=True):
+        sim_record = result[0]
+        sim_record.tree = record.tree
+        sim_record.name = record.name
+        sim_record.datatype = record.datatype
+
+        if mask_gaps:
+            gp = GapMasker(record)
+            gp.mask(sim_record)
+
+        if split_lengths and gene_names:
+            sim_record = sim_record.split_by_lengths(split_lengths, gene_names)
+
+        sim_records.append(sim_record)
+    return sim_records
+
+
 def simulate_from_record(
     record,
     length=None,
@@ -657,28 +828,29 @@ def simulate_from_record(
     gamma = phymlIO.extract_gamma_parameter(record.tree)
     GTR_parameters = None
 
+    # setting up sim object
     sim = ALF(record.tree, record.datatype, tmpdir, seqlength=length)
     if model == 'GTR':
         GTR_parameters = phymlIO.extract_GTR_parameters(record.tree)
         sim.params.gtr_model(
-        CtoT=GTR_parameters['CtoT'],
-        AtoT=GTR_parameters['AtoT'],
-        GtoT=GTR_parameters['GtoT'],
-        AtoC=GTR_parameters['AtoC'],
-        CtoG=GTR_parameters['CtoG'],
-        AtoG=GTR_parameters['AtoG'],
-        Afreq=GTR_parameters['Afreq'],
-        Cfreq=GTR_parameters['Cfreq'],
-        Gfreq=GTR_parameters['Gfreq'],
-        Tfreq=GTR_parameters['Tfreq'],
-        allow_nonsense=allow_nonsense,
+            CtoT=GTR_parameters['CtoT'],
+            AtoT=GTR_parameters['AtoT'],
+            GtoT=GTR_parameters['GtoT'],
+            AtoC=GTR_parameters['AtoC'],
+            CtoG=GTR_parameters['CtoG'],
+            AtoG=GTR_parameters['AtoG'],
+            Afreq=GTR_parameters['Afreq'],
+            Cfreq=GTR_parameters['Cfreq'],
+            Gfreq=GTR_parameters['Gfreq'],
+            Tfreq=GTR_parameters['Tfreq'],
+            allow_nonsense=allow_nonsense,
         )
     else:
         sim.params.one_word_model(model)
     sim.params.rate_variation(gamma)
+    # Finished setting up sim object
 
     sim_record = sim.run(length_is_strict=True)[0]
-    print 'sim record: ', repr(sim_record)
     sim_record.tree = record.tree
     sim_record.name = record.name
     sim_record.datatype = record.datatype

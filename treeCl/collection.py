@@ -13,7 +13,8 @@ from datastructs.seq import concatenate
 from datastructs.trcl_seq import TrClSeq
 from datastructs.trcl_tree import TrClTree
 from distance_matrix import DistanceMatrix
-from software_interfaces.alf import simulate_from_record
+from software_interfaces.alf import lsf_simulate_from_record,\
+    simulate_from_record
 from software_interfaces.DVscript import runDV
 from software_interfaces.phyml import runPhyml, runLSFPhyml
 from software_interfaces.treecollection import runTC
@@ -330,7 +331,7 @@ class Scorer(object):
             self.update_history(likelihood, inds)
         return(likelihood)
 
-    def simulate(self, index_tuple, model=None):
+    def simulate(self, index_tuple, model=None, lsf=False, ntimes=1):
         """ Simulate a group of sequence alignments using ALF. Uses one of
         {(GCB, JTT, LG, WAG - protein), (CPAM, ECM and ECMu - DNA)}, WAG by
         default. TO DO: add parameterised models when I have a robust (probably
@@ -362,17 +363,39 @@ class Scorer(object):
         full_length = sum(lengths)
         concat.tree = self.add(index_tuple)
 
-        simulated_records = simulate_from_record(
-            concat,
-            length=full_length,
-            tmpdir=self.tmpdir,
-            model=model,
-            split_lengths=lengths,
-            gene_names=names,
-            )
+        if lsf and ntimes > 1:
+            simulated_records = lsf_simulate_from_record(
+                                    concat,
+                                    ntimes,
+                                    length=full_length,
+                                    tmpdir=self.tmpdir,
+                                    model=model,
+                                    split_lengths=lengths,
+                                    gene_names=names,
+                                )
+
+        else:
+            simulated_records = simulate_from_record(
+                                    concat,
+                                    length=full_length,
+                                    tmpdir=self.tmpdir,
+                                    model=model,
+                                    split_lengths=lengths,
+                                    gene_names=names,
+                                )
 
         return simulated_records
 
-    def simulate_from_result(self, partition_object, **kwargs):
+    def simulate_from_result(self,
+            partition_object, lsf=False,
+            ntimes=1, **kwargs
+        ):
         inds = partition_object.get_membership()
-        return flatten_list([self.simulate(ind, **kwargs) for ind in inds])
+        if lsf and ntimes > 1:
+            multiple_results = [self.simulate(ind, lsf=lsf, ntimes=ntimes)
+                                for ind in inds]
+            return [flatten_list(result)
+                       for result in zip(*multiple_results)]
+
+        else:
+            return flatten_list([self.simulate(ind, **kwargs) for ind in inds])
