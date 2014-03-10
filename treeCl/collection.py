@@ -241,7 +241,7 @@ class Scorer(object):
         missing = sorted(set(index_tuples).difference(self.concats.keys()))
         if self.lsf and not self.analysis == 'TreeCollection':
             supermatrices = [self.concatenate(index_tuple)
-                             for index_tuple in index_tuples]
+                             for index_tuple in missing]
             trees = runLSFPhyml(supermatrices,
                                 self.tmpdir,
                                 analysis=self.analysis,

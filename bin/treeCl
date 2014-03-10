@@ -88,19 +88,20 @@ def parse_args():
         'e': 'Enumerate classes (go from 1 to N classes)',
         'f': '[f]ile format',
         'g': ('Tree search strate[g]y: ml=full maximum likelihood, '
-                'nj=BioNJ, lr=BioNJ topology, optimised lengths and rates'),
+              'nj=BioNJ, lr=BioNJ topology, optimised lengths and rates'),
         'i': '[i]nput directory',
         'k': 'Dump [k]ache to directory NOT YET IMPLEMENTED',
         'l': 'number of classes - [l]ower bound',
         'm': 'Distance [m]etric',
-        'o': 'Output directory',
-        'p': 'Precomputed cache directory NOT YET IMPLEMENTED',
-        'r': 'Do permutation to find number of clusters [Randomisation]',
-        's': 'Do parametric bootstraps to find number of clusters [Simulation]',
-        't': 'Temporary directory',
+        'o': '[o]utput directory',
+        'p': '[p]recomputed cache directory NOT YET IMPLEMENTED',
+        'r': 'Do permutation to find number of clusters [[r]andomisation]',
+        's': ('Do parametric bootstraps to find number of '
+              'clusters [[s]imulation]'),
+        't': '[t]emporary directory',
         'u': 'number of classes - [u]pper bound',
-        'v': 'Verbosity level: 0-3',
-        'z': 'Compression (if input files are compressed)',
+        'v': '[v]erbosity level: 0-3',
+        'z': 'Compression [z]ip format (if input files are compressed)',
     }
 
     parser = argparse.ArgumentParser(description=fileIO.basename(__file__))
@@ -138,10 +139,12 @@ def validate_args(args):
     directorycheck(args.t)
     directorymake(args.o)
     if args.b:
-        args.b = sb.call('type bsub',
-                         stderr=sb.PIPE,
-                         stdout=sb.PIPE,
-                         shell=True)==0
+        args.b = sb.call(
+            'type bsub',
+             stderr=sb.PIPE,
+             stdout=sb.PIPE,
+             shell=True
+        )==0
 
 
 if __name__ == "__main__":
@@ -150,13 +153,19 @@ if __name__ == "__main__":
     tmpdir = os.getenv('TEMPORARY_DIRECTORY') or args.t
     directorymake(tmpdir)
 
-    collection = Collection(input_dir=args.i, datatype=args.d,
-                            file_format=args.f, compression=args.z,
-                            tmpdir=tmpdir)
+    collection = Collection(
+        input_dir=args.i,
+        datatype=args.d,
+        file_format=args.f,
+        compression=args.z,
+        tmpdir=tmpdir
+    )
 
-    collection.calc_phyml_trees(analysis=args.g, lsf=args.b,
-                                verbosity=args.v)
-
+    collection.calc_phyml_trees(
+        analysis=args.g,
+        lsf=args.b,
+        verbosity=args.v
+    )
 
     distance_matrix = collection.distance_matrix(args.m, lsf=args.b)
     clustering = Clustering(distance_matrix)
@@ -174,7 +183,7 @@ if __name__ == "__main__":
         for n in range(args.l, args.u+1)
     ] # /partitions_list
 
-    scorer = Scorer(collection.records, args.l, lsf=args.b, verbosity=args.v)
+    scorer = Scorer(collection.records, args.g, lsf=args.b, verbosity=args.v)
     scorer.add_partition_list(partitions_list)
     for partition in partitions_list:
         score = scorer.score(partition)
@@ -194,10 +203,12 @@ if __name__ == "__main__":
                 rec.write_phylip('{0}/{1}_{2:0>{3}}.phy.gz'.format(d, rec.name,
                     j, len(str(args.s))))
 
-    outfiles = {'memberships': '{0}/memberships.txt'.format(args.o),
-                'trees': '{0}/trees.nwk'.format(args.o),
-                'tree_details': '{0}/trees_details.txt'.format(args.o),
-                'summary': '{0}/summary.txt'.format(args.o)}
+    outfiles = {
+        'memberships': '{0}/memberships.txt'.format(args.o),
+        'trees': '{0}/trees.nwk'.format(args.o),
+        'tree_details': '{0}/trees_details.txt'.format(args.o),
+        'summary': '{0}/summary.txt'.format(args.o)
+    }
 
     write_memberships(outfiles['memberships'], partitions_list, scorer)
     write_trees(outfiles['trees'], partitions_list, scorer)
