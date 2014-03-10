@@ -85,8 +85,8 @@ class LSFPhyml(ExternalSoftware):
             phyml.clean()
         for d in self.temp_dirs:
             shutil.rmtree(d)
-        for f in (glob(os.path.join(self.tmpdir, '*.out') +
-                  glob(os.path.join(self.tmpdir, '*.err')):
+        for f in (glob(os.path.join(self.tmpdir, '*.out')) +
+                  glob(os.path.join(self.tmpdir, '*.err'))):
             os.remove(os.path.join(self.tmpdir, f))
 
     def run(self, analysis, verbose=False):
@@ -99,7 +99,6 @@ class LSFPhyml(ExternalSoftware):
 
     def call(self):
         pass
-
 
 class Phyml(TreeSoftware):
 
