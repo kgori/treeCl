@@ -404,4 +404,6 @@ class Scorer(object):
                        for result in zip(*multiple_results)]
 
         else:
-            return flatten_list([self.simulate(ind, **kwargs) for ind in inds])
+            return [flatten_list([self.simulate(ind, **kwargs)
+                                  for ind in inds])
+                    for _ in range(ntimes)]

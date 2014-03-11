@@ -1,17 +1,16 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 # standard library
+from collections import defaultdict
 import os
 import subprocess as sb
 
 # treeCl
 from treeCl import Collection, Clustering, Scorer
+from treeCl.constants import logo
+from treeCl.errors import directorycheck, directorymake
 from treeCl.utils import fileIO
-from treeCl.errors import directorycheck, directorymake, filecheck
-
-def load_cache(cache_dir):
-    collection = fileIO.gunpickle(filecheck('{0}/collection.pkl.gz'.format(cache_dir)))
-    return collection
 
 def write_memberships(outfile, partitions_list, scorer):
     with open(outfile, 'w') as file_:
@@ -63,10 +62,19 @@ def write_tsv(outfile, metric, method, analysis_strategy, partitions_list,
     with open(outfile, 'w') as file_:
         file_.write('\t'.join(headers) + '\n')
         for partition in partitions_list:
-            values = [metric, method, analysis_strategy, str(len(collection)),
-                      str(collection.num_species), str(scorer.score(partition)),
+            values = [metric, method, analysis_strategy,
+                      str(len(collection)),
+                      str(collection.num_species()),
+                      str(scorer.score(partition)),
                       str(partition.partition_vector)]
             file_.write('\t'.join(values) + '\n')
+        file_.write('\n')
+
+def write_results(outfile, results):
+    with open(outfile, 'w') as file_:
+        for key in sorted(results):
+            numbers = ' '.join(str(n) for n in results[key])
+            file_.write('{0}\t{1}\n'.format(key, numbers))
         file_.write('\n')
 
 def cluster(clustering, method, nclasses, noise=False):
@@ -95,15 +103,15 @@ def parse_args():
     cchoices = ['spectral', 'mds', 'single', 'complete', 'average', 'ward',
                 'kmedoids']
     mchoices = ['geo', 'euc', 'rf', 'wrf']
-    zchoices = ['gz', 'bz2', None]
+    zchoices = ['gz', 'bz2']
     lchoices = ['ml', 'nj', 'lr', 'l', 'r']
     vchoices = [0, 1, 2, 3]
 
     help_messages = {
+        'a': '[a]nalyse the bootstraps',
         'b': 'Use LSF [b]sub if available',
         'c': '[c]lustering method',
         'd': '[d]atatype',
-        'e': 'Enumerate classes (go from 1 to N classes)',
         'f': '[f]ile format',
         'g': ('Tree search strate[g]y: ml=full maximum likelihood, '
               'nj=BioNJ, lr=BioNJ topology, optimised lengths and rates'),
@@ -111,22 +119,23 @@ def parse_args():
         'l': 'number of classes - [l]ower bound',
         'm': 'Distance [m]etric',
         'o': '[o]utput directory',
-        'r': 'Do permutation to find number of clusters [[r]andomisation]',
+        'r': 'Do permutation to find number of clusters ([r]andomisation)',
         's': ('Do parametric bootstraps to find number of '
-              'clusters [[s]imulation]'),
+              'clusters ([s]imulation)'),
         't': '[t]emporary directory',
         'u': 'number of classes - [u]pper bound',
         'v': '[v]erbosity level: 0-3',
+        'w': '[w]rite bootstraps to an output subdirectory [true/false]',
         'z': 'Compression [z]ip format (if input files are compressed)',
     }
 
     parser = argparse.ArgumentParser(description=fileIO.basename(__file__))
+    parser.add_argument('-a', action='store_true', help=help_messages['a'])
     parser.add_argument('-b', action='store_true', help=help_messages['b'])
     parser.add_argument('-c', type=str, choices=cchoices,
                         help=help_messages['c'], required=True)
     parser.add_argument('-d', type=str, choices=dchoices,
                         help=help_messages['d'], required=True)
-    parser.add_argument('-e', action='store_true', help=help_messages['e'])
     parser.add_argument('-f', type=str, choices=fchoices,
                         help=help_messages['f'], required=True)
     parser.add_argument('-g', type=str, choices=lchoices,
@@ -145,6 +154,7 @@ def parse_args():
     parser.add_argument('-u', type=int, help=help_messages['u'], required=True)
     parser.add_argument('-v', type=int, choices=vchoices,
                         help=help_messages['v'], default=1)
+    parser.add_argument('-w', action='store_true', help=help_messages['w'])
     parser.add_argument('-z', type=str, choices=zchoices,
                         help=help_messages['z'], default=None)
     return parser.parse_args()
@@ -164,6 +174,7 @@ def validate_args(args):
 
 if __name__ == "__main__":
     args = parse_args()
+    print logo
     validate_args(args)
     tmpdir = os.getenv('TMPDIR') or args.t
     directorymake(tmpdir)
@@ -171,6 +182,7 @@ if __name__ == "__main__":
     #================================================================#
     # CALCULATION                                                    #
     #================================================================#
+    print 'Loading input files'
     collection = Collection(
         input_dir=args.i,
         datatype=args.d,
@@ -179,15 +191,14 @@ if __name__ == "__main__":
         tmpdir=tmpdir
     )
 
-    if args.r:
-        collection = collection.permuted_copy()
-
+    print 'Calculating trees (strategy={})'.format(args.g)
     collection.calc_phyml_trees(
         analysis=args.g,
         lsf=args.b,
         verbosity=args.v
     )
 
+    print 'Analysing pairwise tree distances (metric={})'.format(args.m)
     distance_matrix = collection.distance_matrix(args.m, lsf=args.b)
     clustering = Clustering(distance_matrix)
 
@@ -196,14 +207,16 @@ if __name__ == "__main__":
 
     assert args.l <= args.u
 
+    print 'Clustering (method={})'.format(args.c)
     partitions_list = [
         cluster(
             clustering, args.c, n,
             (True if args.m == 'rf' else False)
         ) # /cluster
-        for n in range(args.l, args.u+1)
+        for n in range(args.l, args.u + 1)
     ] # /partitions_list
 
+    print 'Scoring clusters'
     scorer = Scorer(collection.records, args.g, lsf=args.b, verbosity=args.v)
     scorer.add_partition_list(partitions_list)
 
@@ -211,14 +224,17 @@ if __name__ == "__main__":
     # WRITE RESULTS                                                  #
     #================================================================#
     outfiles = {
-        'memberships':   '{}/memberships.txt'.format(args.o),
-        'trees':         '{}/trees.nwk'.format(args.o),
-        'cluster_trees': '{}/cluster_trees.nwk'.format(args.o),
-        'tree_details':  '{}/trees_details.txt'.format(args.o),
-        'summary':       '{}/summary.txt'.format(args.o),
-        'tsv':           '{}/result.tsv'.format(args.o),
+        'memberships':      '{}/memberships.txt'.format(args.o),
+        'trees':            '{}/trees.nwk'.format(args.o),
+        'cluster_trees':    '{}/cluster_trees.nwk'.format(args.o),
+        'tree_details':     '{}/trees_details.txt'.format(args.o),
+        'summary':          '{}/summary.txt'.format(args.o),
+        'tsv':              '{}/result.tsv'.format(args.o),
+        'param_results':    '{}/parametric_results.txt'.format(args.o),
+        'nonparam_results': '{}/nonparametric_results.txt'.format(args.o)
     }
 
+    print 'Writing results (destination={})'.format(args.o)
     write_memberships(outfiles['memberships'], partitions_list, scorer)
     write_trees(outfiles['trees'], collection.trees)
     write_cluster_trees(outfiles['cluster_trees'], partitions_list, scorer)
@@ -230,24 +246,117 @@ if __name__ == "__main__":
     #================================================================#
     # PARAMETRIC BOOTSTRAPPING                                       #
     #================================================================#
-    for partition in partitions_list:
-        if not args.b:
-            for i in range(1, args.s + 1):
-                n = len(partition)
-                sim_recs = scorer.simulate_from_result(partition)
-                d = directorymake('{0}/parametric_bootstraps/{1}_clusters/{2}'
-                                  .format(args.o, n, i))
-                for rec in sim_recs:
-                    rec.write_phylip('{0}/{1}_{2:0>{3}}.phy.gz'.format(d,
-                        rec.name, i, len(str(args.s))))
-        else:
-            n = len(partition)
+    if args.s > 0:
+        print
+        results = None
+        if args.a:
+            print ('Preparing to analyse {0} parametric bootstraps '
+                   'over cluster range=[{1}-{2}]'.format(args.s,
+                                                         args.l + 1,
+                                                         args.u))
+            results = defaultdict(list)
+        if args.w:
+            print ('Parametric bootstraps will be written to '
+                   '{}/parametric_bootstraps'.format(args.o))
+        for k, partition in enumerate(partitions_list[:-1], start=args.l):
+            assert k == len(partition)
             sims = scorer.simulate_from_result(partition,
                                                lsf=args.b,
                                                ntimes=args.s)
-            for i, sim_recs in enumerate(sims, start=1):
-                d = directorymake('{0}/parametric_bootstraps/{1}_clusters/{2}'
-                                  .format(args.o, n, i))
-                for rec in sim_recs:
-                    rec.write_phylip('{0}/{1}_{2:0>{3}}.phy.gz'.format(d,
-                        rec.name, i, len(str(args.s))))
+            if args.a: # do the full analysis for the bootstraps
+                for i, sim_recs in enumerate(sims, start=1):
+                    print ('\tAnalysing: {0}->{1} clusters'
+                           '\trep {2}/{3}'.format(k, k + 1, i, args.s))
+                    param_coll = Collection(records=sim_recs,
+                                            datatype=args.d,
+                                            tmpdir=tmpdir)
+                    param_coll.calc_phyml_trees(analysis=args.g,
+                                                lsf=args.b,
+                                                verbosity=args.v)
+                    param_dm = param_coll.distance_matrix(args.m,
+                                                          lsf=args.b)
+                    param_cl = Clustering(param_dm)
+                    param_parts_l = [cluster(param_cl,
+                                             args.c,
+                                             n,
+                                             (True if args.m == 'rf'
+                                                   else False))
+                                     for n in [k, k + 1]]
+                    param_sc = Scorer(param_coll.records,
+                                      args.g,
+                                      lsf=args.b,
+                                      verbosity=args.v)
+                    param_sc.add_partition_list(param_parts_l)
+                    kp1_score = param_sc.score(param_parts_l[1])
+                    k_score = param_sc.score(param_parts_l[0])
+                    results[k+1].append(kp1_score - k_score)
+
+            if args.w: # write the bootstrap reps
+                for i, sim_recs in enumerate(sims, start=1):
+                    print ('\tWriting simulation from {0} clusters:'
+                           '\trep {1}/{2}'.format(k, i, args.s))
+                    d = directorymake('{0}/parametric_bootstraps/'
+                                      '{1}_clusters/{2}'
+                                      .format(args.o, n, i))
+                    for rec in sim_recs:
+                        rec.write_phylip('{0}/{1}_rep{2:0>{3}}.phy.gz'.format(d,
+                            rec.name, i, len(str(args.s))))
+
+        if results:
+            write_results(outfiles['param_results'], results)
+
+
+    #================================================================#
+    # NON-PARAMETRIC BOOTSTRAPPING                                   #
+    #================================================================#
+    if args.r > 0:
+        print
+        results = None
+        if args.a: # do the full analysis for the bootstraps
+            print ('Preparing to analyse {0} nonparametric bootstraps '
+                   'over cluster range=[{1}-{2}]'.format(args.r,
+                                                         args.l + 1,
+                                                         args.u))
+            results = defaultdict(list)
+        if args.w:
+            print ('Nonparametric bootstraps will be written to '
+                   '{}/nonparametric_bootstraps)'.format(args.o))
+        for rep in range(1, args.r + 1):
+            nonparam_coll = collection.permuted_copy()
+            if args.a: # do the full analysis for the bootstraps
+                print '\tAnalysing:\trep {0}/{1}'.format(rep, args.r)
+                nonparam_coll.calc_phyml_trees(analysis=args.g,
+                                               lsf=args.b,
+                                               verbosity=args.v)
+                nonparam_dm = nonparam_coll.distance_matrix(args.m,
+                                                            lsf=args.b)
+                nonparam_cl = Clustering(nonparam_dm)
+                nonparam_parts_l = [cluster(nonparam_cl,
+                                            args.c,
+                                            n,
+                                            (True if args.m == 'rf'
+                                                  else False))
+                                    for n in range(args.l, args.u + 1)]
+                nonparam_sc = Scorer(nonparam_coll.records,
+                                     args.g,
+                                     lsf=args.b,
+                                     verbosity=args.v)
+                nonparam_sc.add_partition_list(nonparam_parts_l)
+                for k in range(args.l, args.u):
+                    k_idx = k - args.l
+                    kp1_score = nonparam_sc.score(nonparam_parts_l[k_idx + 1])
+                    k_score = nonparam_sc.score(nonparam_parts_l[k_idx])
+                    results[k+1].append(kp1_score - k_score)
+
+            if args.w: # write the bootstrap reps
+                print '\tWriting: \trep {0}/{1}'.format(rep, args.r)
+                d = directorymake('{0}/nonparametric_bootstraps/{1}'
+                                  .format(args.o, rep))
+                for rec in nonparam_coll.records:
+                    rec.write_phylip('{0}/{1}_rep{2:0>{3}}.phy.gz'.format(d,
+                        rec.name, rep, len(str(args.r))))
+
+        if results:
+            write_results(outfiles['nonparam_results'], results)
+
+    print 'Done!'

@@ -204,7 +204,7 @@ class Phyml(TreeSoftware):
             defaults['-c'] = 4
             defaults['-q'] = ''
             defaults['--no_memory_check'] = ''
-            defaults['--quiet'] = ''
+
             if analysis == 'ml' or analysis == 'full' or analysis == 'tlr':
                 defaults['-o'] = 'tlr'
             elif analysis == 'nj' or analysis == 'bionj':
