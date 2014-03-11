@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import tempfile
+import time
 
 # third party
 from bsub import bsub
@@ -59,7 +60,7 @@ class LSFPhyml(ExternalSoftware):
     def launch_lsf(self, command_strings, verbose=False, output='/dev/null'):
         curr_dir = os.getcwd()
         os.chdir(self.tmpdir)
-        job_ids = [bsub('phyml_task',
+        job_ids = [bsub('treeCl_phyml_task',
                         o='/dev/null',
                         e='/dev/null',
                         verbose=verbose)(cmd).job_id
@@ -85,8 +86,8 @@ class LSFPhyml(ExternalSoftware):
             phyml.clean()
         for d in self.temp_dirs:
             shutil.rmtree(d)
-        for f in (glob(os.path.join(self.tmpdir, '*.out')) +
-                  glob(os.path.join(self.tmpdir, '*.err'))):
+        for f in (glob(os.path.join(self.tmpdir, 'treeCl_phyml_task.*.out')) +
+                  glob(os.path.join(self.tmpdir, 'treeCl_phyml_task.*.err'))):
             os.remove(os.path.join(self.tmpdir, f))
 
     def run(self, analysis, verbose=False):
@@ -110,15 +111,24 @@ class Phyml(TreeSoftware):
     score_regex = re.compile('(?<=Log-likelihood: ).+')
     local_dir = fileIO.path_to(__file__)
 
-    def read(self, filename=None):
+    def read(self, tries=5, filename=None):
         filename = filename or self.filename
         tree_filename = filename + '_phyml_tree.txt'
         stats_filename = filename + '_phyml_stats.txt'
         self.add_tempfile(tree_filename)
         self.add_tempfile(stats_filename)
-        with open(tree_filename) as treefile:
-            with open(stats_filename) as statsfile:
-                return (treefile.read(), statsfile.read())
+        try:
+            with open(tree_filename) as treefile:
+                with open(stats_filename) as statsfile:
+                    return (treefile.read(), statsfile.read())
+        except IOError, e:
+            if tries > 0:
+                time.sleep(1)
+                return self.read(tries-1, filename)
+            print 'There was an IOError: {0}'.format(e)
+            print 'Couldn\'t read PhyML output'
+            self.clean()
+            raise
 
     def run(self, analysis=None, verbosity=0,
             **kwargs):

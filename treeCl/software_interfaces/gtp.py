@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 # standard library
+from glob import glob
 import numbers
 import os
 import shutil
@@ -54,7 +55,7 @@ class LSFGTP(ExternalSoftware):
     def launch_lsf(self, command_strings, verbose=False, output='/dev/null'):
         curr_dir = os.getcwd()
         os.chdir(self.tmpdir)
-        job_ids = [bsub('gtp_task',
+        job_ids = [bsub('treeCl_gtp_task',
                         o='/dev/null',
                         e='/dev/null',
                         verbose=verbose)(cmd).job_id
@@ -72,14 +73,14 @@ class LSFGTP(ExternalSoftware):
             gtp.clean()
         for d in self.temp_dirs:
             shutil.rmtree(d)
-        for f in os.listdir(self.tmpdir):
-            if (f.endswith('.out') or f.endswith('.err')):
-                os.remove(f)
+        for f in (glob(os.path.join(self.tmpdir, 'treeCl_gtp_task.*.out')) +
+                  glob(os.path.join(self.tmpdir, 'treeCl_gtp_task.*.err'))):
+            os.remove(os.path.join(self.tmpdir, f))
 
     def run(self, verbose=False):
         command_strings = self.get_command_strings()
         self.launch_lsf(command_strings, verbose)
-        time.sleep(2)
+        time.sleep(1)
         matrix = self.read()
         return matrix
 
@@ -155,7 +156,7 @@ class GTP(ExternalSoftware):
     def pairwise(self, tree1, tree2):
         return self.run((tree1, tree2))[0, 1]
 
-    def read(self, size, row, translation=None):
+    def read(self, size, row, tries=5, translation=None):
         row = self.check_row_value(row, size)
         translation = translation or self.translation
         if row is not None:
@@ -182,9 +183,12 @@ class GTP(ExternalSoftware):
             self.add_tempfile('{0}/output.txt'.format(self.tmpdir))
             return matrix
         except IOError, e:
-
+            if tries > 0:
+                time.sleep(1)
+                return self.read(size, row, tries-1, translation)
             print 'There was an IOError: {0}'.format(e)
             print 'Geodesic distances couldn\'t be calculated'
+            self.clean()
             raise
 
     def run(self, trees, row=None, dry_run=False):

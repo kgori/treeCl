@@ -7,6 +7,7 @@ import re
 import shutil
 import tempfile
 from textwrap import dedent
+import time
 
 # third party
 from bsub import bsub
@@ -495,7 +496,7 @@ class LSFALF(ExternalSoftware):
     def launch_lsf(self, command_strings, verbose=False, output='/dev/null'):
         curr_dir = os.getcwd()
         os.chdir(self.tmpdir)
-        job_ids = [bsub('alfsim_task',
+        job_ids = [bsub('treeCl_alfsim_task',
                         o='/dev/null',
                         e='/dev/null',
                         verbose=verbose)(cmd).job_id
@@ -509,7 +510,7 @@ class LSFALF(ExternalSoftware):
             if not alf.check_output_exists():
                 alf.clean()
                 alf.write()
-                command_strings.append(alf.run(dry_run))
+                command_strings.append(alf.run(dry_run=True))
         return command_strings
 
     def read(self, length_is_strict=False):
@@ -519,8 +520,8 @@ class LSFALF(ExternalSoftware):
     def clean(self):
         for td in self.temp_dirs:
             shutil.rmtree(td)
-        for f in (glob(os.path.join(self.tmpdir, 'alfsim_task.*.out')) +
-                  glob(os.path.join(self.tmpdir, 'alfsim_task.*.err'))):
+        for f in (glob(os.path.join(self.tmpdir, 'treeCl_alfsim_task.*.out')) +
+                  glob(os.path.join(self.tmpdir, 'treeCl_alfsim_task.*.err'))):
             os.remove(os.path.join(self.tmpdir, f))
 
     def run(self, verbose=False, length_is_strict=False):
@@ -623,12 +624,15 @@ class ALF(ExternalSoftware):
         record.sort_by_name()
         return record
 
-    def check_output_exists(self):
+    def check_output_exists(self, tries=5):
         try:
             filecheck(filecheck('{0}/{1}/RealTree.nwk'.format(
                                 self.working_dir, self.name)))
             return True
         except FileError:
+            if tries > 0:
+                time.sleep(1)
+                self.check_output_exists(tries-1)
             return False
 
     def read(self, verbosity=0, length_is_strict=False):
