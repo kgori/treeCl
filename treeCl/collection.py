@@ -79,7 +79,8 @@ class Collection(object):
             self.records = self.read_files(input_dir, file_format, compression)
 
         else:
-            print 'Provide a list of records, or the path to a set of alignments'
+            print ('Provide a list of records, '
+                   'or the path to a set of alignments')
 
         if not self.records:
             raise NoRecordsError(file_format, input_dir, compression)
@@ -110,6 +111,11 @@ class Collection(object):
     @property
     def trees(self):
         return [self._records[i].tree for i in range(len(self._records))]
+
+    def num_species(self):
+        all_headers = reduce(lambda x,y: set(x) | set(y),
+                             (rec.headers for rec in self.records))
+        return len(all_headers)
 
     def read_files(self, input_dir, file_format, compression=None):
         """ Get list of alignment files from an input directory *.fa, *.fas and
