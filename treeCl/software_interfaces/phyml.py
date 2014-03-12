@@ -32,6 +32,7 @@ class LSFPhyml(ExternalSoftware):
         self.records = records
         self.temp_dirs = self.setup_temp_dirs()
         self.phyml_objects = self.setup_phyml_objects()
+        self.job_ids = set()
 
     @property
     def records(self):
@@ -65,6 +66,7 @@ class LSFPhyml(ExternalSoftware):
                         e='/dev/null',
                         verbose=verbose)(cmd).job_id
                    for cmd in command_strings]
+        self.job_ids.update(job_ids)
         bsub.poll(job_ids)
         os.chdir(curr_dir)
 
@@ -86,9 +88,17 @@ class LSFPhyml(ExternalSoftware):
             phyml.clean()
         for d in self.temp_dirs:
             shutil.rmtree(d)
-        for f in (glob(os.path.join(self.tmpdir, 'treeCl_phyml_task.*.out')) +
-                  glob(os.path.join(self.tmpdir, 'treeCl_phyml_task.*.err'))):
-            os.remove(os.path.join(self.tmpdir, f))
+
+        deleted = set()
+        for job_id in self.job_ids:
+            output_file = os.path.join(self.tmpdir,
+                                    'treeCl_phyml_task.{}.out'.format(job_id))
+            errors_file = os.path.join(self.tmpdir,
+                                    'treeCl_phyml_task.{}.err'.format(job_id))
+            if (fileIO.delete_if_exists(output_file) and
+                fileIO.delete_if_exists(errors_file)):
+                deleted.add(job_id)
+        self.job_ids.discard(deleted)
 
     def run(self, analysis, verbose=False):
         command_strings = self.get_command_strings(analysis)

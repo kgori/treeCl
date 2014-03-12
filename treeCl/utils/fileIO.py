@@ -23,6 +23,7 @@ __all__ = [
     'locate_by_env',
     'locate_file',
     'path_to',
+    'strip_extensions',
     'subprocess',
     'syscall',
     'verify',
@@ -39,6 +40,12 @@ def can_open(directory):
 
 def delete(filename):
     return os.remove(filecheck(filename))
+
+def delete_if_exists(filename):
+    if os.path.isfile(filename):
+        os.remove(filename)
+        return True
+    return False
 
 def freader(filename, gz=False, bz=False):
     """ Returns a filereader object that can handle gzipped input """

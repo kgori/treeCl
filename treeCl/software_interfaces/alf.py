@@ -20,6 +20,7 @@ from ..errors import filecheck, FileError, directorymake, directoryquit, \
     optioncheck, OptionError, directorycheck
 from ..utils.gapmasker import GapMasker
 from ..utils import phymlIO
+from ..utils import fileIO
 
 class ALFError(Exception):
     pass
@@ -472,6 +473,8 @@ class LSFALF(ExternalSoftware):
                                                   gene_length_theta,
                                                   name, **kwargs)
         self._retries = 0
+        self.max_retries = max_retries
+        self.job_ids = set()
 
     def write(self):
         pass
@@ -501,6 +504,7 @@ class LSFALF(ExternalSoftware):
                         e='/dev/null',
                         verbose=verbose)(cmd).job_id
                    for cmd in command_strings]
+        self.job_ids.update(job_ids)
         bsub.poll(job_ids)
         os.chdir(curr_dir)
 
@@ -520,9 +524,16 @@ class LSFALF(ExternalSoftware):
     def clean(self):
         for td in self.temp_dirs:
             shutil.rmtree(td)
-        for f in (glob(os.path.join(self.tmpdir, 'treeCl_alfsim_task.*.out')) +
-                  glob(os.path.join(self.tmpdir, 'treeCl_alfsim_task.*.err'))):
-            os.remove(os.path.join(self.tmpdir, f))
+        deleted = set()
+        for job_id in self.job_ids:
+            output_file = os.path.join(self.tmpdir,
+                                    'treeCl_alfsim_task.{}.out'.format(job_id))
+            errors_file = os.path.join(self.tmpdir,
+                                    'treeCl_alfsim_task.{}.err'.format(job_id))
+            if (fileIO.delete_if_exists(output_file) and
+                fileIO.delete_if_exists(errors_file)):
+                deleted.add(job_id)
+        self.job_ids.discard(deleted)
 
     def run(self, verbose=False, length_is_strict=False):
         command_strings = self.get_command_strings()
