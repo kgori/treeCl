@@ -55,6 +55,7 @@ class Collection(object):
         self,
         records=None,
         input_dir=None,
+        trees_dir=None,
         file_format='fasta',
         datatype=None,
         tmpdir=TMPDIR,
@@ -76,11 +77,16 @@ class Collection(object):
             directorycheck(input_dir)
             self.datatype = optioncheck(datatype, ['dna', 'protein'])
             optioncheck(file_format, ['fasta', 'phylip'])
-            self.records = self.read_files(input_dir, file_format, compression)
+            self.records = self.read_alignments(input_dir,
+                                                file_format,
+                                                compression)
 
         else:
             print ('Provide a list of records, '
                    'or the path to a set of alignments')
+
+        if trees_dir:
+            self.read_trees(trees_dir)
 
         if not self.records:
             raise NoRecordsError(file_format, input_dir, compression)
@@ -117,7 +123,7 @@ class Collection(object):
                              (rec.headers for rec in self.records))
         return len(all_headers)
 
-    def read_files(self, input_dir, file_format, compression=None):
+    def read_alignments(self, input_dir, file_format, compression=None):
         """ Get list of alignment files from an input directory *.fa, *.fas and
         *.phy files only
 
@@ -141,6 +147,27 @@ class Collection(object):
                         name=fileIO.strip_extensions(f),
                         tmpdir=self.tmpdir)
                 for f in files]
+
+    def read_trees(self, input_dir):
+        """ Read a directory full of tree files, matching them up to the
+        already loaded alignments """
+
+        extensions = ['nwk', 'tree']
+
+        files = fileIO.glob_by_extensions(input_dir, extensions)
+        files.sort(key=SORT_KEY)
+
+        trees = []
+        for file_ in files:
+            with fileIO.freader(file_) as open_file:
+                newick = open_file.read()
+                name=fileIO.strip_extensions(file_)
+                tree = TrClTree(newick, name=name)
+                trees.append(tree)
+
+        for record, tree in zip(self.records, trees):
+            assert record.name == tree.name
+            record.tree = tree
 
     def calc_distances(self, verbosity=0):
         for rec in self.records:

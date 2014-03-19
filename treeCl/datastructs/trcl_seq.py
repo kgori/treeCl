@@ -137,16 +137,25 @@ class TrClSeq(Seq):
         self.tree = TrClTree.cast(p.run('ml', verbosity))
         return self.tree
 
-    def likelihood(self, tree, tmpdir, dry_run=False, set_as_record_tree=False):
+    def likelihood(self, tree, tmpdir, dry_run=False, set_as_record_tree=False,
+                   fit_rates=True):
         if self.tmpdir is not None:
             tmpdir = self.tmpdir
         else:
             directorycheck(tmpdir)
 
-        result = runPhyml(self, tmpdir, 'lk', tree=tree, dry_run=dry_run,
+        if fit_rates:
+            analysis = 'r'
+
+        else:
+            analysis = 'lk'
+
+        result = runPhyml(self, tmpdir, analysis, tree=tree, dry_run=dry_run,
                           set_as_record_tree=set_as_record_tree)
+
         if dry_run:
             return result
+
         else:
             return result.score
 
