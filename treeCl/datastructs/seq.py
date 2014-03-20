@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 
 # standard library
 from copy import deepcopy
@@ -122,7 +123,7 @@ class Seq(object):
         self_set = set(self.headers)
         other_set = set(other.headers)
         if not self.datatype == other.datatype:
-            print 'Trying to add sequences of different datatypes'
+            print('Trying to add sequences of different datatypes')
             return self
         union = self_set | other_set
         intersection = self_set & other_set
@@ -149,7 +150,7 @@ class Seq(object):
         times """
 
         if not isinstance(n, int):
-            print 'Truncating {0} to {1}'.format(n, int(n))
+            print('Truncating {0} to {1}'.format(n, int(n)))
             n = int(n)
         new_seqs = []
         for s in self.sequences:
@@ -158,7 +159,7 @@ class Seq(object):
 
     def __rmul__(self, n):
         if not isinstance(n, int):
-            print 'Truncating {0} to {1}'.format(n, int(n))
+            print('Truncating {0} to {1}'.format(n, int(n)))
             n = int(n)
         new_seqs = []
         for s in self.sequences:
@@ -286,7 +287,7 @@ class Seq(object):
                     continue
 
             if len(headers) != len(sequences):
-                print 'Error matching all headers and sequences'
+                print('Error matching all headers and sequences')
 
             if is_alignment:
                 self.is_aligned = True
@@ -347,7 +348,7 @@ class Seq(object):
                 for sequence in sequences:
                     assert len(sequence) == seq_length
             except AssertionError:
-                print 'Error parsing file'
+                print('Error parsing file')
                 return
 
             self.name = name
@@ -384,7 +385,8 @@ class Seq(object):
             try:
                 int(linebreaks)
             except ValueError:
-                print 'Can\'t use {0} as value for linebreaks'.format(linebreaks)
+                print('Can\'t use {0} as value for linebreaks'
+                      .format(linebreaks))
             sequences = ['\n'.join(self.linebreaker(s, linebreaks)) for s in
                          self.sequences]
         else:
@@ -395,17 +397,17 @@ class Seq(object):
         s = '\n'.join(lines)
         s += '\n'
         if outfile == 'stdout':
-            print s
+            print(s)
             return s
         elif outfile == 'pipe':
             if print_to_screen:
-                print s
+                print(s)
             return s
         else:
             with fileIO.fwriter(outfile) as fwr:
                 fwr.write(s)
             if print_to_screen:
-                print s
+                print(s)
             return outfile
 
     def write_nexus(self, outfile='stdout', sequence_type='protein'):
@@ -424,7 +426,7 @@ class Seq(object):
 
         s = file_header + '\n'.join(lines) + file_footer
         if outfile == 'stdout':
-            print s
+            print(s)
             return s
         elif outfile == 'pipe':
             return s
@@ -475,17 +477,17 @@ class Seq(object):
             s.append('')
         s = '\n'.join(s)
         if outfile == 'stdout':
-            print s
+            print(s)
             return s
         elif outfile == 'pipe':
             if print_to_screen:
-                print s
+                print(s)
             return s
         else:
             with fileIO.fwriter(outfile) as fwr:
                 fwr.write(s)
             if print_to_screen:
-                print s
+                print(s)
             return outfile
 
 def concatenate(records):

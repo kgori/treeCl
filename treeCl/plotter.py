@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 
 # third party
 import matplotlib.pyplot as plt
@@ -45,7 +46,7 @@ class Plotter(object):
     def _warnings(self):
         if self.collection:
             if any([(r.tree is None) for r in self.collection.records]):
-                print 'No trees have been calculated for these records'
+                print('No trees have been calculated for these records')
 
     def calc_dm(self, method='geo'):
 
@@ -162,43 +163,43 @@ if __name__ == '__main__':
     path_to_file = fileIO.path_to(__file__)
     test_data = fileIO.join_path(path_to_file, 'aa_alignments')
 
-    print 'Loading data...',
+    print('Loading data...', end='')
     c = Collection(
             input_dir=test_data,
             file_format='phylip',
             datatype='protein',
             compression='gz',
             )
-    print ' success'
-    print 'Building trees... ',
+    print(' success')
+    print('Building trees... ', end='')
     c.calc_NJ_trees()
-    print 'success'
+    print('success')
 
-    print 'Building distance matrix...',
+    print('Building distance matrix...', end='')
     dm = c.distance_matrix('geo')
-    print 'success'
+    print('success')
 
-    print 'Can build empty Plotter object... ',
+    print('Can build empty Plotter object... ', end='')
     empty_plotter = Plotter()
-    print 'true'
+    print('true')
 
-    print 'Can build Plotter from Collection object... ',
+    print('Can build Plotter from Collection object... ', end='')
     plotter_from_collection = Plotter(c, metric='euc')
-    print 'yep'
+    print('yep')
 
-    print 'Can build Plotter from Collection + DistanceMatrix...',
+    print('Can build Plotter from Collection + DistanceMatrix...', end='')
     plotter_with_dm = Plotter(c, dm=dm)
-    print 'yes'
+    print('yes')
 
-    print 'Can build Plotter from a list of TrClSeq objects...',
+    print('Can build Plotter from a list of TrClSeq objects...', end='')
     plotter_from_records = Plotter(records=c.records)
-    print 'yes'
+    print('yes')
 
-    print 'Can build Plotter from DistanceMatrix only...',
+    print('Can build Plotter from DistanceMatrix only...', end='')
     plotter_just_dm = Plotter(dm=dm)
-    print 'yes'
+    print('yes')
 
-    print 'Testing plotting'
+    print('Testing plotting')
     p = Partition(tuple([1]*15+[2]*15+[3]*15+[4]*15))
     p_rand = Partition(tuple([1, 3, 1, 4, 2, 3, 3, 3, 2, 2, 1, 3, 3, 4, 1, 4, 1,
         1, 2, 4, 1, 2, 2, 2, 2, 2, 3, 4, 2, 2, 1, 4, 3, 1, 4, 4, 3, 1, 3, 1, 3,

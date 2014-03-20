@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 
 # third party
 import numpy as np
@@ -54,7 +55,7 @@ def get_distance_matrix(trees, metric, tmpdir, dec_places, **kwargs):
         matrix = get_dendropy_distances(trees, 'eucdist', dec_places, **kwargs)
     else:
 
-        print 'Unrecognised distance metric'
+        print('Unrecognised distance metric')
         return
     return matrix
 
@@ -142,7 +143,7 @@ class DistanceMatrix(np.ndarray):
 
     def __array_wrap__(self, out_arr, context=None):
 
-        # print context
+        # print(context)
 
         return np.ndarray.__array_wrap__(self, out_arr, context)
 
@@ -300,8 +301,8 @@ class DistanceMatrix(np.ndarray):
 
         lengths = np.apply_along_axis(np.linalg.norm, 1, self)
         if not (lengths > 0).all():
-            print 'Cannot normalise 0 length vector to length 1'
-            print self
+            print('Cannot normalise 0 length vector to length 1')
+            print(self)
             lengths[lengths == 0] = 1
         return self / lengths[:, np.newaxis]
 
@@ -378,7 +379,7 @@ class DistanceMatrix(np.ndarray):
     def get_permutation_matrix(self, input_ordering, desired_ordering):
         length = len(input_ordering)
         if not len(desired_ordering) == length:
-            print 'List lengths don\'t match'
+            print('List lengths don\'t match')
             return
         P = np.zeros((length, length), dtype=np.int)
         for i in range(length):

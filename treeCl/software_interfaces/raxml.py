@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+from __future__ import print_function
 # standard library
 import os
 import re
@@ -77,8 +77,8 @@ class Raxml(TreeSoftware):
         threads = threads or self.get_num_threads()
         datatype = datatype or self.record.datatype
         if verbosity > 1:
-            print self.flags
-            print 'Writing tempfiles to', self.tmpdir
+            print(self.flags)
+            print('Writing tempfiles to', self.tmpdir)
         filename, qfilename = self.write(qfile_string, datatype, ml_freqs)
         filecheck(filename)
         filecheck(qfilename)
@@ -95,7 +95,7 @@ class Raxml(TreeSoftware):
         if verbosity == 1:
             print_and_return('Running raxml on {0}'.format(self.record.name))
         elif verbosity > 1:
-            print 'Running raxml on {0}'.format(self.record.name)
+            print('Running raxml on {0}'.format(self.record.name))
 
         # DRY RUN - just get command string
         if kwargs.get('dry_run', False):
@@ -112,10 +112,10 @@ class Raxml(TreeSoftware):
         try:
             score = float(self.score_regex.search(info).group(0))
         except:
-            print tree
-            print info
+            print(tree)
+            print(info)
         if verbosity > 1:
-            print 'Cleaning tempfiles'
+            print('Cleaning tempfiles')
         self.clean()
         os.chdir(curr_dir)
         tree_object = Tree(newick=tree, score=score, program='raxml',
@@ -123,7 +123,7 @@ class Raxml(TreeSoftware):
         if kwargs.get('set_as_record_tree', True):
             self.record.tree = tree_object
         if verbosity > 1:
-            print 'Done.'
+            print('Done.')
         return tree_object
 
     def write(self, qfile_string=None, datatype=None, ml_freqs=False):

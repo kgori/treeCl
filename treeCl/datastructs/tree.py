@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 
 # standard library
 import random
@@ -10,6 +11,7 @@ import numpy as np
 
 # treeCl
 from ..errors import FileError, filecheck, optioncheck
+from ..utils import fileIO, regex_search_extract
 
 
 def cast(dendropy_tree):
@@ -148,9 +150,9 @@ class SPR(object):
                 if edge not in excl:
                     excl.append(edge)
             if set(self.tree.preorder_edge_iter()) - set(excl) == set([]):
-                print repr(self.tree)
-                print self.tree.as_ascii_plot()
-                # print edges[prune_edge]
+                print(repr(self.tree))
+                print(self.tree.as_ascii_plot())
+                # print(edges[prune_edge])
                 raise Exception('No non-sibling sprs available')
 
         regraft_edge, l2 = self.tree.map_event_onto_tree(excl)
@@ -193,12 +195,12 @@ class LGT(object):
                 children = self.tree.seed_node.child_nodes()
                 excl.extend([n.edge for n in children])
                 time = self.get_time(excl)
-                print 'time = {0}'.format(time)
+                print('time = {0}'.format(time))
                 self.tree.update_splits()
 
             else:
                 time = self.get_time(excl)
-                print 'time = {0}'.format(time)
+                print('time = {0}'.format(time))
 
         matching_edges = self.matching_edges(time)
         donor = random.sample(matching_edges, 1)[0]
@@ -300,7 +302,7 @@ class NNI(object):
             assert head_subtree.parent_node == head
             assert tail_subtree.parent_node == tail
         except:
-            print head, tail, head_subtree, tail_subtree
+            print(head, tail, head_subtree, tail_subtree)
             raise
         head.remove_child(head_subtree)
         tail.remove_child(tail_subtree)
@@ -412,7 +414,7 @@ class Tree(dendropy.Tree):
     @newick.setter
     def newick(self, newick_string):
         if self.newick:
-            print 'Newick string already loaded: {0}'.format(self.newick)
+            print('Newick string already loaded: {0}'.format(self.newick))
             return
         self.read_from_string(newick_string, 'newick')
 
@@ -490,9 +492,9 @@ class Tree(dendropy.Tree):
                 try:
                     edge_list.remove(excl)
                 except:
-                    print 'Excluded_edges list includes some things'
-                    print 'that aren\'t in the tree'
-                    print 'like this one:', excl
+                    print('Excluded_edges list includes some things')
+                    print('that aren\'t in the tree')
+                    print('like this one:', excl)
         lengths = np.array([edge.length for edge in edge_list])
         cumulative_lengths = lengths.cumsum()
         rnum = np.random.random() * cumulative_lengths[-1]
@@ -517,8 +519,8 @@ class Tree(dendropy.Tree):
             try:
                 self.pdm = dendropy.treecalc.PatristicDistanceMatrix(self)
             except TypeError:
-                print ('Error calculating patristic distances - maybe this tree'
-                    ' has no branch lengths?')
+                print('Error calculating patristic distances - maybe this '
+                      'tree has no branch lengths?')
                 return
 
         leaf1 = self.find_node_with_taxon_label(taxon_label1)
@@ -527,13 +529,13 @@ class Tree(dendropy.Tree):
         if leaf1:
             taxon1 = leaf1.taxon
         else:
-            print 'Couldn\'t find {0} on the tree'.format(taxon_label1)
+            print('Couldn\'t find {0} on the tree'.format(taxon_label1))
             return
 
         if leaf2:
             taxon2 = leaf2.taxon
         else:
-            print 'Couldn\'t find {0} on the tree'.format(taxon_label2)
+            print('Couldn\'t find {0} on the tree'.format(taxon_label2))
             return
 
         return self.pdm(taxon1, taxon2)
@@ -541,7 +543,7 @@ class Tree(dendropy.Tree):
     def prune_to_subset(self, subset, inplace=False):
         """ Prunes the Tree to just the taxon set given in `subset` """
         if not subset.issubset(self.labels):
-            print '"subset" is not a subset'
+            print('"subset" is not a subset')
             return
         if not inplace:
             t = self.copy()
@@ -718,6 +720,36 @@ class Tree(dendropy.Tree):
             e.length = None
         return t
 
+    @classmethod
+    def read_from_file(cls, infile):
+        with fileIO.freader(infile) as reader:
+            s = reader.read()
+
+        name_search = re.search(r'(?<=Name:\t)(\w+)+', s)
+        program_search = re.search(r'(?<=Program:\t)(\w+)+', s)
+        score_search = re.search(r'(?<=Score:\t)([0-9.\-\+]+)', s)
+        tree_search = re.search(r'(?<=Tree:\t]).+', s)
+
+        name = regex_search_extract(name_search)
+        program = regex_search_extract(program_search)
+        score = regex_search_extract(score_search)
+        tree = regex_search_extract(tree_search)
+
+        if score:
+            try:
+                score = float(score)
+            except:
+                raise Exception('Found score value of {} in tree file {}'
+                                .format(score, infile))
+
+        if not tree:
+            tree = s
+
+        if program == 'None':
+            program = None
+
+        return cls(newick=tree, name=name, program=program, score=score)
+
     def write_to_file(
         self,
         outfile,
@@ -784,11 +816,11 @@ class Tree(dendropy.Tree):
             try:
                 filecheck(f)
             except FileError, e:
-                print e
+                print(e)
                 exit = True
 
         if exit:
-            print 'Results were not loaded'
+            print('Results were not loaded')
             raise FileError()
 
         if not name:
@@ -806,7 +838,7 @@ class Tree(dendropy.Tree):
     # the bug that made me introduce it
 
     def __unify_taxon_sets(self, other):
-        print 'In __unify_taxon_sets'
+        print('In __unify_taxon_sets')
         if other.taxon_set is not self.taxon_set:
             return self.__class__(other.newick, taxon_set=self.taxon_set)
         else:
@@ -832,7 +864,7 @@ class Tree(dendropy.Tree):
                 distance /= rfmax
             return distance
         except:
-            print 'ERROR!'
+            print('ERROR!')
             return self.rfdist_(other)
 
     def eucdist_(self, other):
@@ -849,7 +881,7 @@ class Tree(dendropy.Tree):
         try:
             return t1.euclidean_distance(t2)
         except:
-            print 'ERROR!'
+            print('ERROR!')
             return self.eucdist_(other)
 
     def wrfdist_(self, other):
@@ -866,7 +898,7 @@ class Tree(dendropy.Tree):
         try:
             return t1.robinson_foulds_distance(t2)
         except:
-            print 'ERROR!'
+            print('ERROR!')
             return self.wrfdist_(other)
 
     @classmethod

@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 
 # standard library
 from collections import defaultdict
@@ -13,18 +14,18 @@ try:
     from Bio.Cluster import kmedoids
     Biopython_Unavailable = False
 except ImportError:
-    print "Biopython unavailable - kmedoids clustering disabled"
+    print("Biopython unavailable - kmedoids clustering disabled")
     Biopython_Unavailable = True
 try:
     from sklearn.cluster import KMeans
 except ImportError:
-    print "sklearn unavailable: KMeans disabled"
+    print("sklearn unavailable: KMeans disabled")
 
 # treeCl
 try:
     import evrot  # evrot not currently in use
 except ImportError:
-    # print 'evrot is not currently in use'
+    # print('evrot is not currently in use')
     pass
 from utils import fileIO
 
@@ -56,7 +57,7 @@ class Clustering(object):
     def kmedoids(self, nclusters, noise=False):
 
         if Biopython_Unavailable:
-            print 'kmedoids not available without Biopython'
+            print('kmedoids not available without Biopython')
             return
 
         if noise:
@@ -146,14 +147,10 @@ class Clustering(object):
         # ZeroDivisionError safety check
         if not (scale > 1e-5).all():
             if verbosity > 0:
-                print 'Rescaling to avoid zero-div error'
+                print('Rescaling to avoid zero-div error')
             scale = est_scale
             ks = est_ks
             assert (scale > 1e-5).all()
-
-        if verbosity > 0:
-            print 'Pruning parameter: {0}'.format(kp)
-            print 'Scaling parameter: {0}'.format(ks)
 
         aff = matrix.affinity(mask, scale)
 
@@ -166,11 +163,20 @@ class Clustering(object):
             if home:
                 dumpfile = '{0}/dm_{1}.pkl.gz'.format(home, dump)
                 fileIO.gpickle(self.distance_matrix, dumpfile)
-                print 'ZeroDivisionError detected on constructing laplacian.'
-                print 'Distance matrix dumped to {0}'.format(dumpfile)
-                print 'prune and local scale arguments: {0}, {1}'.format(
-                    prune, local_scale)
+                print('ZeroDivisionError detected on constructing laplacian.')
+                print('Distance matrix dumped to {0}'.format(dumpfile))
+                print('prune and local scale arguments: {0}, {1}'.format(
+                    prune, local_scale))
             raise
+
+        if verbosity > 0:
+            print('Pruning parameter: {0}'.format(kp))
+            print('Scaling parameter: {0}'.format(ks))
+            print('Mask, scale, affinity matrix and laplacian:')
+            print(mask)
+            print(scale)
+            print(aff)
+            print(laplace)
 
         return laplace.eigen()  # vectors are in columns
 
@@ -181,8 +187,8 @@ class Clustering(object):
 
         (coords, cve) = decomp.coords_by_dimension(nclusters)
         if verbosity > 0:
-            print '{0} dimensions explain {1:.2f}% of the variance'.format(nclusters,
-                cve * 100)
+            print('{0} dimensions explain {1:.2f}% of '
+                  'the variance'.format(nclusters, cve * 100))
         coords = coords.normalise_rows()  # scale all rows to unit length
         P = self.kmeans(nclusters, coords)
         return P
@@ -208,8 +214,8 @@ class Clustering(object):
         (coords, cve) = \
             (decomp.coords_by_cutoff(cutoff) if cutoff else decomp.coords_by_dimension(nclusters))
         if verbosity > 0:
-            print '{0} dimensions explain {1:.2f}% of the variance'.format(
-                coords.shape[1], cve * 100)
+            print('{0} dimensions explain {1:.2f}% of '
+                  'the variance'.format(coords.shape[1], cve * 100))
         P = self.kmeans(nclusters, coords)
         return P
 
@@ -253,8 +259,7 @@ class Clustering(object):
             for index in group_membership:
                 translation[index - 1] = group_number
         if no_of_empty_clusters > 0:
-            print 'Found {0} empty clusters'.format(
-                no_of_empty_clusters)
+            print('Found {0} empty clusters'.format(no_of_empty_clusters))
         p = Partition(tuple(translation))
         return p
 
@@ -295,8 +300,8 @@ class Clustering(object):
         optimum_nclusters = corrected_groups[index]
 
         if verbose:
-            print 'Discovered {0} clusters'.format(optimum_nclusters)
-            print 'Quality scores: {0}'.format(quality_scores)
+            print('Discovered {0} clusters'.format(optimum_nclusters))
+            print('Quality scores: {0}'.format(quality_scores))
 
         if KMeans:
             KMeans_clusters = [self.kmeans(groups[i], rotated_vectors[i])
@@ -423,7 +428,7 @@ class Partition(object):
         common elements in partition 1 [i] and partition 2 [j] """
 
         if len(partition_1) != len(partition_2):
-            print 'Partition lists are not the same length'
+            print('Partition lists are not the same length')
             return 0
         else:
             total = float(len(partition_1))  # Ensure float division later
@@ -503,11 +508,11 @@ def get_partition(clusters):
     length = sum((len(clusters[i]) for i in seq))
     global pvec
     pvec = [0] * length
-    print 'seq: {0}'.format(seq)
-    print clusters
+    print('seq: {0}'.format(seq))
+    print(clusters)
     for k in seq:
         for i in clusters[k]:
-            print k, i
+            print(k, i)
             pvec[i] = k
-    print pvec
+    print(pvec)
     return(Partition(tuple(pvec)))

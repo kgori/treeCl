@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 
 # standard library
 import random
@@ -61,7 +62,7 @@ class TrClSeq(Seq):
         self_set = set(self.headers)
         other_set = set(other.headers)
         if not self.datatype == other.datatype:
-            print 'Trying to add sequences of different datatypes'
+            print('Trying to add sequences of different datatypes')
             return self
         union = self_set | other_set
         intersection = self_set & other_set
@@ -159,46 +160,9 @@ class TrClSeq(Seq):
         else:
             return result.score
 
-
-    # def likelihood(self, tree, tmpdir):
-    #     """ Uses phyml (via treeCl.externals.tree_builders.Phyml) to calculate
-    #     the likelihood  for the current record """
-    #     if self.tmpdir is not None:
-    #         tmpdir = self.tmpdir
-    #     else:
-    #         directorycheck(tmpdir)
-
-    #     p = Phyml(self, tmpdir)
-
-    #     alignment_file = self.write_phylip('{0}/tmp_alignment.phy'.format(
-    #         tmpdir), interleaved=True)
-    #     newick_file = tree.write_to_file('{0}/tmp_tree.nwk'.format(tmpdir))
-
-    #     p.add_tempfile(alignment_file)
-    #     p.add_tempfile(newick_file)
-    #     p.add_flag('-i', alignment_file)
-    #     p.add_flag('-u', newick_file)
-    #     p.add_flag('-b', '0')   # no bootstraps
-    #     if self.datatype == 'protein':
-    #         p.add_flag('-m', 'WAG') # evolutionary model
-    #     else:
-    #         p.add_flag('-m', 'GTR')
-    #     p.add_flag('-o', 'n')   # no optimisation
-    #     if self.datatype == 'protein':
-    #         p.add_flag('-d', 'aa')  # datatype
-    #     else:
-    #         p.add_flag('-d', 'nt')
-    #     p.add_flag('--no_memory_check', '')
-    #     p.add_flag('--quiet', '')
-    #     p.call() # run phyml
-    #     (_, stats) = p.read(alignment_file)
-    #     p.clean() # cleanup tempfiles
-    #     score = float(re.compile('(?<=Log-likelihood: ).+').search(stats).group(0))
-    #     return score
-
     def tree_collection_deprecated(self, tmpdir):
         """ DEPRECATED:   Uses TreeCollection (via
-        treeCl.externals.tree_builders.TreeCollection) to build a least squares
+        treeCl.software_interfaces.treecollection) to build a least squares
         tree for the current record """
         if self.tmpdir is not None:
             tmpdir = self.tmpdir

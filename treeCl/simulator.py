@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 
 # standard library
 import shutil
@@ -64,7 +65,7 @@ class Simulator(object):
                     'Required number is {0}.\n'.format(nspecies),
                     'Resetting number of species to match the supplied tree.'
                 ]
-                print ''.join(msg)
+                print(''.join(msg))
                 self.num_species = nspecies
         self.set_gene_lengths(gene_length_kappa, gene_length_theta,
                               gene_length_min)

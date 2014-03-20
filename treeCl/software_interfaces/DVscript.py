@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 # standard library
 from copy import copy
 
@@ -247,7 +249,7 @@ quit;
         self.write()
         (stdout, stderr) = self.execute(self.verbosity)
         if self.verbosity > 0:
-            print stdout, stderr
+            print(stdout, stderr)
         result = self.read()
         self.clean()
         return result
@@ -255,19 +257,19 @@ quit;
 
     def write(self):
         if self.verbosity > 0:
-            print 'Running DV script on {0}'.format(self.record.name)
+            print('Running DV script on {0}'.format(self.record.name))
         if self.verbosity > 1:
-            print 'Writing darwin command file to {0}'.format(self.comfile)
+            print('Writing darwin command file to {0}'.format(self.comfile))
         command_writer = fileIO.fwriter(self.comfile)
         command_writer.write(self.cmd)
         command_writer.close()
         if self.verbosity > 1:
-            print 'Writing fasta file to {0}'.format(self.recfile)
+            print('Writing fasta file to {0}'.format(self.recfile))
         self.record.write_fasta(self.recfile)
         filecheck(self.comfile)
         filecheck(self.recfile)
         if self.verbosity > 1:
-            print '  (Tests pass.)'
+            print('  (Tests pass.)')
 
 def runDV(record, tmpdir, verbosity=0):
     dw = DV(record, tmpdir, verbosity)

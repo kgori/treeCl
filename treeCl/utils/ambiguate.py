@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 from ..datastructs.seq import Seq
 
 docstring = '''
@@ -117,4 +118,4 @@ if __name__ == '__main__':
     if len(newrec) >= args.cutoff:
         newrec.write_phylip(out, interleaved=True)
     else:
-        print 'Empty'
+        print('Empty')

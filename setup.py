@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from __future__ import print_function
 try:
     from setuptools import setup, find_packages, Extension
 except ImportError:
@@ -8,22 +9,22 @@ except ImportError:
 try:
     from Cython.Distutils import build_ext
 except ImportError:
-    print 'You don\'t seem to have Cython installed.'
-    print 'Cython and Numpy are required for the'
-    print 'installation process, all other dependencies'
-    print 'will be installed automatically.'
-    print 'Install Cython [and Numpy] and try again.'
+    print('You don\'t seem to have Cython installed.')
+    print('Cython and Numpy are required for the')
+    print('installation process, all other dependencies')
+    print('will be installed automatically.')
+    print('Install Cython [and Numpy] and try again.')
     import sys
     sys.exit()
 
 try:
     from numpy import get_include as numpy_get_include
 except ImportError:
-    print 'You don\'t seem to have Numpy installed.'
-    print 'Numpy and Cython are required for the'
-    print 'installation process, all other dependencies'
-    print 'will be installed automatically.'
-    print 'Install Numpy [and Cython] and try again.'
+    print('You don\'t seem to have Numpy installed.')
+    print('Numpy and Cython are required for the')
+    print('installation process, all other dependencies')
+    print('will be installed automatically.')
+    print('Install Numpy [and Cython] and try again.')
     import sys
     sys.exit()
 
@@ -39,7 +40,7 @@ logo = """
 ══════════════ ╰──
 """.format(VERSION)
 
-print logo
+print(logo)
 
 extensions = [
     Extension(name='tree_collection',
@@ -85,5 +86,5 @@ setup(name = "treeCl",
         'scipy',
     ],
     cmdclass = { 'build_ext': build_ext},
-    ext_modules = extensions,
+    #ext_modules = extensions,
 )

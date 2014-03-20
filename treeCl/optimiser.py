@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 
 # standard library
 from collections import defaultdict
@@ -24,7 +25,7 @@ class Optimiser(object):
         self.Collection = collection
 
         if not self.Collection.records[0].tree:
-            print 'Calculating NJ trees for collection...'
+            print('Calculating NJ trees for collection...')
             self.Collection.calc_NJ_trees()
 
         self.datatype = collection.datatype
@@ -38,7 +39,7 @@ class Optimiser(object):
         self.nclusters = nclusters
         self.tmpdir = tmpdir
 
-        print 'Calculating initial scores...'
+        print('Calculating initial scores...')
         if initial_assignment is None:
             initial_assignment = Partition(tuple([0]*len(collection)))
             # initial_assignment = self.random_partition(nclusters)
@@ -187,17 +188,17 @@ class Optimiser(object):
         return Partition(tuple(pvec))
 
     def merge_closest(self, assignment):
-        print 'Finding clusters to merge...'
+        print('Finding clusters to merge...')
         clusters = self.get_clusters(assignment)
         best_score = NEGINF
         merging = [None, None]
 
         for i in clusters:
             for j in clusters:
-                # print 'i = {}, j = {}'.format(i, j)
+                # print('i = {}, j = {}'.format(i, j))
                 if i >= j:
                     continue
-                print 'Testing Clusters {0} and {1}'.format(i, j)
+                print('Testing Clusters {0} and {1}'.format(i, j))
                 test_assignment = self.merge(assignment, i, j)
                 self.update(test_assignment)
                 score = self.scorer.score(test_assignment, history=False)
@@ -208,8 +209,8 @@ class Optimiser(object):
                     best_score = score
                     best_assignment = test_assignment
 
-        print 'Merging clusters {0} and {1}'.format(*merging)
-        print 'Best assignment: {0}'.format(best_assignment)
+        print('Merging clusters {0} and {1}'.format(*merging))
+        print('Best assignment: {0}'.format(best_assignment))
         return(best_assignment)
 
     def split(self, k, assignment, verbosity=1):
@@ -217,7 +218,7 @@ class Optimiser(object):
         Function to split cluster based on least representative alignment
         """
         if verbosity > 1:
-            print assignment
+            print(assignment)
         members = self.get_clusters(assignment)[k]
         if len(members) == 1:
             return assignment
@@ -230,7 +231,7 @@ class Optimiser(object):
         tree = self.get_cluster_trees(assignment)[k]
         alignment_scores = {}
         if verbosity > 0:
-            print 'Calculating alignment scores...'
+            print('Calculating alignment scores...')
 
         for i in members:
             r = self.Collection.records[i]
@@ -239,21 +240,21 @@ class Optimiser(object):
 
         seed, min_score = min(alignment_scores.iteritems(),
             key=operator.itemgetter(1))
-        print 'Splitting on {0}.'.format(seed+1) # convert to 1-based indexing
+        print('Splitting on {0}.'.format(seed+1))# convert to 1-based indexing
 
         new_assignment = list(assignment.partition_vector)
         new_assignment[seed] = max(assignment.partition_vector) + 1
         if verbosity > 1:
-            print 'New Partition: {0}'.format(new_assignment)
+            print('New Partition: {0}'.format(new_assignment))
         if verbosity > 0:
-            print 'Assigning to new partition...'
+            print('Assigning to new partition...')
 
         new_assignment = Partition(new_assignment)
         scores = self.score_sample(members, new_assignment)
         assignment = self.make_new_assignment(members, scores, new_assignment,
             nreassign=len(members))
         if verbosity > 1:
-            print 'Returning: {0}'.format(assignment)
+            print('Returning: {0}'.format(assignment))
 
         return assignment
 
@@ -264,7 +265,7 @@ class Optimiser(object):
         for k in clusters.keys():
             var_dict[k] = self.var(clusters[k])
 
-        print var_dict
+        print(var_dict)
 
         cluster_to_split, var = max(clusters.iteritems(),
             key=operator.itemgetter(1))
@@ -275,7 +276,7 @@ class Optimiser(object):
         best_score = NEGINF
 
         for i in clusters:
-            print 'i: {0}'.format(i)
+            print('i: {0}'.format(i))
             test_assignment = self.split(i, assignment)
             # score = self.scorer.score(test_assignment)
             if len(test_assignment) == k + 1:
@@ -283,9 +284,9 @@ class Optimiser(object):
                 self.update(test_assignment)
             else:
                 score = -np.Inf
-                print 'Something has gone wrong'
-            print test_assignment
-            print score
+                print('Something has gone wrong')
+            print(test_assignment)
+            print(score)
 
             if score > best_score:
                 best_score = score
@@ -370,22 +371,22 @@ class Optimiser(object):
         current_assignment = local_best_assignment
         self.sampled = []
 
-        print self.status(current_assignment)
+        print(self.status(current_assignment))
 
         while True:
             if self.stayed_put > max_stayed_put:
-                print 'stayed put too many times ({0})'.format(max_stayed_put)
+                print('stayed put too many times ({0})'.format(max_stayed_put))
                 break
             if self.resets == max_resets:
-                print 'Reset limit reached ({0})'.format(max_resets)
+                print('Reset limit reached ({0})'.format(max_resets))
                 break
             if self.done_worse == max_done_worse:
-                print 'wandered off, resetting...'
+                print('wandered off, resetting...')
                 self.resets += 1
                 self.done_worse = 0
                 current_assignment = local_best_assignment
             if self.i == max_iter:
-                print 'max iterations reached'
+                print('max iterations reached')
                 break
 
             new_assignment = self.move(sample_size, current_assignment,
@@ -402,20 +403,20 @@ class Optimiser(object):
                 self.stayed_put = 0
                 self.done_worse = 0
                 self.resets = 0
-                print self.status(new_assignment, '(Improved)')
+                print(self.status(new_assignment, '(Improved)'))
             elif np.abs(score - local_best_score) < EPS:
                 self.stayed_put += 1
                 self.done_worse = 0
-                print self.status(new_assignment,
-                    '(No improvement - [{}/{}])'.format(self.stayed_put,
-                        max_stayed_put))
+                message = ('(No improvement - [{}/{}])'.format(self.stayed_put,
+                                                               max_stayed_put))
+                print(self.status(new_assignment, message))
             else:
                 self.sampled = []
                 #self.stayed_put = 0
                 self.done_worse += 1
-                print self.status(new_assignment,
-                    '(Did worse - [{}/{}]'.format(self.done_worse,
-                        max_done_worse))
+                message = '(Did worse - [{}/{}]'.format(self.done_worse,
+                                                        max_done_worse)
+                print(self.status(new_assignment, message))
 
             self.i += 1
 
@@ -436,20 +437,22 @@ class Optimiser(object):
                 'target_clusters ({})'.format(max_clusters, target_clusters))
 
         current_clusters = len(assignment)
-        print ("Optimising current assignment with {} clusters. Optimiser will "
-            "ascend to {} clusters, and descend to a target of {} clusters"
-            ".".format(current_clusters, max_clusters, target_clusters))
+        print('Optimising current assignment with {} clusters. Optimiser will '
+              'ascend to {} clusters, and descend to a target of {} clusters'
+              '.'.format(current_clusters, max_clusters, target_clusters))
         for n in range(current_clusters, max_clusters+1):
-            print "ASCENDING (optimisation:{}) -> Current target: {} clusters".format(
-                ('ON' if optimise_on_ascent else 'OFF'), n)
+            print("ASCENDING (optimisation:{}) -> Current target: "
+                  "{} clusters".format(('ON' if optimise_on_ascent else 'OFF'),
+                                       n))
             if optimise_on_ascent:
                 assignment = self.optimise(assignment, nclusters=n, **kwargs)
             else:
                 assignment = self.constrain_assignment(assignment, n)
 
         for n in range(max_clusters-1, target_clusters-1, -1):
-            print "DESCENDING (optimisation:{}) -> Current target: {} clusters".format(
-                ('ON' if optimise_on_descent else 'OFF'), n)
+            print('DESCENDING (optimisation:{}) -> Current target: {} '
+                  'clusters'.format(('ON' if optimise_on_descent else 'OFF'),
+                                    n))
             if optimise_on_descent:
                 assignment = self.optimise(assignment, nclusters=n, **kwargs)
             else:
@@ -459,7 +462,7 @@ class Optimiser(object):
 
     def write(self, filename):
         headers = ['Iteration', 'CPU Time', 'Likelihood', 'Partition',
-            'NClusters']
+                   'NClusters']
         output = [[i] + x + len(x[-1])
                     for (i, x) in enumerate(self.scorer.history)]
 
@@ -589,15 +592,14 @@ if __name__ == '__main__':
     if args.partition is not None:
 
         if not os.path.exists(args.partition):
-            print 'Partition file {0} not found'.format(args.partition)
+            print('Partition file {0} not found'.format(args.partition))
             sys.exit(1)
         else:
             p = get_partition_from_file(args.partition)
 
         if not len(p) == len(c):
-            print ('Partition is of incorrect length '
-                '(expected {0}, got {1}'.format(len(c),
-                len(p)))
+            print('Partition is of incorrect length '
+                  '(expected {0}, got {1}'.format(len(c), len(p)))
             sys.exit(1)
 
         o = Optimiser(args.nclusters, c, tmpdir=new_tmpdir,

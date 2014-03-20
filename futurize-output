@@ -1,0 +1,622 @@
+--- ./treeCl/__init__.py	(original)
++++ ./treeCl/__init__.py	(refactored)
+@@ -1,8 +1,9 @@
+ from __future__ import print_function
+-from collection import Collection, Scorer
+-from clustering import Clustering, Partition
+-from distance_matrix import DistanceMatrix
+-from optimiser import Optimiser
+-from plotter import Plotter
+-from simulator import Simulator
+-from utils import fileIO
++from __future__ import absolute_import
++from .collection import Collection, Scorer
++from .clustering import Clustering, Partition
++from .distance_matrix import DistanceMatrix
++from .optimiser import Optimiser
++from .plotter import Plotter
++from .simulator import Simulator
++from .utils import fileIO
+--- ./treeCl/clustering.py	(original)
++++ ./treeCl/clustering.py	(refactored)
+@@ -1,5 +1,7 @@
+ #!/usr/bin/env python
+ from __future__ import print_function
++from __future__ import division
++from __future__ import absolute_import
+ 
+ # standard library
+ from collections import defaultdict
+@@ -23,11 +25,11 @@
+ 
+ # treeCl
+ try:
+-    import evrot  # evrot not currently in use
++    from . import evrot  # evrot not currently in use
+ except ImportError:
+     # print('evrot is not currently in use')
+     pass
+-from utils import fileIO
++from .utils import fileIO
+ 
+ 
+ class Clustering(object):
+@@ -394,7 +396,7 @@
+ 
+         l2 = [None] * list_length
+ 
+-        for (name, index_list) in enumerate(sorted(d.values(), key=min),
++        for (name, index_list) in enumerate(sorted(list(d.values()), key=min),
+                 start=1):
+             for index in index_list:
+                 l2[index] = name
+@@ -470,7 +472,7 @@
+         result = defaultdict(list)
+         for (position, value) in enumerate(pvec):
+             result[value].append(position)
+-        result = [tuple(x) for x in sorted(result.values(), key=len,
++        result = [tuple(x) for x in sorted(list(result.values()), key=len,
+                   reverse=True)]
+         return (self.flatten(result) if flatten else result)
+ 
+--- ./treeCl/collection.py	(original)
++++ ./treeCl/collection.py	(refactored)
+@@ -1,5 +1,6 @@
+ #!/usr/bin/env python
+ from __future__ import print_function
++from __future__ import absolute_import
+ 
+ # standard lib
+ import sys
+@@ -10,20 +11,20 @@
+ from dendropy import TaxonSet
+ 
+ # treeCl
+-from datastructs.seq import concatenate
+-from datastructs.trcl_seq import TrClSeq
+-from datastructs.trcl_tree import TrClTree
+-from distance_matrix import DistanceMatrix
+-from software_interfaces.alf import lsf_simulate_from_record,\
++from .datastructs.seq import concatenate
++from .datastructs.trcl_seq import TrClSeq
++from .datastructs.trcl_tree import TrClTree
++from .distance_matrix import DistanceMatrix
++from .software_interfaces.alf import lsf_simulate_from_record,\
+     simulate_from_record
+-from software_interfaces.DVscript import runDV
+-from software_interfaces.phyml import runPhyml, runLSFPhyml
+-from software_interfaces.treecollection import runTC
+-from utils import flatten_list
+-from errors import  OptionError, optioncheck, directorymake,\
++from .software_interfaces.DVscript import runDV
++from .software_interfaces.phyml import runPhyml, runLSFPhyml
++from .software_interfaces.treecollection import runTC
++from .utils import flatten_list
++from .errors import  OptionError, optioncheck, directorymake,\
+     directorycheck
+-from utils import fileIO
+-from constants import TMPDIR, SORT_KEY, ANALYSES
++from .utils import fileIO
++from .constants import TMPDIR, SORT_KEY, ANALYSES
+ 
+ 
+ class NoRecordsError(Exception):
+@@ -267,7 +268,7 @@
+     def add_partition_list(self, partition_list):
+         index_tuples = list(itertools.chain(*[partition.get_membership()
+                                               for partition in partition_list]))
+-        missing = sorted(set(index_tuples).difference(self.concats.keys()))
++        missing = sorted(set(index_tuples).difference(list(self.concats.keys())))
+         if self.lsf and not self.analysis == 'TreeCollection':
+             supermatrices = [self.concatenate(index_tuple)
+                              for index_tuple in missing]
+@@ -380,7 +381,7 @@
+             model = model or 'GTR'
+             try:
+                 optioncheck(model, ['CPAM', 'ECM', 'ECMu', 'GTR'])
+-            except OptionError, e:
++            except OptionError as e:
+                 print('Choose a DNA-friendly model for simulation:\n', e)
+                 return
+ 
+--- ./treeCl/datastructs/seq.py	(original)
++++ ./treeCl/datastructs/seq.py	(refactored)
+@@ -1,5 +1,6 @@
+ #!/usr/bin/env python
+ from __future__ import print_function
++from __future__ import division
+ 
+ # standard library
+ from copy import deepcopy
+@@ -139,7 +140,7 @@
+             elif k in only_in_other:
+                 d[k] = 'X' * self.seqlength + other.mapping[k]
+ 
+-        return self.__class__(headers=d.keys(), sequences=d.values(),
++        return self.__class__(headers=list(d.keys()), sequences=list(d.values()),
+                               datatype=self.datatype).sort_by_name(in_place=False)
+ 
+     def __radd__(self, other):
+@@ -197,7 +198,7 @@
+         sorting doesn't mutate the underlying object, and the output is returned
+         If in_place = True the sorting mutates the self object """
+ 
+-        items = self.mapping.items()
++        items = list(self.mapping.items())
+         sort_key = lambda item: tuple((int(num) if num else alpha) for (num,
+                                       alpha) in re.findall(r'(\d+)|(\D+)',
+                                       item[0]))
+--- ./treeCl/datastructs/trcl_seq.py	(original)
++++ ./treeCl/datastructs/trcl_seq.py	(refactored)
+@@ -1,13 +1,14 @@
+ #!/usr/bin/env python
+ from __future__ import print_function
++from __future__ import absolute_import
+ 
+ # standard library
+ import random
+ import re
+ 
+ # treeCl
+-from seq import Seq
+-from trcl_tree import Tree, TrClTree
++from .seq import Seq
++from .trcl_tree import Tree, TrClTree
+ from ..constants import TMPDIR
+ from ..errors import directorycheck
+ from ..software_interfaces.DVscript import runDV
+@@ -78,7 +79,7 @@
+             elif k in only_in_other:
+                 d[k] = 'X' * self.seqlength + other.mapping[k]
+         dvsum = self.dv + other.dv
+-        return_object = self.__class__(headers=d.keys(), sequences=d.values(),
++        return_object = self.__class__(headers=list(d.keys()), sequences=list(d.values()),
+                                  datatype=self.datatype).sort_by_name(in_place=False)
+         return_object.dv = dvsum
+         return return_object
+@@ -286,7 +287,7 @@
+         sorting doesn't mutate the underlying object, and the output is returned
+         If in_place = True the sorting mutates the self object """
+ 
+-        items = self.mapping.items()
++        items = list(self.mapping.items())
+         if items == []:
+             return self
+         sort_key = lambda item: tuple((int(num) if num else alpha) for (num,
+--- ./treeCl/datastructs/trcl_tree.py	(original)
++++ ./treeCl/datastructs/trcl_tree.py	(refactored)
+@@ -1,7 +1,8 @@
++from __future__ import absolute_import
+ #!/usr/bin/env python
+ 
+ # treeCl
+-from tree import Tree
++from .tree import Tree
+ from ..constants import TMPDIR
+ from ..software_interfaces.gtp import GTP
+ 
+--- ./treeCl/datastructs/tree.py	(original)
++++ ./treeCl/datastructs/tree.py	(refactored)
+@@ -1,5 +1,6 @@
+ #!/usr/bin/env python
+ from __future__ import print_function
++from __future__ import division
+ 
+ # standard library
+ import random
+@@ -793,8 +794,8 @@
+         for e in self.preorder_edge_iter():
+             edges[e] = ' ---> '.join([nodes[e.tail_node], nodes[e.head_node]])
+ 
+-        r_edges = {value: key for key,value in edges.items()}
+-        r_nodes = {value: key for key,value in nodes.items()}
++        r_edges = {value: key for key,value in list(edges.items())}
++        r_nodes = {value: key for key,value in list(nodes.items())}
+         return edges, nodes, r_edges, r_nodes
+ 
+     @classmethod
+@@ -815,7 +816,7 @@
+         for f in (tree_file, stats_file):
+             try:
+                 filecheck(f)
+-            except FileError, e:
++            except FileError as e:
+                 print(e)
+                 exit = True
+ 
+--- ./treeCl/distance_matrix.py	(original)
++++ ./treeCl/distance_matrix.py	(refactored)
+@@ -1,13 +1,15 @@
+ #!/usr/bin/env python
+ from __future__ import print_function
++from __future__ import division
++from __future__ import absolute_import
+ 
+ # third party
+ import numpy as np
+ 
+ # treeCl
+-from software_interfaces.gtp import geodist
+-from errors import optioncheck
+-from constants import TMPDIR
++from .software_interfaces.gtp import geodist
++from .errors import optioncheck
++from .constants import TMPDIR
+ 
+ 
+ def get_dendropy_distances(trees, fn, dec_places=None, **kwargs):
+--- ./treeCl/errors.py	(original)
++++ ./treeCl/errors.py	(refactored)
+@@ -96,7 +96,7 @@
+ def filequit(filename):
+     try:
+         filecheck(filename)
+-    except FileError, e:
++    except FileError as e:
+         print(e)
+         sys.exit()
+ 
+@@ -109,14 +109,14 @@
+     try:
+         if not os.path.isdir(directory):
+             raise DirectoryError(directory)
+-    except DirectoryError, e:
++    except DirectoryError as e:
+         print(e)
+         sys.exit()
+ 
+ def directorymake(directory, verbosity=0):
+     try:
+         directorycheck(directory)
+-    except DirectoryError, e:
++    except DirectoryError as e:
+         if verbosity > 1:
+             print(e)
+         if verbosity > 0:
+--- ./treeCl/evrot.py	(original)
++++ ./treeCl/evrot.py	(refactored)
+@@ -1,4 +1,5 @@
+ from __future__ import print_function
++from __future__ import division
+ # third party
+ import numpy as np
+ 
+--- ./treeCl/optimiser.py	(original)
++++ ./treeCl/optimiser.py	(refactored)
+@@ -1,5 +1,7 @@
+ #!/usr/bin/env python
+ from __future__ import print_function
++from __future__ import division
++from __future__ import absolute_import
+ 
+ # standard library
+ from collections import defaultdict
+@@ -12,10 +14,10 @@
+ import numpy as np
+ 
+ # treeCl
+-from collection import Collection, Scorer
+-from clustering import Partition
+-from software_interfaces.phyml import Phyml
+-from constants import EPS, NEGINF, TMPDIR
++from .collection import Collection, Scorer
++from .clustering import Partition
++from .software_interfaces.phyml import Phyml
++from .constants import EPS, NEGINF, TMPDIR
+ 
+ 
+ class Optimiser(object):
+@@ -98,7 +100,7 @@
+     def get_cluster_trees(self, assignment, index_dict=None):
+         index_dict = (index_dict or self.get_clusters(assignment))
+         tree_dict = {}
+-        for (k, v) in index_dict.items():
++        for (k, v) in list(index_dict.items()):
+             if not tuple(v) in self.scorer.concats:
+                 self.scorer.add(tuple(v))
+             tree_dict[k] = self.scorer.concats[tuple(v)]
+@@ -117,7 +119,7 @@
+         scores = np.zeros((len(sample), len(cluster_trees)))
+         for i, record_index in enumerate(sample):
+             rec = self.Collection.records[record_index]
+-            for j, tree in cluster_trees.items():
++            for j, tree in list(cluster_trees.items()):
+                 scores[i, j-1] = self.test(rec, tree)
+         return (scores)
+ 
+@@ -238,7 +240,7 @@
+             alignment_scores[i] = self.test(r, tree) / float(r.seqlength)
+                 # per-site likelihood
+ 
+-        seed, min_score = min(alignment_scores.iteritems(),
++        seed, min_score = min(iter(alignment_scores.items()),
+             key=operator.itemgetter(1))
+         print('Splitting on {0}.'.format(seed+1))# convert to 1-based indexing
+ 
+@@ -262,12 +264,12 @@
+         clusters = self.get_clusters(assignment)
+         var_dict = {}
+ 
+-        for k in clusters.keys():
++        for k in list(clusters.keys()):
+             var_dict[k] = self.var(clusters[k])
+ 
+         print(var_dict)
+ 
+-        cluster_to_split, var = max(clusters.iteritems(),
++        cluster_to_split, var = max(iter(clusters.items()),
+             key=operator.itemgetter(1))
+ 
+     def split_search(self, assignment, update=True):
+--- ./treeCl/plotter.py	(original)
++++ ./treeCl/plotter.py	(refactored)
+@@ -1,5 +1,6 @@
+ #!/usr/bin/env python
+ from __future__ import print_function
++from __future__ import absolute_import
+ 
+ # third party
+ import matplotlib.pyplot as plt
+@@ -8,10 +9,10 @@
+ import numpy as np
+ 
+ # treeCl
+-from collection import Collection
+-from clustering import Clustering, Partition
+-from distance_matrix import DistanceMatrix
+-from errors import optioncheck
++from .collection import Collection
++from .clustering import Clustering, Partition
++from .distance_matrix import DistanceMatrix
++from .errors import optioncheck
+ 
+ class Plotter(object):
+ 
+--- ./treeCl/simulator.py	(original)
++++ ./treeCl/simulator.py	(refactored)
+@@ -1,15 +1,16 @@
+ #!/usr/bin/env python
+ from __future__ import print_function
++from __future__ import absolute_import
+ 
+ # standard library
+ import shutil
+ 
+ # treeCl
+-from clustering import Partition
+-from datastructs.trcl_tree import TrClTree
+-import errors
+-from software_interfaces.alf import ALF
+-from utils import fileIO
++from .clustering import Partition
++from .datastructs.trcl_tree import TrClTree
++from . import errors
++from .software_interfaces.alf import ALF
++from .utils import fileIO
+ 
+ 
+ class Simulator(object):
+@@ -167,7 +168,7 @@
+     def clean(self):
+         if not hasattr(self, 'alf_dirs'):
+             return
+-        for directory in self.alf_dirs.values():
++        for directory in list(self.alf_dirs.values()):
+             shutil.rmtree(directory)
+ 
+     def run(self):
+--- ./treeCl/software_interfaces/alf.py	(original)
++++ ./treeCl/software_interfaces/alf.py	(refactored)
+@@ -1,5 +1,7 @@
+ #!/usr/bin/env python
+ from __future__ import print_function
++from __future__ import division
++from __future__ import absolute_import
+ # standard library
+ from glob import glob
+ import os
+@@ -13,7 +15,7 @@
+ from bsub import bsub
+ 
+ # treeCl
+-from external import ExternalSoftware
++from .external import ExternalSoftware
+ from ..constants import TMPDIR
+ from ..datastructs.trcl_seq import TrClSeq
+ from ..errors import filecheck, FileError, directorymake, directoryquit, \
+@@ -321,7 +323,7 @@
+                 'LG',
+                 'WAG',
+                 ])
+-        except OptionError, e:
++        except OptionError as e:
+             print(e)
+             return
+ 
+--- ./treeCl/software_interfaces/darwin.py	(original)
++++ ./treeCl/software_interfaces/darwin.py	(refactored)
+@@ -1,11 +1,12 @@
+ #!/usr/bin/env python
+ from __future__ import print_function
++from __future__ import absolute_import
+ 
+ # third party
+ import numpy as np
+ 
+ # treeCl
+-from external import ExternalSoftware
++from .external import ExternalSoftware
+ from ..errors import filecheck, FileError, directorymake
+ from ..utils import fileIO
+ 
+--- ./treeCl/software_interfaces/DVscript.py	(original)
++++ ./treeCl/software_interfaces/DVscript.py	(refactored)
+@@ -1,10 +1,11 @@
+ from __future__ import print_function
++from __future__ import absolute_import
+ 
+ # standard library
+ from copy import copy
+ 
+ # treeCl
+-from darwin import Darwin
++from .darwin import Darwin
+ from ..errors import filecheck, FileError
+ from ..utils import fileIO
+ 
+--- ./treeCl/software_interfaces/external.py	(original)
++++ ./treeCl/software_interfaces/external.py	(refactored)
+@@ -64,7 +64,7 @@
+ 
+     def call(self, verbose=False, dry_run=False):
+         cmd = ' '.join([self.binary] + ['{0} {1}'.format(k, v) for (k, v) in
+-                       self.flags.items()])
++                       list(self.flags.items())])
+         if verbose:
+             print(cmd)
+         if dry_run:
+--- ./treeCl/software_interfaces/gtp.py	(original)
++++ ./treeCl/software_interfaces/gtp.py	(refactored)
+@@ -1,5 +1,7 @@
+ #!/usr/bin/env python
+ from __future__ import print_function
++from __future__ import division
++from __future__ import absolute_import
+ 
+ # standard library
+ import numbers
+@@ -13,7 +15,7 @@
+ import numpy as np
+ 
+ # treeCl
+-from external import ExternalSoftware
++from .external import ExternalSoftware
+ from ..utils import fileIO
+ 
+ 
+@@ -191,7 +193,7 @@
+                             matrix[j, i] = value
+             self.add_tempfile('{0}/output.txt'.format(self.tmpdir))
+             return matrix
+-        except IOError, e:
++        except IOError as e:
+             if tries > 0:
+                 time.sleep(1)
+                 return self.read(size, row, tries-1, translation)
+--- ./treeCl/software_interfaces/phyml.py	(original)
++++ ./treeCl/software_interfaces/phyml.py	(refactored)
+@@ -1,5 +1,6 @@
+ #!/usr/bin/env python
+ from __future__ import print_function
++from __future__ import absolute_import
+ # standard library
+ import os
+ import re
+@@ -11,7 +12,7 @@
+ from bsub import bsub
+ 
+ # treeCl
+-from external import ExternalSoftware, TreeSoftware
++from .external import ExternalSoftware, TreeSoftware
+ from ..errors import filecheck, optioncheck
+ from ..datastructs.tree import Tree
+ from ..utils import fileIO
+@@ -130,7 +131,7 @@
+             with open(tree_filename) as treefile:
+                 with open(stats_filename) as statsfile:
+                     return (treefile.read(), statsfile.read())
+-        except IOError, e:
++        except IOError as e:
+             if tries > 0:
+                 time.sleep(1)
+                 return self.read(tries-1, filename)
+--- ./treeCl/software_interfaces/raxml.py	(original)
++++ ./treeCl/software_interfaces/raxml.py	(refactored)
+@@ -1,12 +1,13 @@
+ #!/usr/bin/env python
+ from __future__ import print_function
++from __future__ import absolute_import
+ # standard library
+ import os
+ import re
+ import random
+ 
+ # treeCl
+-from external import TreeSoftware
++from .external import TreeSoftware
+ from ..datastructs.tree import Tree
+ from ..datastructs.seq import qfile
+ from ..errors import filecheck
+--- ./treeCl/software_interfaces/treecollection.py	(original)
++++ ./treeCl/software_interfaces/treecollection.py	(refactored)
+@@ -1,9 +1,10 @@
+ #!/usr/bin/env python
+ from __future__ import print_function
++from __future__ import absolute_import
+ 
+ # treeCl
+-from external import TreeSoftware
+-from phyml import Phyml
++from .external import TreeSoftware
++from .phyml import Phyml
+ from ..datastructs.tree import Tree
+ from ..errors import TreeBuildingError
+ from ..utils import fileIO
+--- ./treeCl/utils/ambiguate.py	(original)
++++ ./treeCl/utils/ambiguate.py	(refactored)
+@@ -28,7 +28,7 @@
+     'n': frozenset(['a', 'c', 'g', 't']),
+ }
+ 
+-ambiguities_rev = {v:k for (k,v) in ambiguities.items()}
++ambiguities_rev = {v:k for (k,v) in list(ambiguities.items())}
+ ambiguities_rev[frozenset(['a', 'c', 'g', 't'])] = 'n'
+ 
+ def get_prefixes(r):
+@@ -77,7 +77,7 @@
+ 
+ def remove_empty(rec):
+     """ Deletes sequences that were marked for deletion by convert_to_IUPAC """
+-    for header, sequence in rec.mapping.items():
++    for header, sequence in list(rec.mapping.items()):
+         if all(char == 'X' for char in sequence):
+             rec.headers.remove(header)
+             rec.sequences.remove(sequence)
+--- ./treeCl/utils/gapmasker.py	(original)
++++ ./treeCl/utils/gapmasker.py	(refactored)
+@@ -21,7 +21,7 @@
+         try:
+             self.check_seqs(target)
+             return self.write_gap_positions(target)
+-        except Exception, e:
++        except Exception as e:
+             print(e)
+             return
+ 
+--- ./treeCl/utils/seqconvert.py	(original)
++++ ./treeCl/utils/seqconvert.py	(refactored)
+@@ -1,3 +1,4 @@
++from __future__ import absolute_import
+ #!/usr/bin/env python
+ 
+ # standard library
+@@ -5,7 +6,7 @@
+ import sys
+ 
+ # treeCl
+-import fileIO
++from . import fileIO
+ from ..datastructs.seq import Seq
+ from ..errors import filecheck
+ 
+--- ./treeCl/utils/translator.py	(original)
++++ ./treeCl/utils/translator.py	(refactored)
+@@ -12,7 +12,7 @@
+         """ Build a regular expression object based on the keys of
+         the current dictionary """
+ 
+-        return re.compile("(%s)" % "|".join(map(re.escape, self.keys())))
++        return re.compile("(%s)" % "|".join(map(re.escape, list(self.keys()))))
+ 
+     def __call__(self, mo):
+ 

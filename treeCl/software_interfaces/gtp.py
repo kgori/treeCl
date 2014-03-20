@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 
 # standard library
 import numbers
@@ -177,14 +178,14 @@ class GTP(ExternalSoftware):
                 for line in outf:
                     line = line.rstrip()
                     if line:
-                        # print "line = ", line
+                        # print("line = ", line)
                         (i, j, value) = line.split()
                         i = int(i)
                         j = translation[int(j)]
-                        # print "i, j = ", i, j
+                        # print("i, j = ", i, j)
                         value = float(value)
-                        # print "value = ", value
-                        # print "matrix dims = ", matrix.shape
+                        # print("value = ", value)
+                        # print("matrix dims = ", matrix.shape)
                         matrix[i, j] = value
                         if row is None:
                             matrix[j, i] = value
@@ -194,8 +195,8 @@ class GTP(ExternalSoftware):
             if tries > 0:
                 time.sleep(1)
                 return self.read(size, row, tries-1, translation)
-            print 'There was an IOError: {0}'.format(e)
-            print 'Geodesic distances couldn\'t be calculated'
+            print('There was an IOError: {0}'.format(e))
+            print('Geodesic distances couldn\'t be calculated')
             self.clean()
             raise
 
@@ -211,7 +212,7 @@ class GTP(ExternalSoftware):
             self.clean()
             return matrix
         except IOError:
-            print 'except'
+            print('except')
             matrix = None
             raise
 

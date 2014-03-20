@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 
 # standard library
 import os
@@ -96,7 +97,7 @@ def filequit(filename):
     try:
         filecheck(filename)
     except FileError, e:
-        print e
+        print(e)
         sys.exit()
 
 def directorycheck(directory):
@@ -109,7 +110,7 @@ def directoryquit(directory):
         if not os.path.isdir(directory):
             raise DirectoryError(directory)
     except DirectoryError, e:
-        print e
+        print(e)
         sys.exit()
 
 def directorymake(directory, verbosity=0):
@@ -117,9 +118,9 @@ def directorymake(directory, verbosity=0):
         directorycheck(directory)
     except DirectoryError, e:
         if verbosity > 1:
-            print e
+            print(e)
         if verbosity > 0:
-            print 'Creating \'{0}\''.format(directory)
+            print('Creating \'{0}\''.format(directory))
         os.makedirs(directory)
     return directorycheck(directory)
 

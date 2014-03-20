@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 
 # third party
 import numpy as np
@@ -36,7 +37,7 @@ class Darwin(ExternalSoftware):
                '"outf := \'{0}\'; ReadProgram(\'{1}\');" '
                '| darwin'.format(self.outfile, comfile))
         if verbosity > 0:
-            print cmd
+            print(cmd)
         return fileIO.subprocess(cmd)
 
     def read(self):
@@ -57,7 +58,7 @@ class Darwin(ExternalSoftware):
         self.write(command)
         (stdout, stderr) = self.execute(verbosity)
         if verbosity > 0:
-            print stdout, stderr
+            print(stdout, stderr)
         result = self.read()
         self.clean()
         return result

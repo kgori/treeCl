@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+from __future__ import print_function
 from ..errors import FileError
 from ..utils import fileIO
 
@@ -66,12 +66,12 @@ class ExternalSoftware(object):
         cmd = ' '.join([self.binary] + ['{0} {1}'.format(k, v) for (k, v) in
                        self.flags.items()])
         if verbose:
-            print cmd
+            print(cmd)
         if dry_run:
             return cmd
         (stdout, stderr) = fileIO.subprocess(cmd)
         if verbose:
-            print stdout, stderr
+            print(stdout, stderr)
         return (stdout, stderr)
 
     def clean(self):

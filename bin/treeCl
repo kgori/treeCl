@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from __future__ import print_function
 
 # standard library
 from collections import defaultdict
@@ -12,7 +13,7 @@ import numpy as np
 # treeCl
 from treeCl import Collection, Clustering, DistanceMatrix, Plotter, Scorer
 from treeCl.constants import logo, SORT_KEY
-from treeCl.errors import directorycheck, directorymake
+from treeCl.errors import directorycheck, directorymake, filecheck
 from treeCl.utils import fileIO
 
 def write_memberships(outfile, partitions_list, scorer):
@@ -106,7 +107,7 @@ def load_distances(infile):
 def cluster(clustering, method, nclasses, noise=False):
 
     if method == 'spectral':
-        decomp = clustering.spectral_decomp(prune = -1)
+        decomp = clustering.spectral_decomp(prune = -1, local_scale='median')
         return clustering.spectral_cluster(nclasses, decomp)
 
     elif method == 'mds':
@@ -145,6 +146,8 @@ def parse_args():
         'l': 'number of classes - [l]ower bound',
         'm': 'Distance [m]etric',
         'o': '[o]utput directory',
+        'p': '[p]ickle the scorer object to disk for future analysis',
+        'q': '[q]uickload the scorer object from a pickle',
         'r': 'Do permutation to find number of clusters ([r]andomisation)',
         's': ('Do parametric bootstraps to find number of '
               'clusters ([s]imulation)'),
@@ -156,7 +159,7 @@ def parse_args():
         'trees': ('Directory containing precomputed trees matching the input '
                   'alignments. The first part of the filename (before the '
                   '".") needs to match the equivalent part of the alignment '
-                  'filename for the tree to be recognised.')
+                  'filename for the tree to be recognised.'),
         'distances': ('Distance matrix to use in space-delimited format - '
                       'see numpy.savetxt example in '
                       'http://wiki.scipy.org/Cookbook/InputOutput')
@@ -180,6 +183,8 @@ def parse_args():
                         help=help_messages['m'], required=True)
     parser.add_argument('-o', type=str,
                         help=help_messages['o'], required=True)
+    parser.add_argument('-p', type=str, help=help_messages['p'])
+    parser.add_argument('-q', type=str, help=help_messages['q'])
     parser.add_argument('-r', type=int, help=help_messages['r'], default=0)
     parser.add_argument('-s', type=int, help=help_messages['s'], default=0)
     parser.add_argument('-t', type=str,
@@ -199,6 +204,10 @@ def validate_args(args):
     directorycheck(args.i)
     directorycheck(args.t)
     directorymake(args.o)
+    if args.trees:
+        directorycheck(args.trees)
+    if args.q:
+        filecheck(args.q)
     if args.b:
         args.b = sb.call(
             'type bsub',
@@ -210,7 +219,7 @@ def validate_args(args):
 
 if __name__ == "__main__":
     args = parse_args()
-    print logo
+    print(logo)
     validate_args(args)
     tmpdir = os.getenv('TMPDIR') or args.t
     directorymake(tmpdir)
@@ -218,9 +227,10 @@ if __name__ == "__main__":
     #================================================================#
     # CALCULATION                                                    #
     #================================================================#
-    print 'Loading input files'
+    print('Loading input files')
     collection = Collection(
         input_dir=args.i,
+        trees_dir=args.trees,
         datatype=args.d,
         file_format=args.f,
         compression=args.z,
@@ -229,11 +239,11 @@ if __name__ == "__main__":
 
     # TREES
     if args.trees:
-        print 'Loading precomputed trees from {}'.format(args.trees)
+        print('Loading precomputed trees from {}'.format(args.trees))
         load_trees(args.trees, collection, args.t)
 
     else:
-        print 'Calculating trees (strategy={})'.format(args.g)
+        print('Calculating trees (strategy={})'.format(args.g))
         collection.calc_phyml_trees(
             analysis=args.g,
             lsf=args.b,
@@ -242,11 +252,11 @@ if __name__ == "__main__":
 
     # DISTANCES
     if args.distances:
-        print 'Loading precomputed distances from {}'.format(args.distances)
+        print('Loading precomputed distances from {}'.format(args.distances))
         distance_matrix = load_distances(args.distances)
 
     else:
-        print 'Analysing pairwise tree distances (metric={})'.format(args.m)
+        print('Analysing pairwise tree distances (metric={})'.format(args.m))
         distance_matrix = collection.distance_matrix(args.m, lsf=args.b)
 
     # CLUSTERING
@@ -257,7 +267,7 @@ if __name__ == "__main__":
 
     assert args.l <= args.u
 
-    print 'Clustering (method={})'.format(args.c)
+    print('Clustering (method={})'.format(args.c))
     partitions_list = [
         cluster(
             clustering, args.c, n,
@@ -267,9 +277,17 @@ if __name__ == "__main__":
     ] # /partitions_list
 
     # EVALUATION
-    print 'Scoring clusters'
-    scorer = Scorer(collection.records, args.g, lsf=args.b, verbosity=args.v)
+    print('Scoring clusters')
+    if args.q:
+        scorer = fileIO.gunpickle(args.q)
+    else:
+        scorer = Scorer(collection.records,
+                        args.g,
+                        lsf=args.b,
+                        verbosity=args.v)
     scorer.add_partition_list(partitions_list)
+    if args.p:
+        scorer.dump(args.p)
 
     plotter = Plotter(collection=collection, dm=distance_matrix)
     coords = plotter.get_coords('MDS', 3)
@@ -286,11 +304,11 @@ if __name__ == "__main__":
         'tsv':              '{}/result.tsv'.format(args.o),
         'param_results':    '{}/parametric_results.txt'.format(args.o),
         'nonparam_results': '{}/nonparametric_results.txt'.format(args.o),
-        'distance_matrix':  '{}/{}_distances.txt'.format(args.o. args.d)
+        'distance_matrix':  '{}/{}_distances.txt'.format(args.o, args.d),
         'coordinates':      '{}/coordinates.txt'.format(args.o)
     }
 
-    print 'Writing results (destination={})'.format(args.o)
+    print('Writing results (destination={})'.format(args.o))
     write_memberships(outfiles['memberships'], partitions_list, scorer)
     write_trees(outfiles['trees'], collection.trees)
     write_cluster_trees(outfiles['cluster_trees'], partitions_list, scorer)
@@ -299,23 +317,23 @@ if __name__ == "__main__":
     write_tsv(outfiles['tsv'], args.m, args.c, args.g, partitions_list,
               scorer, collection)
     write_distance_matrix(outfiles['distance_matrix'], distance_matrix)
-    write_coordinates(outfile['coordinates'], coords)
+    write_coordinates(outfiles['coordinates'], coords)
 
     #================================================================#
     # PARAMETRIC BOOTSTRAPPING                                       #
     #================================================================#
     if args.s > 0:
-        print
+        print()
         results = None
         if args.a:
-            print ('Preparing to analyse {0} parametric bootstraps '
+            print('Preparing to analyse {0} parametric bootstraps '
                    'over cluster range=[{1}-{2}]'.format(args.s,
                                                          args.l + 1,
                                                          args.u))
             results = defaultdict(list)
         if args.w:
-            print ('Parametric bootstraps will be written to '
-                   '{}/parametric_bootstraps'.format(args.o))
+            print('Parametric bootstraps will be written to '
+                  '{}/parametric_bootstraps'.format(args.o))
         for k, partition in enumerate(partitions_list[:-1], start=args.l):
             assert k == len(partition)
             sims = scorer.simulate_from_result(partition,
@@ -324,8 +342,8 @@ if __name__ == "__main__":
 
             if args.a: # do the full analysis for the bootstraps
                 for i, sim_recs in enumerate(sims, start=1):
-                    print ('\tAnalysing: {0}->{1} clusters'
-                           '\trep {2}/{3}'.format(k, k + 1, i, args.s))
+                    print('\tAnalysing: {0}->{1} clusters'
+                          '\trep {2}/{3}'.format(k, k + 1, i, args.s))
                     param_coll = Collection(records=sim_recs,
                                             datatype=args.d,
                                             tmpdir=tmpdir)
@@ -352,7 +370,7 @@ if __name__ == "__main__":
 
             if args.w: # write the bootstrap reps
                 for i, sim_recs in enumerate(sims, start=1):
-                    print ('\tWriting simulation from {0} cluster{1}:'
+                    print('\tWriting simulation from {0} cluster{1}:'
                            '\trep {2}/{3}'.format(k,
                                                   ('s' if k > 1 else ''),
                                                   i,
@@ -371,21 +389,21 @@ if __name__ == "__main__":
     # NON-PARAMETRIC BOOTSTRAPPING                                   #
     #================================================================#
     if args.r > 0:
-        print
+        print()
         results = None
         if args.a: # do the full analysis for the bootstraps
-            print ('Preparing to analyse {0} nonparametric bootstraps '
-                   'over cluster range=[{1}-{2}]'.format(args.r,
+            print('Preparing to analyse {0} nonparametric bootstraps '
+                  'over cluster range=[{1}-{2}]'.format(args.r,
                                                          args.l + 1,
                                                          args.u))
             results = defaultdict(list)
         if args.w:
-            print ('Nonparametric bootstraps will be written to '
-                   '{}/nonparametric_bootstraps)'.format(args.o))
+            print('Nonparametric bootstraps will be written to '
+                  '{}/nonparametric_bootstraps)'.format(args.o))
         for rep in range(1, args.r + 1):
             nonparam_coll = collection.permuted_copy()
             if args.a: # do the full analysis for the bootstraps
-                print '\tAnalysing:\trep {0}/{1}'.format(rep, args.r)
+                print('\tAnalysing:\trep {0}/{1}'.format(rep, args.r))
                 nonparam_coll.calc_phyml_trees(analysis=args.g,
                                                lsf=args.b,
                                                verbosity=args.v)
@@ -410,7 +428,7 @@ if __name__ == "__main__":
                     results[k+1].append(kp1_score - k_score)
 
             if args.w: # write the bootstrap reps
-                print '\tWriting: \trep {0}/{1}'.format(rep, args.r)
+                print('\tWriting: \trep {0}/{1}'.format(rep, args.r))
                 d = directorymake('{0}/nonparametric_bootstraps/{1}'
                                   .format(args.o, rep))
                 for rec in nonparam_coll.records:
@@ -420,4 +438,4 @@ if __name__ == "__main__":
         if results:
             write_results(outfiles['nonparam_results'], results)
 
-    print 'Done!'
+    print('Done!')

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+from __future__ import print_function
 # standard library
 import bz2
 import cPickle
@@ -100,7 +100,7 @@ def head(filename, n=10):
     """ prints the top `n` lines of a file """
     with freader(filename) as fr:
         for _ in range(n):
-            print fr.readline().strip()
+            print(fr.readline().strip())
 
 def join_path(*elements):
     return os.path.join(*elements)
@@ -109,7 +109,7 @@ def locate_by_env(filename, path=None):
     path = os.getenv(path) or os.getenv('PATH', os.defpath)
     for directory in path.split(os.pathsep):
         if verify(filename, directory):
-            print directory
+            print(directory)
             return os.path.abspath(directory)
         f = locate_by_dir(filename, directory)
         if f:

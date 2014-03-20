@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 import re
 
 """
@@ -11,7 +12,7 @@ def extract_gamma_parameter(tree):
         try:
             gamma = float(gamma_regex.search(tree.output).group())
         except AttributeError:
-            print 'Couldn\'t extract alpha parameter'
+            print('Couldn\'t extract alpha parameter')
             return 1.0
         return gamma
 
@@ -39,7 +40,7 @@ def extract_GTR_parameters(tree):
         CtoT = float(CtoT_regex.search(tree.output).group())
         GtoT = float(GtoT_regex.search(tree.output).group())
     except AttributeError:
-        print 'Couldn\'t extract GTR parameters'
+        print('Couldn\'t extract GTR parameters')
         Afreq = Cfreq = Gfreq = Tfreq = 0.25
         AtoC = AtoG = AtoT = CtoG = CtoT = GtoT = 1.0
 

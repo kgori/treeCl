@@ -1,3 +1,4 @@
+from __future__ import print_function
 from collections import defaultdict
 
 class GapMasker():
@@ -21,7 +22,7 @@ class GapMasker():
             self.check_seqs(target)
             return self.write_gap_positions(target)
         except Exception, e:
-            print e
+            print(e)
             return
 
     def check_seqs(self, target):

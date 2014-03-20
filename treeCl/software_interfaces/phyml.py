@@ -1,7 +1,6 @@
 #!/usr/bin/env python
-
+from __future__ import print_function
 # standard library
-from glob import glob
 import os
 import re
 import shutil
@@ -103,7 +102,7 @@ class LSFPhyml(ExternalSoftware):
     def run(self, analysis, verbose=False):
         command_strings = self.get_command_strings(analysis)
         self.launch_lsf(command_strings, verbose)
-        trees = self.read(analysis)
+        trees = self.read('phyml+' + analysis)
         if len(trees) == len(self.records):
             self.clean()
         return trees
@@ -135,8 +134,8 @@ class Phyml(TreeSoftware):
             if tries > 0:
                 time.sleep(1)
                 return self.read(tries-1, filename)
-            print 'There was an IOError: {0}'.format(e)
-            print 'Couldn\'t read PhyML output'
+            print('There was an IOError: {0}'.format(e))
+            print('Couldn\'t read PhyML output')
             self.clean()
             raise
 
@@ -148,8 +147,8 @@ class Phyml(TreeSoftware):
             analysis = fileIO.basename(self.binary)
         optioncheck(analysis, ANALYSES)
         if verbosity > 1:
-            print self.flags
-            print 'Writing tempfiles to', self.tmpdir
+            print(self.flags)
+            print('Writing tempfiles to', self.tmpdir)
         filename = self.write()
         filecheck(filename)
         self.add_flag('-i', filename)
@@ -158,7 +157,7 @@ class Phyml(TreeSoftware):
         if verbosity == 1:
             print_and_return('Running phyml on {0}'.format(self.record.name))
         elif verbosity > 1:
-            print 'Running phyml on {0}'.format(self.record.name)
+            print('Running phyml on {0}'.format(self.record.name))
 
         # DRY RUN - just get command string
         if kwargs.get('dry_run', False):
@@ -172,17 +171,20 @@ class Phyml(TreeSoftware):
         try:
             score = float(self.score_regex.search(stats).group(0))
         except:
-            print tree
-            print stats
+            print(tree)
+            print(stats)
         if verbosity > 1:
-            print 'Cleaning tempfiles'
+            print('Cleaning tempfiles')
         self.clean()
-        tree_object = Tree(newick=tree, score=score, program=analysis,
-            name=self.record.name, output=stats, **kwargs)
+        tree_object = Tree(newick=tree,
+                           score=score,
+                           program=('phyml+' + analysis),
+                           name=self.record.name,
+                           output=stats, **kwargs)
         if kwargs.get('set_as_record_tree', True):
             self.record.tree = tree_object
         if verbosity > 1:
-            print 'Done.'
+            print('Done.')
         return tree_object
 
     def write(self):

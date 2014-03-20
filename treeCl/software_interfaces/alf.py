@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+from __future__ import print_function
 # standard library
 from glob import glob
 import os
@@ -322,7 +322,7 @@ class Params(object):
                 'WAG',
                 ])
         except OptionError, e:
-            print e
+            print(e)
             return
 
         subst_string = \
@@ -544,7 +544,7 @@ class LSFALF(ExternalSoftware):
         while missing > [] and self._retries < self.max_retries:
             self._retries += 1
             if verbose:
-                print 'Relaunching'
+                print('Relaunching')
             self.launch_lsf(missing, verbose)
             missing = self.check_output()
         results = self.read(length_is_strict=length_is_strict)
@@ -664,7 +664,7 @@ class ALF(ExternalSoftware):
         replacement_dict = dict(zip(re.findall(r'(\w+)(?=:)', alf_tree),
                                 re.findall(r'(\w+)(?=:)', self.tree.newick)))
         if verbosity > 0:
-            print 'replacement_dict =', replacement_dict
+            print('replacement_dict =', replacement_dict)
         if self.datatype == 'dna':  # !!! ALF doesn't always write DNA
                                     # alignments
             alignments = glob('{0}/{1}/MSA/MSA_*_dna.fa'.format(
@@ -673,7 +673,7 @@ class ALF(ExternalSoftware):
             alignments = glob('{0}/{1}/MSA/MSA_*_aa.fa'.format(
                               self.working_dir, self.name))
         if verbosity > 1:
-            print alignments
+            print(alignments)
 
         recs = []
         for f in alignments:
@@ -695,7 +695,7 @@ class ALF(ExternalSoftware):
 
         params = self.write()
         if verbosity > 0:
-            print 'Running ALF on {0}'.format(params)
+            print('Running ALF on {0}'.format(params))
 
         # DRY RUN - get command string only
         if dry_run:
@@ -705,7 +705,7 @@ class ALF(ExternalSoftware):
         # RUN ALFSIM
         (stdout, stderr) = self.call()
         if verbosity > 1:
-            print stdout, stderr
+            print(stdout, stderr)
         records = self.read(verbosity, length_is_strict=length_is_strict)
         if cleanup:
             self.clean()

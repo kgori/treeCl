@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 
 # treeCl
 from external import TreeSoftware
@@ -36,12 +37,12 @@ class TreeCollection(TreeSoftware):
             print_and_return('Running TreeCollection on {0}'.format(
                 self.record.name))
         elif verbosity > 1:
-            print 'Running TreeCollection on {0}'.format(self.record.name)
+            print('Running TreeCollection on {0}'.format(self.record.name))
         try:
             (stdout, stderr) = self.call()
             self.clean()
             if verbosity > 1:
-                print stdout, stderr
+                print(stdout, stderr)
             (score, tree) = self.read(stdout)
             tree_object = Tree(tree, score, program=fileIO.basename(self.binary),
                                name=self.record.name, output=stdout,
@@ -61,7 +62,7 @@ class TreeCollection(TreeSoftware):
         dv_info = self.record.dv
         num_matrices = len(dv_info)
         if num_matrices == 0:
-            print 'No distance-variance matrix available'
+            print('No distance-variance matrix available')
             return
         all_labels = self.record.headers
         labels_len = len(all_labels)

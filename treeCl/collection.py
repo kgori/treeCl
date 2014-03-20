@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 
 # standard lib
 import sys
@@ -82,8 +83,8 @@ class Collection(object):
                                                 compression)
 
         else:
-            print ('Provide a list of records, '
-                   'or the path to a set of alignments')
+            raise Exception('Provide a list of records, '
+                  'or the path to a set of alignments')
 
         if trees_dir:
             self.read_trees(trees_dir)
@@ -157,13 +158,7 @@ class Collection(object):
         files = fileIO.glob_by_extensions(input_dir, extensions)
         files.sort(key=SORT_KEY)
 
-        trees = []
-        for file_ in files:
-            with fileIO.freader(file_) as open_file:
-                newick = open_file.read()
-                name=fileIO.strip_extensions(file_)
-                tree = TrClTree(newick, name=name)
-                trees.append(tree)
+        trees = [TrClTree.read_from_file(file_) for file_ in files]
 
         for record, tree in zip(self.records, trees):
             assert record.name == tree.name
@@ -182,7 +177,7 @@ class Collection(object):
 
     def calc_ML_trees(self, lsf=False, verbosity=0):
         """ Deprecated"""
-        print 'deprecated: use calc_phyml_trees instead'
+        print('deprecated: use calc_phyml_trees instead')
         self.analysis = 'ml'
         if lsf:
             trees = runLSFPhyml(self.records,
@@ -198,7 +193,7 @@ class Collection(object):
                 rec.tree = TrClTree.cast(rec.tree)
 
     def calc_NJ_trees(self, lsf=False, analysis='nj', verbosity=0):
-        print 'Deprecated:use calc_phyml_trees instead'
+        print('Deprecated:use calc_phyml_trees instead')
         self.calc_phyml_trees(self, lsf, analysis, verbosity)
 
     def calc_phyml_trees(self, lsf=False, analysis='nj', verbosity=0):
@@ -217,7 +212,7 @@ class Collection(object):
                          verbosity=verbosity, taxon_set=self.taxon_set)
                 rec.tree = TrClTree.cast(rec.tree)
         if verbosity == 1:
-            print
+            print()
 
     def get_phyml_command_strings(self, analysis, tmpdir, verbosity=0):
         cmds = [runPhyml(rec, tmpdir, analysis=analysis,
@@ -308,7 +303,7 @@ class Scorer(object):
                                 analysis=self.analysis,
                                 verbosity=self.verbosity))
             if self.verbosity == 1:
-                print
+                print()
 
         # concat local variable dies here and goes to garbage collect
 
@@ -386,7 +381,7 @@ class Scorer(object):
             try:
                 optioncheck(model, ['CPAM', 'ECM', 'ECMu', 'GTR'])
             except OptionError, e:
-                print 'Choose a DNA-friendly model for simulation:\n', e
+                print('Choose a DNA-friendly model for simulation:\n', e)
                 return
 
         member_records = self.members(index_tuple)
@@ -434,3 +429,6 @@ class Scorer(object):
             return [flatten_list([self.simulate(ind, **kwargs)
                                   for ind in inds])
                     for _ in range(ntimes)]
+
+    def dump(self, filename):
+        fileIO.gpickle(self, filename)

@@ -1,3 +1,4 @@
+from __future__ import print_function
 # third party
 import numpy as np
 
@@ -95,13 +96,13 @@ def test(X):
 
     theta = np.arange( 0.0,angle_num/10., 0.1 )
     Q = evqual(X, ndata, dim)
-    print 'Q = {0}'.format(Q)
+    print('Q = {0}'.format(Q))
     dQ = evqualitygrad(X,theta,ik,jk,45,5,10,40)
-    print 'x:',X
-    print 'theta:',theta
-    print 'ik and jk', ik,jk
-    print 'Q:',Q
-    print 'dQ:',dQ
+    print('x:',X)
+    print('theta:',theta)
+    print('ik and jk', ik,jk)
+    print('Q:',Q)
+    print('dQ:',dQ)
 
 def main(X, max_iter=200):
     (ndata, dim) = X.shape
@@ -189,6 +190,6 @@ if __name__ == "__main__":
     test(mat)
 
     r=main(mat)
-    print r[0]
-    print r[1]
-    print r[2]
+    print(r[0])
+    print(r[1])
+    print(r[2])
