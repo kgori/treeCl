@@ -162,7 +162,13 @@ def parse_args():
                   'filename for the tree to be recognised.'),
         'distances': ('Distance matrix to use in space-delimited format - '
                       'see numpy.savetxt example in '
-                      'http://wiki.scipy.org/Cookbook/InputOutput')
+                      'http://wiki.scipy.org/Cookbook/InputOutput'),
+        'permute': ('Permute the data before analysing, as when doing '
+                    'a permutation test'),
+        'simulate': ('Simulate data from an existing result before analysing, '
+                     'as when doing a parametric bootstrap. The partition '
+                     'is given as a filename containing the info. Requires a '
+                     'previously computed result, loaded via -q')
     }
 
     parser = argparse.ArgumentParser(description=fileIO.basename(__file__))
@@ -198,6 +204,11 @@ def parse_args():
     parser.add_argument('--trees', type=str, help=help_messages['trees'])
     parser.add_argument('--distances', type=str,
                         help=help_messages['distances'])
+    parser.add_argument('--permute', action='store_true',
+                        help=help_messages['permute'])
+    parser.add_argument('--simulate', type=str,
+                        help=help_messages['simulate'])
+
     return parser.parse_args()
 
 def validate_args(args):
@@ -236,6 +247,19 @@ if __name__ == "__main__":
         compression=args.z,
         tmpdir=tmpdir
     )
+
+    if args.permute:
+        collection = collection.permuted_copy()
+
+    if args.simulate:
+        scorer = fileIO.gunpickle(args.q)
+        partition = open(args.simulate).read()
+        records = scorer.simulate_from_result(partition)
+        collection = Collection(
+            records=records,
+            datatype=args.d,
+            tmpdir=tmpdir
+        )
 
     # TREES
     if args.trees:
