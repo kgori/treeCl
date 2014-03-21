@@ -69,7 +69,7 @@ class LSFPhyml(ExternalSoftware):
         bsub.poll(job_ids)
         os.chdir(curr_dir)
 
-    def read(self, analysis):
+    def read(self, analysis, **kwargs):
         self.trees = []
         for phyml in self.phyml_objects:
             (tree, stats) = phyml.read()
@@ -78,7 +78,7 @@ class LSFPhyml(ExternalSoftware):
             except:
                 score = 0
             tree_object = Tree(newick=tree, score=score, program=analysis,
-                               name=phyml.record.name, output=stats)
+                               name=phyml.record.name, output=stats, **kwargs)
             self.trees.append(tree_object)
         return self.trees
 
@@ -99,10 +99,10 @@ class LSFPhyml(ExternalSoftware):
                 deleted.add(job_id)
         self.job_ids.discard(deleted)
 
-    def run(self, analysis, verbose=False):
+    def run(self, analysis, verbose=False, **kwargs):
         command_strings = self.get_command_strings(analysis)
         self.launch_lsf(command_strings, verbose)
-        trees = self.read('phyml+' + analysis)
+        trees = self.read('phyml+' + analysis, **kwargs)
         if len(trees) == len(self.records):
             self.clean()
         return trees
@@ -247,5 +247,6 @@ def runPhyml(rec, tmpdir, analysis, verbosity=0, tree=None, **kwargs):
 def runLSFPhyml(records, tmpdir, analysis, verbosity, **kwargs):
     optioncheck(analysis, ANALYSES)
     lsfphyml = LSFPhyml(records, tmpdir)
-    trees = lsfphyml.run(analysis, verbose=(True if verbosity > 0 else False))
+    trees = lsfphyml.run(analysis, verbose=(True if verbosity > 0 else False),
+                         **kwargs)
     return trees

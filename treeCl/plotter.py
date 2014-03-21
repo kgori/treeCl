@@ -129,10 +129,12 @@ class Plotter(object):
         by Partition object (or all black if no Partition specified) """
 
         optioncheck(dimensions, [2,3])
-        partition = partition or Partition(tuple([6]*len(self.collection.records)))
+        partition = (partition or
+                     Partition(tuple([6] * len(self.collection.records))))
 
         colours = 'bgrcmyk'
-        colour_mapping = np.array([colours[i] for i in partition.partition_vector])
+        colour_mapping = np.array([colours[i]
+                                   for i in partition.partition_vector])
         fig = plt.figure()
 
         if dimensions == 3:

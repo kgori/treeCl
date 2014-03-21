@@ -208,7 +208,7 @@ class GTP(ExternalSoftware):
         if dry_run:
             return cmd
         try:
-            matrix = self.read(len(trees), row, translation)
+            matrix = self.read(len(trees), row, translation=translation)
             self.clean()
             return matrix
         except IOError:
