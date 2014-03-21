@@ -172,7 +172,7 @@ class Collection(object):
         self.analysis = 'TreeCollection'
         for rec in self.records:
             runTC(rec, self.tmpdir, verbosity=verbosity,
-                taxon_set=self.taxon_set)
+                  taxon_set=self.taxon_set)
             rec.tree = TrClTree.cast(rec.tree)
 
     def calc_ML_trees(self, lsf=False, verbosity=0):
@@ -183,13 +183,17 @@ class Collection(object):
             trees = runLSFPhyml(self.records,
                                 self.tmpdir,
                                 analysis=self.analysis,
-                                verbosity=verbosity)
+                                verbosity=verbosity,
+                                taxon_set=self.taxon_set)
             for rec, tree in zip(self.records, trees):
                 rec.tree = TrClTree.cast(tree)
         else:
             for rec in self.records:
-                runPhyml(rec, self.tmpdir, analysis=self.analysis,
-                    verbosity=verbosity, taxon_set=self.taxon_set)
+                runPhyml(rec,
+                         self.tmpdir,
+                         analysis=self.analysis,
+                         verbosity=verbosity,
+                         taxon_set=self.taxon_set)
                 rec.tree = TrClTree.cast(rec.tree)
 
     def calc_NJ_trees(self, lsf=False, analysis='nj', verbosity=0):
@@ -203,7 +207,8 @@ class Collection(object):
             trees = runLSFPhyml(self.records,
                                 self.tmpdir,
                                 analysis=self.analysis,
-                                verbosity=verbosity)
+                                verbosity=verbosity,
+                                taxon_set=self.taxon_set)
             for rec, tree in zip(self.records, trees):
                 rec.tree = TrClTree.cast(tree)
         else:
