@@ -15,10 +15,10 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--species', type=int, default=12)
     parser.add_argument('-d', '--datatype', type=str, default='protein')
     parser.add_argument('-g', '--tree_generator', type=str, default='yule')
-    parser.add_argument('-t', '--tree', type=str)
+    parser.add_argument('-t', '--tree', type=str, default=None)
     parser.add_argument('--permuter', type=str, default='lgt')
     parser.add_argument('-l', '--gamma_params', type=float, nargs=2,
-        default=(1.7719, 279.9))
+                        default=(1.7719, 279.9))
     parser.add_argument('-m', '--min_length', type=str, default=10)
     parser.add_argument('--tmp', type=str, default='/tmp')
     parser.add_argument('-o', '--output', type=str)

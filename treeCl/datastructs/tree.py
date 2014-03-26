@@ -781,7 +781,7 @@ class Tree(dendropy.Tree):
                 writer.write(str(self))
             else:
                 writeable = self.as_string('newick', **kwargs)
-                writer.write(writeable)
+                writer.write(writeable + '\n')
         return outfile
 
     def __name_things(self):

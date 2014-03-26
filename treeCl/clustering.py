@@ -479,6 +479,13 @@ class Partition(object):
                   reverse=True)]
         return (self.flatten(result) if flatten else result)
 
+    @classmethod
+    def read(cls, filename):
+        with open(filename) as reader:
+            s = reader.read()
+            t = tuple(s.rstrip().split(','))
+        return cls(t)
+
     def normalised_mutual_information(self, other):
         partition_1 = self.partition_vector
         partition_2 = other.partition_vector
@@ -500,6 +507,10 @@ class Partition(object):
                 partition_2)
 
         return entropy_1 + entropy_2 - 2 * mut_inf
+
+    def write(self, filename):
+        with open(filename, 'w') as writer:
+            writer.write(','.join(str(x) for x in self.partition_vector) + '\n')
 
 
 def get_partition(clusters):

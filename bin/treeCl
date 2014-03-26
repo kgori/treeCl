@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
+#coding: utf-8
 from __future__ import print_function
 
 # standard library
@@ -9,9 +9,11 @@ import subprocess as sb
 
 # third party
 import numpy as np
+import pandas as pd
 
 # treeCl
-from treeCl import Collection, Clustering, DistanceMatrix, Plotter, Scorer
+from treeCl import Collection, Clustering, DistanceMatrix, Partition, \
+                   Plotter, Scorer
 from treeCl.constants import logo, SORT_KEY
 from treeCl.errors import directorycheck, directorymake, filecheck
 from treeCl.utils import fileIO
@@ -30,6 +32,12 @@ def write_trees(outfile, trees):
     with open(outfile, 'w') as file_:
         for tree in trees:
             file_.write('{0}\t{1}\n'.format(tree.name, tree.newick))
+
+def write_trees_dir(outdir, trees):
+    directorymake(outdir)
+    for tree in trees:
+        filename = os.path.join(args.trees_out, '{}.nwk'.format(tree.name))
+        tree.write_to_file(filename, metadata=True)
 
 def write_cluster_trees(outfile, partitions_list, scorer):
     with open(outfile, 'w') as file_:
@@ -104,6 +112,15 @@ def load_trees(directory, collection, tmpdir):
 def load_distances(infile):
     return np.loadtxt(infile).view(DistanceMatrix)
 
+def get_partition_from_tsv(infile, n):
+    df = pd.read_csv(infile, sep='\t')
+    row = df.ix[df['N_CLUSTERS'] == n]
+    cell = row['PARTITION']
+    partition = cell.values[0]
+    # parse string into Partition form
+    return Partition(tuple(int(x)
+                    for x in partition.strip('()').replace(' ','').split(',')))
+
 def cluster(clustering, method, nclasses, noise=False):
 
     if method == 'spectral':
@@ -156,19 +173,22 @@ def parse_args():
         'v': '[v]erbosity level: 0-3',
         'w': '[w]rite bootstraps to an output subdirectory [true/false]',
         'z': 'Compression [z]ip format (if input files are compressed)',
-        'trees': ('Directory containing precomputed trees matching the input '
+        'trees_in': ('Directory containing precomputed trees matching the input '
                   'alignments. The first part of the filename (before the '
                   '".") needs to match the equivalent part of the alignment '
                   'filename for the tree to be recognised.'),
+        'trees_out': ('Directory to write trees to. These can be loaded'
+                        'with --trees_in'),
         'distances': ('Distance matrix to use in space-delimited format - '
                       'see numpy.savetxt example in '
                       'http://wiki.scipy.org/Cookbook/InputOutput'),
         'permute': ('Permute the data before analysing, as when doing '
                     'a permutation test'),
         'simulate': ('Simulate data from an existing result before analysing, '
-                     'as when doing a parametric bootstrap. The partition '
-                     'is given as a filename containing the info. Requires a '
-                     'previously computed result, loaded via -q')
+                     'as when doing a parametric bootstrap. Requires a '
+                     'previously computed Scorer, loaded via -q. '
+                     'Usage= --simulate [RESULT.TSV, N] where N is the number '
+                     'of clusters to start from')
     }
 
     parser = argparse.ArgumentParser(description=fileIO.basename(__file__))
@@ -189,8 +209,10 @@ def parse_args():
                         help=help_messages['m'], required=True)
     parser.add_argument('-o', type=str,
                         help=help_messages['o'], required=True)
-    parser.add_argument('-p', type=str, help=help_messages['p'])
-    parser.add_argument('-q', type=str, help=help_messages['q'])
+    parser.add_argument('-p', '--scorer_out', dest='p', type=str,
+                        help=help_messages['p'])
+    parser.add_argument('-q', '--scorer_in', dest='q', type=str,
+                        help=help_messages['q'])
     parser.add_argument('-r', type=int, help=help_messages['r'], default=0)
     parser.add_argument('-s', type=int, help=help_messages['s'], default=0)
     parser.add_argument('-t', type=str,
@@ -201,12 +223,14 @@ def parse_args():
     parser.add_argument('-w', action='store_true', help=help_messages['w'])
     parser.add_argument('-z', type=str, choices=zchoices,
                         help=help_messages['z'], default=None)
-    parser.add_argument('--trees', type=str, help=help_messages['trees'])
+    parser.add_argument('--trees_in', type=str, help=help_messages['trees_in'])
+    parser.add_argument('--trees_out', type=str,
+                        help=help_messages['trees_out'])
     parser.add_argument('--distances', type=str,
                         help=help_messages['distances'])
     parser.add_argument('--permute', action='store_true',
                         help=help_messages['permute'])
-    parser.add_argument('--simulate', type=str,
+    parser.add_argument('--simulate', type=str, nargs=2,
                         help=help_messages['simulate'])
 
     return parser.parse_args()
@@ -215,8 +239,8 @@ def validate_args(args):
     directorycheck(args.i)
     directorycheck(args.t)
     directorymake(args.o)
-    if args.trees:
-        directorycheck(args.trees)
+    if args.trees_in:
+        directorycheck(args.trees_in)
     if args.q:
         filecheck(args.q)
     if args.b:
@@ -241,7 +265,7 @@ if __name__ == "__main__":
     print('Loading input files')
     collection = Collection(
         input_dir=args.i,
-        trees_dir=args.trees,
+        trees_dir=args.trees_in,
         datatype=args.d,
         file_format=args.f,
         compression=args.z,
@@ -252,9 +276,16 @@ if __name__ == "__main__":
         collection = collection.permuted_copy()
 
     if args.simulate:
+        print('Setting up simulation for parametric bootstrap:')
+        filename, n = args.simulate
+        n = int(n)
         scorer = fileIO.gunpickle(args.q)
-        partition = open(args.simulate).read()
-        records = scorer.simulate_from_result(partition)
+        partition = get_partition_from_tsv(filename, n)
+        print((' -- Parameters:'
+               '\n\tresults file={}'
+               '\n\tnumber of clusters={}'
+               '\n\tPartition={}'.format(filename, n, partition)))
+        records = scorer.simulate_from_result(partition)[0]
         collection = Collection(
             records=records,
             datatype=args.d,
@@ -262,9 +293,8 @@ if __name__ == "__main__":
         )
 
     # TREES
-    if args.trees:
-        print('Loading precomputed trees from {}'.format(args.trees))
-        load_trees(args.trees, collection, args.t)
+    if args.trees_in and collection.trees:
+        print('Loaded precomputed trees from {}'.format(args.trees_in))
 
     else:
         print('Calculating trees (strategy={})'.format(args.g))
@@ -302,15 +332,20 @@ if __name__ == "__main__":
 
     # EVALUATION
     print('Scoring clusters')
-    if args.q:
+    if args.q and not args.simulate:
+        print('Loading Scorer from {}'.format(args.q))
         scorer = fileIO.gunpickle(args.q)
+
     else:
-        scorer = Scorer(collection.records,
+        scorer = Scorer(collection,
                         args.g,
                         lsf=args.b,
                         verbosity=args.v)
+
     scorer.add_partition_list(partitions_list)
+
     if args.p:
+        print('Writing Scorer to {}'.format(args.p))
         scorer.dump(args.p)
 
     plotter = Plotter(collection=collection, dm=distance_matrix)
@@ -328,7 +363,7 @@ if __name__ == "__main__":
         'tsv':              '{}/result.tsv'.format(args.o),
         'param_results':    '{}/parametric_results.txt'.format(args.o),
         'nonparam_results': '{}/nonparametric_results.txt'.format(args.o),
-        'distance_matrix':  '{}/{}_distances.txt'.format(args.o, args.d),
+        'distance_matrix':  '{}/{}_distances.txt'.format(args.o, args.m),
         'coordinates':      '{}/coordinates.txt'.format(args.o)
     }
 
@@ -342,6 +377,8 @@ if __name__ == "__main__":
               scorer, collection)
     write_distance_matrix(outfiles['distance_matrix'], distance_matrix)
     write_coordinates(outfiles['coordinates'], coords)
+    if args.trees_out:
+        write_trees_dir(args.trees_out, collection.trees)
 
     #================================================================#
     # PARAMETRIC BOOTSTRAPPING                                       #
