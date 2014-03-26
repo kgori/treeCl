@@ -18,6 +18,21 @@ from treeCl.constants import logo, SORT_KEY
 from treeCl.errors import directorycheck, directorymake, filecheck
 from treeCl.utils import fileIO
 
+def approx_ic(lnl, k, n, penalty='aic'):
+    """
+    lnl = likelihood score to penalise
+    k = number of parameters
+    n = number of data
+    """
+    if penalty == 'aic':
+        penalty_term = 2.0*k
+    elif penalty == 'aicc':
+        penalty_term = 2.0*k*n/(n-k-1)
+    elif penalty == 'bic':
+        penalty_term = k*np.log(n)
+
+    return -2.0*lnl + penalty_term
+
 def write_memberships(outfile, partitions_list, scorer):
     with open(outfile, 'w') as file_:
         for partition in partitions_list:
@@ -67,19 +82,51 @@ def write_summary(outfile, metric, method, scorer, partitions_list):
             file_.write('\tpartition = {0}\n'.format(partition))
         file_.write('\n')
 
-def write_tsv(outfile, metric, method, analysis_strategy, partitions_list,
-              scorer, collection):
+def write_tsv(outfile, metric, method, analysis_strategy,
+              partitions_list, scorer, collection):
     headers = ['METRIC', 'METHOD', 'ANALYSIS', 'N_LOCI', 'N_SPECIES',
                'N_CLUSTERS', 'LIKELIHOOD', 'PARTITION']
     with open(outfile, 'w') as file_:
         file_.write('\t'.join(headers) + '\n')
+        n_loci = len(collection)
+        n_species = collection.num_species()
         for partition in partitions_list:
+            n_clusters = len(partition)
+            likelihood = scorer.score(partition)
             values = [metric, method, analysis_strategy,
-                      str(len(collection)),
-                      str(collection.num_species()),
-                      str(len(partition)),
-                      str(scorer.score(partition)),
+                      str(n_loci),
+                      str(n_species),
+                      str(n_clusters),
+                      str(likelihood),
                       str(partition.partition_vector)]
+            file_.write('\t'.join(values) + '\n')
+        file_.write('\n')
+
+def write_tsv_with_aic(outfile, metric, method, analysis_strategy,
+                       partitions_list, scorer, collection):
+    headers = ['METRIC', 'METHOD', 'ANALYSIS', 'N_LOCI', 'N_SPECIES',
+               'N_CLUSTERS', 'LIKELIHOOD', 'PARTITION', 'AIC', 'AICc', 'BIC']
+    with open(outfile, 'w') as file_:
+        file_.write('\t'.join(headers) + '\n')
+        n_loci = len(collection)
+        n_species = collection.num_species()
+        n_columns = sum([rec.seqlength for rec in collection.records])
+        for partition in partitions_list:
+            n_clusters = len(partition)
+            likelihood = scorer.score(partition)
+            n_params = 1 + (2 * n_species - 3)
+            aic = approx_ic(likelihood, n_params , n_columns, 'aic')
+            aicc = approx_ic(likelihood, n_params , n_columns, 'aicc')
+            bic = approx_ic(likelihood, n_params, n_columns, 'bic')
+            values = [metric, method, analysis_strategy,
+                      str(n_loci),
+                      str(n_species),
+                      str(n_clusters),
+                      str(likelihood),
+                      str(partition.partition_vector),
+                      str(aic),
+                      str(aicc),
+                      str(bic)]
             file_.write('\t'.join(values) + '\n')
         file_.write('\n')
 
@@ -273,6 +320,7 @@ if __name__ == "__main__":
     )
 
     if args.permute:
+        print('Permuting input data')
         collection = collection.permuted_copy()
 
     if args.simulate:
