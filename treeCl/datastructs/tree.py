@@ -54,10 +54,10 @@ def logN_correlated_rate(parent_rate, branch_length, autocorrel_param, size=1):
 
     variance = branch_length * autocorrel_param
     stdev = np.sqrt(variance)
-    lnRd = np.random.normal(np.log(parent_rate) - 0.5*variance, scale=stdev,
-        size=size)
-    Rd = np.exp(lnRd)
-    return float(Rd) if size==1 else Rd
+    ln_descendant_rate = np.random.normal(np.log(parent_rate) - 0.5 * variance,
+                                          scale=stdev, size=size)
+    descendant_rate = np.exp(ln_descendant_rate)
+    return float(descendant_rate) if size==1 else descendant_rate
 
 class TreeError(Exception):
     def __init__(self, msg):
