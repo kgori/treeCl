@@ -226,9 +226,10 @@ def parse_args():
                   'filename for the tree to be recognised.'),
         'trees_out': ('Directory to write trees to. These can be loaded'
                         'with --trees_in'),
-        'distances': ('Distance matrix to use in space-delimited format - '
+        'distances_in': ('Distance matrix to use in space-delimited format - '
                       'see numpy.savetxt example in '
                       'http://wiki.scipy.org/Cookbook/InputOutput'),
+        'distances_out': 'Filename to write distance matrix to',
         'permute': ('Permute the data before analysing, as when doing '
                     'a permutation test'),
         'simulate': ('Simulate data from an existing result before analysing, '
@@ -273,12 +274,15 @@ def parse_args():
     parser.add_argument('--trees_in', type=str, help=help_messages['trees_in'])
     parser.add_argument('--trees_out', type=str,
                         help=help_messages['trees_out'])
-    parser.add_argument('--distances', type=str,
-                        help=help_messages['distances'])
+    parser.add_argument('--distances_in', type=str,
+                        help=help_messages['distances_in'])
+    parser.add_argument('--distances_out', type=str,
+                        help=help_messages['distances_out'])
     parser.add_argument('--permute', action='store_true',
                         help=help_messages['permute'])
     parser.add_argument('--simulate', type=str, nargs=2,
                         help=help_messages['simulate'])
+    parser.add_argument('--exit', action='store_true')
 
     return parser.parse_args()
 
@@ -303,8 +307,11 @@ if __name__ == "__main__":
     args = parse_args()
     print(logo)
     validate_args(args)
-    tmpdir = os.getenv('TMPDIR') or args.t
-    directorymake(tmpdir)
+    tmpdir = args.t or os.getenv('TMPDIR')
+    print('Using temporary directory {}'.format(tmpdir))
+    if args.exit:
+        import sys
+        sys.exit()
 
     #================================================================#
     # CALCULATION                                                    #
@@ -352,14 +359,22 @@ if __name__ == "__main__":
             verbosity=args.v
         )
 
+    if args.trees_out:
+        print('Writing trees to {}'.format(args.trees_out))
+        write_trees_dir(args.trees_out, collection.trees)
+
     # DISTANCES
-    if args.distances:
-        print('Loading precomputed distances from {}'.format(args.distances))
-        distance_matrix = load_distances(args.distances)
+    if args.distances_in:
+        print('Loading precomputed distances from {}'.format(args.distances_in))
+        distance_matrix = load_distances(args.distances_in)
 
     else:
         print('Analysing pairwise tree distances (metric={})'.format(args.m))
         distance_matrix = collection.distance_matrix(args.m, lsf=args.b)
+
+    if args.distances_out:
+        print('Writing distances to {}'.format(args.distances_out))
+        write_distance_matrix(args.distances_out, distance_matrix)
 
     # CLUSTERING
     clustering = Clustering(distance_matrix)
@@ -402,6 +417,7 @@ if __name__ == "__main__":
     #================================================================#
     # WRITE RESULTS                                                  #
     #================================================================#
+
     outfiles = {
         'memberships':      '{}/memberships.txt'.format(args.o),
         'trees':            '{}/trees.nwk'.format(args.o),
@@ -423,10 +439,8 @@ if __name__ == "__main__":
     write_summary(outfiles['summary'], args.m, args.c, scorer, partitions_list)
     write_tsv(outfiles['tsv'], args.m, args.c, args.g, partitions_list,
               scorer, collection)
-    write_distance_matrix(outfiles['distance_matrix'], distance_matrix)
     write_coordinates(outfiles['coordinates'], coords)
-    if args.trees_out:
-        write_trees_dir(args.trees_out, collection.trees)
+    write_distance_matrix(outfiles['distance_matrix'], distance_matrix)
 
     #================================================================#
     # PARAMETRIC BOOTSTRAPPING                                       #

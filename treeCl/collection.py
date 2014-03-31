@@ -209,7 +209,7 @@ class Collection(object):
         if lsf:
             trees = runLSFPhyml(self.records,
                                 self.tmpdir,
-                                analysis=self.analysis,
+                                analysis=analysis,
                                 verbosity=verbosity,
                                 taxon_set=self.taxon_set)
             for rec, tree in zip(self.records, trees):
