@@ -93,3 +93,29 @@ class TreeSoftware(ExternalSoftware):
     @record.setter
     def record(self, sequence_record):
         self._record = sequence_record
+
+
+class LSFJobHandlerException(Exception):
+    pass
+
+
+class LSFJobHandler(object):
+
+    def __init__(self, job_handler, command_string, tmpdir):
+        if (job_handler is None or command_string is None or tmpdir is None):
+            raise LSFJobHandlerException('"None" argument given')
+
+        self.job_handler = job_handler
+        self.command_string = command_string
+        self.tmpdir = tmpdir
+        self.job_id = None
+
+    def launch(self, job_name='lsf_job', verbose=False):
+        self.job_id = bsub(job_name,
+                           o='/dev/null',
+                           e='/dev/null',
+                           verbose=verbose)(self.command_string).job_id
+        return self.job_id
+
+    def clean(self):
+        shutil.rmdir(self.tmpdir)

@@ -86,8 +86,9 @@ class Collection(object):
             raise Exception('Provide a list of records, '
                   'or the path to a set of alignments')
 
+        self.taxon_set = TaxonSet()
         if trees_dir:
-            self.read_trees(trees_dir)
+            self.read_trees(trees_dir, self.taxon_set)
 
         if not self.records:
             raise NoRecordsError(file_format, input_dir, compression)
@@ -95,7 +96,6 @@ class Collection(object):
         if calc_distances:
             self.calc_distances()
 
-        self.taxon_set = TaxonSet()
 
     def __len__(self):
         if getattr(self, 'records'):
@@ -153,16 +153,15 @@ class Collection(object):
                         tmpdir=self.tmpdir)
                 for f in files]
 
-    def read_trees(self, input_dir):
+    def read_trees(self, input_dir, taxon_set=None):
         """ Read a directory full of tree files, matching them up to the
         already loaded alignments """
 
         extensions = ['nwk', 'tree']
-
         files = fileIO.glob_by_extensions(input_dir, extensions)
         files.sort(key=SORT_KEY)
 
-        trees = [TrClTree.read_from_file(file_) for file_ in files]
+        trees = [TrClTree.read_from_file(file_, taxon_set) for file_ in files]
 
         for record, tree in zip(self.records, trees):
             assert record.name == tree.name

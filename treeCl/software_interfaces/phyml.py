@@ -11,7 +11,7 @@ import time
 from bsub import bsub
 
 # treeCl
-from external import ExternalSoftware, TreeSoftware
+from external import ExternalSoftware, TreeSoftware, LSFJobHandler
 from ..errors import filecheck, optioncheck
 from ..datastructs.tree import Tree
 from ..utils import fileIO
@@ -19,6 +19,7 @@ from ..utils.printing import print_and_return
 
 
 ANALYSES = ['tlr', 'lr', 'l', 'r', 'ml', 'full', 'nj', 'bionj', 'bionj+', 'lk']
+
 
 class LSFPhyml(ExternalSoftware):
 
@@ -56,6 +57,18 @@ class LSFPhyml(ExternalSoftware):
     def get_command_strings(self, analysis='ml'):
         return [phyml.run(analysis, dry_run=True)
                 for phyml in self.phyml_objects]
+
+    def setup_lsf_launchers(self, analysis):
+        command_strings = self.get_command_strings(analysis)
+        assert (len(self.phyml_objects) ==
+                len(command_strings) ==
+                len(self.tempdirs))
+        launchers = [LSFJobHandler(phyml_object, command_string, td)
+                     for (phyml_object, command_string, td)
+                     in zip(self.phyml_objects,
+                            command_strings,
+                            self.temp_dirs)]
+        return launchers
 
     def launch_lsf(self, command_strings, verbose=False, output='/dev/null'):
         curr_dir = os.getcwd()

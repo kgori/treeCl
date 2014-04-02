@@ -341,7 +341,7 @@ class Tree(dendropy.Tree):
         **kwargs
         ):
 
-        super(Tree, self).__init__()
+        super(Tree, self).__init__(**kwargs)
         if newick:
             self.read_from_string(newick, 'newick', **kwargs)
             if self.rooted:
@@ -721,10 +721,9 @@ class Tree(dendropy.Tree):
         return t
 
     @classmethod
-    def read_from_file(cls, infile):
+    def read_from_file(cls, infile, taxon_set=None):
         with fileIO.freader(infile) as reader:
             s = reader.read()
-
         name_search = re.search(r'(?<=Name:\t)(\w+)+', s)
         program_search = re.search(r'(?<=Program:\t)(\w+)+', s)
         score_search = re.search(r'(?<=Score:\t)([0-9.\-\+]+)', s)
@@ -748,7 +747,15 @@ class Tree(dendropy.Tree):
         if program == 'None':
             program = None
 
-        return cls(newick=tree, name=name, program=program, score=score)
+        if taxon_set is not None:
+            tree = cls(newick=tree, name=name, program=program, score=score,
+                       taxon_set=taxon_set)
+
+        else:
+            tree = cls(newick=tree, name=name, program=program, score=score)
+
+        return tree
+
 
     def write_to_file(
         self,

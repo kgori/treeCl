@@ -398,6 +398,7 @@ if __name__ == "__main__":
     if args.q and not args.simulate:
         print('Loading Scorer from {}'.format(args.q))
         scorer = fileIO.gunpickle(args.q)
+        scorer.tmpdir = tmpdir
 
     else:
         scorer = Scorer(collection,

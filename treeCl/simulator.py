@@ -2,6 +2,7 @@
 from __future__ import print_function
 
 # standard library
+import numbers
 import shutil
 
 # third party
@@ -42,6 +43,7 @@ class Simulator(object):
         gene_length_kappa=1.7719,
         gene_length_theta=279.9,
         gene_length_min=10,
+        gamma_rate_param=None,
         outdir='./',
         autocorrelated_relaxed_clock=False,
         uncorrelated_relaxed_clock=False,
@@ -81,6 +83,7 @@ class Simulator(object):
                 self.num_species = nspecies
         self.set_gene_lengths(gene_length_kappa, gene_length_theta,
                               gene_length_min)
+        self.gamma_rate_param = gamma_rate_param
         self.permuter = class_tree_permuter
         self.permutations_list = permutations_list
         self.datatype = datatype
@@ -224,6 +227,8 @@ class Simulator(object):
                 datatype=datatype, num_genes=num_genes,
                 seqlength=seqlength, gene_length_kappa=gene_length_kappa,
                 gene_length_theta=gene_length_theta, name=name, tmpdir=alfdir )
+            if isinstance(self.gamma_rate_param, numbers.Number):
+                alf_obj.params.rate_variation(self.gamma_rate_param)
             if datatype=='protein':
                 alf_obj.params.one_word_model('WAG')
             else:

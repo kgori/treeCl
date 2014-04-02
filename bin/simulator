@@ -23,6 +23,7 @@ if __name__ == '__main__':
     parser.add_argument('-m', '--min_length', type=str, default=10)
     parser.add_argument('--tmp', type=str, default='/tmp')
     parser.add_argument('-o', '--output', type=str)
+    parser.add_argument('-r', '--gamma_rate_param', type=float)
     parser.add_argument('-w', '--within_variation', type=str,
                         choices=within_variation_choices,
                         help=('Trees within a class can vary in their size or '
@@ -68,6 +69,7 @@ if __name__ == '__main__':
         gene_length_kappa=args.gene_length_gamma_params[0],
         gene_length_theta=args.gene_length_gamma_params[1],
         gene_length_min=args.min_length,
+        gamma_rate_param=args.gamma_rate_param,
         tmpdir=args.tmp,
         outdir=args.output,
         autocorrelated_relaxed_clock=autocorrelated,
