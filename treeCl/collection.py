@@ -260,6 +260,7 @@ class Scorer(object):
         tmpdir=None,
         datatype=None,
         verbosity=0,
+        populate_cache=True,
         ):
 
         self.analysis = optioncheck(analysis, ANALYSES + ['TreeCollection'])
@@ -273,7 +274,8 @@ class Scorer(object):
         directorymake(self.tmpdir)
         self.concats = {}
         self.history = []
-        self.populate_cache()
+        if populate_cache:
+            self.populate_cache()
 
     @property
     def records(self):
@@ -375,6 +377,9 @@ class Scorer(object):
         to_calc = []
         for i, rec in enumerate(self.records):
             key = (i,)
+            if rec.tree is None:
+                to_calc.append(key)
+                continue
             if rec.tree.program.startswith('phyml+'):
                 analysis = rec.tree.program[6:]
             else:
@@ -461,6 +466,7 @@ class Scorer(object):
         """ Simulates a set of records using parameters estimated when
         calculating concatenated trees from the Partition object """
         inds = partition_object.get_membership()
+
         if lsf and ntimes > 1:
             multiple_results = [self.simulate(ind, lsf=lsf, ntimes=ntimes)
                                 for ind in inds]
@@ -476,3 +482,18 @@ class Scorer(object):
         """ Convenience wrapper to pickle the object. Gzipped pickle
         is written to filename """
         fileIO.gpickle(self, filename)
+
+    def dump_cache(self, filename):
+        with open(filename, 'w') as outfile:
+            for k, v in self.concats.items():
+                outfile.write('{}\t{}\n'.format(k, str(v)))
+
+    def load_cache(self, filename):
+        d = {}
+        with open(filename, 'r') as infile:
+            for line in file:
+                k, s = line.rstrip().split('\t')
+                t = TrClTree.gen_from_text(s, self.collection.taxon_set)
+                d[k] = t
+        self.concats = d
+

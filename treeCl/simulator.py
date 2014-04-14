@@ -1,9 +1,10 @@
 #!/usr/bin/env python
-from __future__ import print_function
+from __future__ import print_function, division
 
 # standard library
 import numbers
 import shutil
+import sys
 
 # third party
 import numpy as np
@@ -13,7 +14,7 @@ from clustering import Partition
 from datastructs.trcl_tree import TrClTree
 import errors
 from software_interfaces.alf import ALF
-from utils import fileIO
+from utils import fileIO, print_and_return
 
 
 class Simulator(object):
@@ -258,7 +259,7 @@ class Simulator(object):
             alf_obj = ALF(tree=tree,
                 datatype=datatype, num_genes=num_genes,
                 seqlength=seqlength, gene_length_kappa=gene_length_kappa,
-                gene_length_theta=gene_length_theta, name=name, tmpdir=alfdir )
+                gene_length_theta=gene_length_theta, name=name, tmpdir=alfdir)
             if datatype=='protein':
                 alf_obj.params.one_word_model('WAG')
             else:
@@ -275,9 +276,12 @@ class Simulator(object):
 
     def run(self):
         all_records = []
+        total_jobs = len(self.gene_trees)
         for i, tree in enumerate(self.gene_trees, start=1):
             if self.verbosity > 0:
-                print('Simulating {}'.format(tree.name))
+                print_and_return('Simulating {} ({:.1f}%)'.format(tree.name,
+                                    100 * i / total_jobs),
+                                 sys.stderr)
             simulated_record = self.alf_params[i].run()[0]
             simulated_record.name = tree.name
             all_records.append(simulated_record)
@@ -304,9 +308,9 @@ class Simulator(object):
         if hasattr(self, 'result'):
             errors.directorymake(self.outdir)
             errors.directorymake(fileIO.join_path(self.outdir,
-                                             'base_class_trees'))
+                                                  'base_class_trees'))
             errors.directorymake(fileIO.join_path(self.outdir,
-                                             'gene_trees'))
+                                                  'gene_trees'))
             for rec in self.result:
                 filename = fileIO.join_path(self.outdir, rec.name) + '.phy'
                 rec.write_phylip(filename, interleaved=True)

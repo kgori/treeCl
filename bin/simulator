@@ -32,8 +32,6 @@ if __name__ == '__main__':
                         'relaxed clock, an uncorrelated lognormal relaxed '
                         'clock, or scaled uniformly by a parameter, drawn '
                         'randomly from [0.666, 1.333]'))
-    parser.add_argument('--uncorrelated', action='store_true')
-    parser.add_argument('--scaled', action='store_true')
     parser.add_argument('-v', '--verbosity', type=int)
     args = parser.parse_args()
 

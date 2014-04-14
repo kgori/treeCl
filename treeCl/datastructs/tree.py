@@ -724,6 +724,13 @@ class Tree(dendropy.Tree):
     def read_from_file(cls, infile, taxon_set=None):
         with fileIO.freader(infile) as reader:
             s = reader.read()
+
+        return cls.gen_from_text(s, taxon_set=taxon_set)
+
+    @classmethod
+    def gen_from_text(cls, s, taxon_set=None):
+        """ Generate new tree object from str method output """
+
         name_search = re.search(r'(?<=Name:\t)(\w+)+', s)
         program_search = re.search(r'(?<=Program:\t)(\w+)+', s)
         score_search = re.search(r'(?<=Score:\t)([0-9.\-\+]+)', s)
@@ -755,6 +762,9 @@ class Tree(dendropy.Tree):
             tree = cls(newick=tree, name=name, program=program, score=score)
 
         return tree
+
+
+
 
 
     def write_to_file(
