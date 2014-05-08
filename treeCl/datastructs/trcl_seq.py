@@ -210,7 +210,15 @@ class TrClSeq(Seq):
 
         return distvar_string, genome_map_string, labels_string
 
-    def tree_collection(self, niters=5, quiet=True, tmpdir=None):
+    def tree_collection(self,
+                        niters=5,
+                        keep_topology=False,
+                        quiet=True,
+                        tmpdir=None,
+                        taxon_set=None,
+                        guide_tree=None,
+                        set_as_record_tree=True):
+
         import tree_collection
 
         if tmpdir is not None:
@@ -220,26 +228,60 @@ class TrClSeq(Seq):
         else:
             tmpdir = TMPDIR
 
-        if not self.tree:
-            self.bionj(tmpdir)
+        gt = None
 
-        if self.tree is None:
-            raise Exception('Couldn\'t generate a BIONJ guide tree')
+        if guide_tree is not None:
+            gt = guide_tree
+
+        elif self.tree is not None:
+            gt = self.tree
+
+        else:
+            self.bionj(tmpdir)
+            gt = self.tree
+
+        if gt is None:
+            raise Exception('Couldn\'t generate a guide tree')
 
         if self.dv <= []:
             self.dv_matrix(tmpdir)
 
-        gt = self.tree
-        gt.reroot_at_midpoint()
+        if not gt.is_rooted:
+            gt.reroot_at_midpoint()
         if not gt.is_rooted:
             raise Exception('Couldn\'t root the guide tree' )
+
         dv, gm, lab = self._get_tree_collection_strings()
         output_tree, score = tree_collection.compute(dv, gm, lab, gt.newick,
-                                                     niters, quiet)
-        result = TrClTree(output_tree, score, program='tree_collection',
-            name=self.name, output='').scale(0.01)
-        self.tree = result
+                                                     niters, keep_topology,
+                                                     quiet)
+        if taxon_set is not None:
+            result = TrClTree(output_tree, score, program='tree_collection',
+                              name=self.name, output='',
+                              taxon_set=taxon_set)
+        else:
+            result = TrClTree(output_tree, score, program='tree_collection',
+                              name=self.name, output='')
+
+        if set_as_record_tree:
+            self.tree = result
+
         return result
+
+    def distance_fit(self, tree):
+        import tree_collection
+
+        if self.dv <= []:
+            self.dv_matrix(tmpdir)
+
+        if not tree.is_rooted:
+            tree.reroot_at_midpoint()
+
+        if not tree.is_rooted:
+            raise Exception('Couldn\'t root the test tree')
+
+        dv, gm, lab = self._get_tree_collection_strings()
+        return tree_collection.fit(dv, gm, lab, tree.newick)
 
     def _pivot(self, lst):
         new_lst = zip(*lst)

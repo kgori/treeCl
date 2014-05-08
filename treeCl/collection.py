@@ -181,6 +181,11 @@ class Collection(object):
                   taxon_set=self.taxon_set)
             rec.tree = TrClTree.cast(rec.tree)
 
+    def calc_TC_trees_new(self, verbosity=0):
+        for rec in self.records:
+            rec.tree_collection(taxon_set=self.taxon_set,
+                                quiet=(True if verbosity==0 else False))
+
     def calc_ML_trees(self, lsf=False, verbosity=0):
         """ Deprecated"""
         print('deprecated: use calc_phyml_trees instead')
@@ -263,7 +268,11 @@ class Scorer(object):
         populate_cache=True,
         ):
 
-        self.analysis = optioncheck(analysis, ANALYSES + ['TreeCollection'])
+        optioncheck(analysis, ANALYSES + ['tc', 'TreeCollection'])
+        if self.analysis == 'tc':
+            self.analysis = 'TreeCollection'
+        else:
+            self.analysis = analysis
         self.max_guidetrees = max_guidetrees
         self.lsf = lsf
         self.collection = collection

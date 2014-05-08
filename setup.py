@@ -87,5 +87,5 @@ setup(name = "treeCl",
         'scipy',
     ],
     cmdclass = { 'build_ext': build_ext},
-    #ext_modules = extensions,
+    ext_modules = extensions,
 )

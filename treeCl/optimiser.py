@@ -21,7 +21,7 @@ from constants import EPS, NEGINF, TMPDIR
 class Optimiser(object):
 
     def __init__(self, nclusters, collection, tmpdir=TMPDIR,
-                 initial_assignment=None, scorer=None):
+                 analysis='nj', initial_assignment=None, scorer=None):
         self.Collection = collection
 
         if not self.Collection.records[0].tree:
@@ -32,9 +32,10 @@ class Optimiser(object):
         if scorer is not None and isinstance(scorer, Scorer):
             self.scorer = scorer
         else:
-            self.scorer = Scorer(self.Collection.records, analysis='nj',
-                             datatype=self.datatype,
-                             tmpdir=tmpdir)
+            self.scorer = Scorer(self.Collection.records,
+                                 analysis=analysis,
+                                 datatype=self.datatype,
+                                 tmpdir=tmpdir)
 
         self.nclusters = nclusters
         self.tmpdir = tmpdir

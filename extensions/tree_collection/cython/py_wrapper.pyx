@@ -4,12 +4,17 @@ from  libcpp.set     cimport set as libcpp_set
 from  libcpp.vector  cimport vector as libcpp_vector
 from  libcpp.pair    cimport pair as libcpp_pair
 from  libcpp.map     cimport map  as libcpp_map
+# from  smart_ptr cimport shared_ptr
+# from  AutowrapRefHolder cimport AutowrapRefHolder
 from  libcpp cimport bool
 from  libc.string cimport const_char
 from cython.operator cimport dereference as deref, preincrement as inc, address as address
 from wrapper cimport compute as _compute_wrapper
+from wrapper cimport fit as _fit_wrapper
+# cdef extern from "autowrap_tools.hpp":
+#     char * _cast_const_away(char *)
 
-def compute(str matrices , str mapping , str labels , str tree ,  iter=3 ,  quiet=True ):
+def compute(bytes matrices , bytes mapping , bytes labels , bytes tree ,  iter=5 ,  keep_topology=False ,  quiet=True ):
     """ This is a wrapper to the MinSquareTreeCollection::compute function
 
     :param matrices: Matrix of distances (upper triangle) and variances (lower triangle)
@@ -22,19 +27,41 @@ def compute(str matrices , str mapping , str labels , str tree ,  iter=3 ,  quie
     :type tree: str.
     :param iter: Number of iterations to do in the compute (resets on each tree swap)
     :type iter: int.
+    :param keep_topology: If True, will assess the guidetree with no optimisation
+    :type keep_topology: bool.
     :param quiet: If True, this will suppress printing progress to the screen
     :type quiet: bool.
 
     :returns: str -- the output tree, float -- the sum of squared residuals
 
     """
-    assert isinstance(matrices, str), 'arg matrices wrong type'
-    assert isinstance(mapping, str), 'arg mapping wrong type'
-    assert isinstance(labels, str), 'arg labels wrong type'
-    assert isinstance(tree, str), 'arg tree wrong type'
+    assert isinstance(matrices, bytes), 'arg matrices wrong type'
+    assert isinstance(mapping, bytes), 'arg mapping wrong type'
+    assert isinstance(labels, bytes), 'arg labels wrong type'
+    assert isinstance(tree, bytes), 'arg tree wrong type'
     assert isinstance(iter, (int, long)), 'arg iter wrong type'
+    assert isinstance(keep_topology, (int, long)), 'arg keep_topology wrong type'
     assert isinstance(quiet, (int, long)), 'arg quiet wrong type'
 
-    _r = _compute_wrapper((<libcpp_string>matrices), (<libcpp_string>mapping), (<libcpp_string>labels), (<libcpp_string>tree), (<int>iter), (<bool>quiet))
-    cdef tuple py_result = (_r.first, _r.second)
+
+
+
+
+
+
+    _r = _compute_wrapper((<libcpp_string>matrices), (<libcpp_string>mapping), (<libcpp_string>labels), (<libcpp_string>tree), (<int>iter), (<bool>keep_topology), (<bool>quiet))
+    cdef list py_result = [_r.first, _r.second]
     return py_result
+
+def fit(bytes matrices , bytes mapping , bytes labels , bytes tree ):
+    assert isinstance(matrices, bytes), 'arg matrices wrong type'
+    assert isinstance(mapping, bytes), 'arg mapping wrong type'
+    assert isinstance(labels, bytes), 'arg labels wrong type'
+    assert isinstance(tree, bytes), 'arg tree wrong type'
+
+
+
+
+    cdef double _r = _fit_wrapper((<libcpp_string>matrices), (<libcpp_string>mapping), (<libcpp_string>labels), (<libcpp_string>tree))
+    py_result = <double>_r
+    return py_result 

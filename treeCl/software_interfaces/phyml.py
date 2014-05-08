@@ -249,7 +249,7 @@ class Phyml(TreeSoftware):
 def runPhyml(rec, tmpdir, analysis, verbosity=0, tree=None, **kwargs):
     optioncheck(analysis, ANALYSES)
     p = Phyml(rec, tmpdir)
-    if analysis == 'lk' and tree is not None:
+    if (analysis == 'lk' or analysis == 'r') and tree is not None:
         tree_name = (tree.name if tree.name else 'tmp_tree')
         tmp_treefile = '{0}/{1}.nwk'.format(tmpdir, tree_name)
         tree.write_to_file(tmp_treefile)

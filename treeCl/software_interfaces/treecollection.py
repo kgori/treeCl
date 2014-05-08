@@ -44,9 +44,10 @@ class TreeCollection(TreeSoftware):
             if verbosity > 1:
                 print(stdout, stderr)
             (score, tree) = self.read(stdout)
-            tree_object = Tree(tree, score, program=fileIO.basename(self.binary),
+            tree_object = Tree(tree, score,
+                               program=fileIO.basename(self.binary),
                                name=self.record.name, output=stdout,
-                               **kwargs).scale(0.01)
+                               **kwargs)
             self.record.tree = tree_object
             return tree_object
         except:
@@ -118,9 +119,9 @@ class TreeCollection(TreeSoftware):
         self.add_tempfile(filename)
         return filename
 
-def runTC(rec, tmpdir, guidetrees=None, verbosity=0):
+def runTC(rec, tmpdir, guidetrees=None, verbosity=0, **kwargs):
     if not isinstance(guidetrees, list):
         guidetrees = [guidetrees]
     tc = TreeCollection(rec, tmpdir)
-    trees = [tc.run(guidetree, verbosity) for guidetree in guidetrees]
+    trees = [tc.run(guidetree, verbosity, **kwargs) for guidetree in guidetrees]
     return min(trees, key=lambda x: x.score)

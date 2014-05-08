@@ -157,8 +157,8 @@ RobustEstimateDistVarM :=  proc(dmsa:MAlignment, seqtype:{'AA','DNA'})
     Vmsa := CreateArray(1..ls, 1..ls, 0);
     for k to ls do for l from k+1 to ls do
         tmp := EstimatePamNoGap(msa[k], msa[l], DMS);
-        Dmsa[k,l] := Dmsa[l,k] := tmp[2];
-        Vmsa[k,l] := Vmsa[l,k] := tmp[3];
+        Dmsa[k,l] := Dmsa[l,k] := tmp[2] / 100.0; # PAM -> subs / site
+        Vmsa[k,l] := Vmsa[l,k] := tmp[3] / 10000.0; # PAM -> subs / site
     od od;
 
     return([Dmsa,Vmsa]);
@@ -253,7 +253,6 @@ quit;
         result = self.read()
         self.clean()
         return result
-
 
     def write(self):
         if self.verbosity > 0:
