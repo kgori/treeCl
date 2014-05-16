@@ -43,12 +43,6 @@ def compute(bytes matrices , bytes mapping , bytes labels , bytes tree ,  iter=5
     assert isinstance(keep_topology, (int, long)), 'arg keep_topology wrong type'
     assert isinstance(quiet, (int, long)), 'arg quiet wrong type'
 
-
-
-
-
-
-
     _r = _compute_wrapper((<libcpp_string>matrices), (<libcpp_string>mapping), (<libcpp_string>labels), (<libcpp_string>tree), (<int>iter), (<bool>keep_topology), (<bool>quiet))
     cdef list py_result = [_r.first, _r.second]
     return py_result
@@ -59,9 +53,6 @@ def fit(bytes matrices , bytes mapping , bytes labels , bytes tree ):
     assert isinstance(labels, bytes), 'arg labels wrong type'
     assert isinstance(tree, bytes), 'arg tree wrong type'
 
-
-
-
     cdef double _r = _fit_wrapper((<libcpp_string>matrices), (<libcpp_string>mapping), (<libcpp_string>labels), (<libcpp_string>tree))
     py_result = <double>_r
-    return py_result 
+    return py_result

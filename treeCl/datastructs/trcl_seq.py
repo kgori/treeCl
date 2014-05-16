@@ -5,6 +5,9 @@ from __future__ import print_function
 import random
 import re
 
+# third party
+import numpy as np
+
 # treeCl
 from seq import Seq
 from trcl_tree import Tree, TrClTree
@@ -199,7 +202,13 @@ class TrClSeq(Seq):
         for (i, (matrix, labels)) in enumerate(self.dv, start=1):
             labels = labels.split()
             dim = len(labels)
-            distvar_list.append('{0} {0} {1}\n{2}'.format(dim, i, matrix))
+            if isinstance(matrix, np.ndarray):
+                matrix_string = '\n'.join([' '.join(str(x) for x in row)
+                                           for row in matrix]) + '\n'
+            else:
+                matrix_string = matrix
+            distvar_list.append('{0} {0} {1}\n{2}'.format(dim, i,
+                                                          matrix_string))
             genome_map_entry = ' '.join((str(labels.index(lab) + 1)
                                         if lab in labels else '-1')
                                         for lab in all_labels)

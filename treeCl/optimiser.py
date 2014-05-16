@@ -15,17 +15,23 @@ import numpy as np
 from collection import Collection, Scorer
 from clustering import Partition
 from software_interfaces.phyml import Phyml
-from constants import EPS, NEGINF, TMPDIR
-
+from constants import EPS, NEGINF, TMPDIR, ANALYSES
+from errors import optioncheck
 
 class Optimiser(object):
 
     def __init__(self, nclusters, collection, tmpdir=TMPDIR,
                  analysis='nj', initial_assignment=None, scorer=None):
+        optioncheck(analysis, ANALYSES + ['tc', 'TreeCollection'])
+        if self.analysis == 'tc':
+            self.analysis = 'TreeCollection'
+        else:
+            self.analysis = analysis
+
         self.Collection = collection
 
         if not self.Collection.records[0].tree:
-            print('Calculating NJ trees for collection...')
+            print('Calculating {} trees for collection...'.format(analysis))
             self.Collection.calc_NJ_trees()
 
         self.datatype = collection.datatype
@@ -315,32 +321,35 @@ class Optimiser(object):
         if extra_in_record:
             for lab in extra_in_record:
                 i = tmp_record.headers.index(lab)
-                tmp_record.headers = tmp_record.headers[:i] + tmp_record.headers[i+1:]
-                tmp_record.sequences = tmp_record.sequences[:i] + tmp_record.sequences[i+1:]
+                tmp_record.headers   = (tmp_record.headers[:i] +
+                                        tmp_record.headers[i+1:])
+                tmp_record.sequences = (tmp_record.sequences[:i] +
+                                        tmp_record.sequences[i+1:])
             tmp_record._update()
 
-        alignment_file = tmp_record.write_phylip('{0}/tmp_alignment.phy'.format(
-            self.tmpdir), interleaved=True)
-        newick_file = tree.write_to_file('{0}/tmp_tree.nwk'.format(self.tmpdir))
-        p = Phyml(tmp_record, self.tmpdir)
-        p.add_tempfile(alignment_file)
-        p.add_tempfile(newick_file)
-        p.add_flag('-i', alignment_file)
-        p.add_flag('-u', newick_file)
-        p.add_flag('-b', '0')    # no bootstraps
-        if tmp_record.datatype == 'dna':
-            if model is None:
-                model = 'GTR'
-            p.add_flag('-m', model)
-            p.add_flag('-d', 'nt')
-        else:
-            if model is None:
-                model = 'WAG'
-            p.add_flag('-m', model)  # evolutionary model
-            p.add_flag('-d', 'aa')   # datatype
+        return tmp_alignment.likelihood(tree, self.tmpdir, fit_rates=True)
+        # alignment_file = tmp_record.write_phylip('{0}/tmp_alignment.phy'.format(
+        #     self.tmpdir), interleaved=True)
+        # newick_file = tree.write_to_file('{0}/tmp_tree.nwk'.format(self.tmpdir))
+        # p = Phyml(tmp_record, self.tmpdir)
+        # p.add_tempfile(alignment_file)
+        # p.add_tempfile(newick_file)
+        # p.add_flag('-i', alignment_file)
+        # p.add_flag('-u', newick_file)
+        # p.add_flag('-b', '0')    # no bootstraps
+        # if tmp_record.datatype == 'dna':
+        #     if model is None:
+        #         model = 'GTR'
+        #     p.add_flag('-m', model)
+        #     p.add_flag('-d', 'nt')
+        # else:
+        #     if model is None:
+        #         model = 'WAG'
+        #     p.add_flag('-m', model)  # evolutionary model
+        #     p.add_flag('-d', 'aa')   # datatype
 
-        p.add_flag('-o', 'n')    # no optimisation
-        return p.run().score
+        # p.add_flag('-o', 'n')    # no optimisation
+        # return p.run().score
 
     def var(self, members):
         score = self.scorer.add(tuple(members)).score

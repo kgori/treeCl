@@ -20,6 +20,7 @@ from software_interfaces.DVscript import runDV
 from software_interfaces.phyml import runPhyml, runLSFPhyml
 from software_interfaces.treecollection import runTC
 from utils import flatten_list
+from utils.lazyprop import lazyprop
 from errors import  OptionError, optioncheck, directorymake,\
     directorycheck
 from utils import fileIO
@@ -98,9 +99,13 @@ class Collection(object):
 
 
     def __len__(self):
-        if getattr(self, 'records'):
+        if hasattr(self, 'records'):
             return len(self.records)
         return 0
+
+    def __getitem__(self, i):
+        if hasattr(self, 'records'):
+            return self.records[i]
 
     @property
     def records(self):
@@ -171,7 +176,7 @@ class Collection(object):
         """ Calculates within-alignment pairwise distances for every
         alignment. Uses Darwin. """
         for rec in self.records:
-            runDV(rec, tmpdir=self.tmpdir, verbosity=verbosity)
+            runDV(rec, verbosity=verbosity)
 
     def calc_TC_trees(self, verbosity=0):
         """ Calculates distances trees using TreeCollection """
@@ -251,6 +256,52 @@ class Collection(object):
         return self.__class__(new_records)
 
 
+class Concatenation(object):
+    """docstring for Concatenation"""
+    def __init__(self, collection, indices):
+        super(Concatenation, self).__init__()
+        if any((x > len(collection)) for x in indices):
+            raise ValueError('Index out of bounds in {}'.format(indices))
+        if any((x < 0) for x in indices) < 0:
+            raise ValueError('Index out of bounds in {}'.format(indices))
+        if any((not isinstance(x, int)) for x in indices):
+            raise ValueError('Integers only in indices, please: {}'
+                             .format(indices))
+        self.collection = collection
+        self.indices = sorted(indices)
+
+
+    @lazyprop
+    def distances(self):
+        return list(itertools.chain(*[self.collection.records[i].dv
+                                      for i in self.indices]))
+
+    @lazyprop
+    def sequence_record(self):
+        seq0 = self.collection.records[self.indices[0]]
+        for i in self.indices[1:]:
+            seq0 += self.collection.records[i]
+        seq0.name = '-'.join(str(x) for x in self.indices)
+        return seq0
+
+    @lazyprop
+    def names(self):
+        return [self.collection.records[i].name for i in self.indices]
+
+    @lazyprop
+    def lengths(self):
+        return [self.collection.records[i].seqlength for i in self.indices]
+
+    @lazyprop
+    def headers(self):
+        return [self.collection.records[i].headers for i in self.indices]
+
+    @lazyprop
+    def coverage(self):
+        total = float(self.collection.num_species())
+        return [len(self.collection.records[i]) / total for i in self.indices]
+
+
 class Scorer(object):
 
     """ Takes an index list, generates a concatenated SequenceRecord, calculates
@@ -281,7 +332,7 @@ class Scorer(object):
         optioncheck(self.datatype, ['protein', 'dna'])
         self.tmpdir = tmpdir or collection.tmpdir
         directorymake(self.tmpdir)
-        self.concats = {}
+        self.cache = {}
         self.history = []
         if populate_cache:
             self.populate_cache()
@@ -294,12 +345,12 @@ class Scorer(object):
         """ Calculates concatenated trees for a list of Partitions """
         index_tuples = list(itertools.chain(*[partition.get_membership()
                                               for partition in partition_list]))
-        missing = sorted(set(index_tuples).difference(self.concats.keys()))
+        missing = sorted(set(index_tuples).difference(self.cache.keys()))
         self._add_index_tuple_list(missing)
 
     def _add_index_tuple_list(self, index_tuple_list):
         if self.lsf and not self.analysis == 'TreeCollection':
-            supermatrices = [self.concatenate(index_tuple)
+            supermatrices = [self.concatenate(index_tuple).sequence_record
                              for index_tuple in index_tuple_list]
             trees = runLSFPhyml(supermatrices,
                                 self.tmpdir,
@@ -309,7 +360,7 @@ class Scorer(object):
             for tree in trees:
                 tree = TrClTree.cast(tree)
             for index_tuple, tree in zip(index_tuple_list, trees):
-                self.concats[index_tuple] = tree
+                self.cache[index_tuple] = tree
         else:
             for index_tuple in index_tuple_list:
                 self.add(index_tuple)
@@ -318,22 +369,20 @@ class Scorer(object):
         """ Takes a tuple of indices. Concatenates the records in the record
         list at these indices, and builds a tree. Returns the tree """
 
-        if index_tuple in self.concats:
-            return self.concats[index_tuple]
+        if index_tuple in self.cache:
+            return self.cache[index_tuple]
 
         concat = self.concatenate(index_tuple)
 
         if self.analysis == 'TreeCollection':
             guidetrees = [self.records[n].tree for n in
                           index_tuple][:self.max_guidetrees]
-            tree = TrClTree.cast(runTC(concat,
-                                       self.tmpdir,
-                                       guidetrees,
-                                       verbosity=self.verbosity,
-                                       taxon_set=self.collection.taxon_set))
-        else:
+            tree = concat.sequence_record.tree_collection(
+                                    taxon_set=self.collection.taxon_set,
+                                    guide_tree=guidetrees[0])
 
-            tree = TrClTree.cast(runPhyml(concat,
+        else:
+            tree = TrClTree.cast(runPhyml(concat.sequence_record,
                                           self.tmpdir,
                                           analysis=self.analysis,
                                           verbosity=self.verbosity,
@@ -341,22 +390,13 @@ class Scorer(object):
             if self.verbosity == 1:
                 print()
 
-        # concat local variable dies here and goes to garbage collect
-
-        self.concats[index_tuple] = tree
+        self.cache[index_tuple] = tree
         return tree
 
     def concatenate(self, index_tuple):
-        """ NB: had a version of this which used a reduce construct to
-        concatenate the alignments - reduce(lambda x,y: x+y, records_list) - but
-        this led to problems of the original object being modified. Deepcopying
-        the first record, ensuring a new memory address for the concatenation,
-        seems more robust. """
-
-        member_records = self.members(index_tuple)
-        concat = concatenate(member_records)
-        concat.name = '-'.join(str(x) for x in index_tuple)
-        return concat
+        """ Returns a Concatenation object that stitches together
+        the alignments picked out by the index tuple """
+        return Concatenation(self.collection, index_tuple)
 
     def update_history(self, score, index_tuple):
         """ Used for logging the optimiser """
@@ -395,7 +435,7 @@ class Scorer(object):
                 analysis = rec.tree.program
             if analysis == self.analysis:
                 tree = rec.tree
-                self.concats[key]=tree
+                self.cache[key]=tree
             else:
                 to_calc.append(key)
         self._add_index_tuple_list(to_calc)
@@ -439,7 +479,7 @@ class Scorer(object):
                 return
 
         member_records = self.members(index_tuple)
-        concat = self.concatenate(index_tuple)
+        concat = self.concatenate(index_tuple).sequence_record
         (lengths, names) = zip(*[(rec.seqlength, rec.name) for rec in
                                member_records])
         full_length = sum(lengths)
@@ -494,7 +534,7 @@ class Scorer(object):
 
     def dump_cache(self, filename):
         with open(filename, 'w') as outfile:
-            for k, v in self.concats.items():
+            for k, v in self.cache.items():
                 outfile.write('{}\t{}\n'.format(k, str(v)))
 
     def load_cache(self, filename):
@@ -504,5 +544,5 @@ class Scorer(object):
                 k, s = line.rstrip().split('\t')
                 t = TrClTree.gen_from_text(s, self.collection.taxon_set)
                 d[k] = t
-        self.concats = d
+        self.cache = d
 

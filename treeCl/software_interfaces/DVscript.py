@@ -2,9 +2,19 @@ from __future__ import print_function
 
 # standard library
 from copy import copy
+import re
+from subprocess import Popen, PIPE, STDOUT
+try:
+    from subprocess import DEVNULL
+except ImportError:
+    import os
+    DEVNULL = open(os.devnull, 'wb')
+
+# third party
+import numpy as np
 
 # treeCl
-from darwin import Darwin
+from external import ExternalSoftware
 from ..errors import filecheck, FileError
 from ..utils import fileIO
 
@@ -20,14 +30,17 @@ def guess_seqtype(rec, threshold=0.8):
     nuc_freqs /= float(len(all_seqs))
     return 'dna' if nuc_freqs > threshold else 'protein'
 
-class DV(Darwin):
+class DV(ExternalSoftware):
 
-    def __init__(self, record, tmpdir, verbosity=0):
-        super(DV, self).__init__(tmpdir, verbosity)
+    default_binary = 'darwin'
+
+    def __init__(self, record, verbosity=0):
+        super(DV, self).__init__(tmpdir='')
         self.record = record
         if not self.record.datatype:
             self.record.datatype = guess_seqtype(self.record)
-        self.recfile = ('{0}/rec.fas'.format(tmpdir))
+        self.fasta = "[ ['{}'], ['{}'] ]".format('\',\''.join(record.sequences),
+                                                 '\',\''.join(record.headers))
         self.cmd = '''# Darwin Script to make TreeCollection work
 # Need to create an MAlignment object from sequence alignment file
 # Then call RobustEstimateDistVarM on the MAlignment object,
@@ -203,12 +216,12 @@ end:
 
 ####################################################################################################
 
-fil := ReadFastaWithNames('%s');
-print(fil);
+fil := %s;
+#print(fil);
 alignedSeqs := CreateArray(1..length(fil[1])):
 labs := TrimLabels(fil[2]):
 ntaxa := length(labs):
-print(labs);
+#print(labs);
 unalignedSeqs := CreateArray(1..length(fil[1])):
 for i to length(fil[1]) do
     alignedSeqs[i] := uppercase(ReplaceString('-','_',fil[1][i])):
@@ -218,15 +231,15 @@ MSA := MAlignment(unalignedSeqs,alignedSeqs,labs):
 dvm := RobustEstimateDistVarM(MSA,%s):
 tri := Tri(dvm[1],dvm[2]):
 # PRINT DistVar.txt ###########################################################
-print ('DistVar.txt');
+#print ('DistVar.txt');
 dv := ConcatStrings( tri[1], ' ');
 for i from 2 to length(tri) do
     line := ConcatStrings( tri[i], ' ');
     dv := ConcatStrings( [ dv, line ], '\n');
 od;
-WriteData(dv, outf);
+WriteData(dv, terminal);
 quit;
-''' % (self.recfile, ('AA' if self.record.datatype == 'protein' else 'DNA'))
+''' % (self.fasta, ('AA' if self.record.datatype == 'protein' else 'DNA'))
 
     @property
     def record(self):
@@ -238,41 +251,23 @@ quit;
         newrec.change_case('upper')
         self._record = newrec
 
-    def clean(self):
-        for f in (self.comfile, self.outfile, self.recfile):
-            try:
-                fileIO.delete(f)
-            except FileError:
-                continue
+    def execute(self):
+        p = Popen(self.binary, stdout=PIPE, stdin=PIPE, stderr=DEVNULL)
+        return p.communicate(input=self.cmd)[0]
+
+    def parse(self, output):
+        lines = output.rstrip().split('\n')
+        end = lines.index('> WriteData(dv, terminal);')
+        lines = lines[end+1:]
+        return np.array([line.split() for line in lines], dtype=float)
 
     def run(self):
-        self.write()
-        (stdout, stderr) = self.execute(self.verbosity)
-        if self.verbosity > 0:
-            print(stdout, stderr)
-        result = self.read()
-        self.clean()
-        return result
+        s = self.execute()
+        return self.parse(s)
 
-    def write(self):
-        if self.verbosity > 0:
-            print('Running DV script on {0}'.format(self.record.name))
-        if self.verbosity > 1:
-            print('Writing darwin command file to {0}'.format(self.comfile))
-        command_writer = fileIO.fwriter(self.comfile)
-        command_writer.write(self.cmd)
-        command_writer.close()
-        if self.verbosity > 1:
-            print('Writing fasta file to {0}'.format(self.recfile))
-        self.record.write_fasta(self.recfile)
-        filecheck(self.comfile)
-        filecheck(self.recfile)
-        if self.verbosity > 1:
-            print('  (Tests pass.)')
-
-def runDV(record, tmpdir, verbosity=0):
-    dw = DV(record, tmpdir, verbosity)
-    dv_string = dw.run()
+def runDV(record, verbosity=0):
+    dw = DV(record, verbosity)
+    dv_matrix = dw.run()
     labels = ' '.join(record.headers)
-    record.dv.append((dv_string, labels))
-    return (dv_string, labels)
+    record.dv.append((dv_matrix, labels))
+    return (dv_matrix, labels)

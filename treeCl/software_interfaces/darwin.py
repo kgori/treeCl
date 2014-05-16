@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 from __future__ import print_function
 
+# standard library
+from subprocess import Popen, PIPE, STDOUT
+
 # third party
 import numpy as np
 
@@ -32,13 +35,18 @@ class Darwin(ExternalSoftware):
         writer.close()
 
     def execute(self, verbosity):
+        try:
+            from subprocess import DEVNULL # py3k
+        except ImportError:
+            import os
+            DEVNULL = open(os.devnull, 'wb')
         comfile = filecheck('{0}/darcom.drw'.format(self.tmpdir))
-        cmd = ('echo '
-               '"outf := \'{0}\'; ReadProgram(\'{1}\');" '
-               '| darwin'.format(self.outfile, comfile))
+        p = Popen(self.binary, stdout=PIPE, stdin=PIPE, stderr=DEVNULL)
+        cmd = "outf := \'{0}\'; ReadProgram(\'{1}\');".format(self.outfile,
+                                                              comfile)
         if verbosity > 0:
             print(cmd)
-        return fileIO.subprocess(cmd)
+        return p.communicate(input=cmd)[0]
 
     def read(self):
         filecheck(self.outfile)
