@@ -16,6 +16,7 @@ from ..errors import directorycheck
 from ..software_interfaces.DVscript import runDV
 from ..software_interfaces.phyml import Phyml, runPhyml
 from ..software_interfaces.treecollection import TreeCollection
+from ..utils.lazyprop import lazyprop
 
 def sample_wr(population, k):
     _int = int
@@ -118,6 +119,11 @@ class TrClSeq(Seq):
         bootstrap_sequences = self._pivot(bootstrap_columns)
         return self.__class__(headers=self.headers, sequences=bootstrap_sequences,
                         datatype=self.datatype)
+
+    @lazyprop
+    def distinct_sites(self):
+        nsites = self._pivot(self.sequences)
+        return len(set(nsites))
 
     def dv_matrix(self, verbosity=0):
         """ Uses darwin (via treeCl.externals.DVWrapper) to calculate pairwise

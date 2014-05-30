@@ -68,7 +68,7 @@ class Silhouette(object):
 def add_silhouettes_to_dataframe(path_to_distances, path_to_table, **kwargs):
     table = pd.read_csv(path_to_table, **kwargs)
     dm = np.loadtxt(path_to_distances)
-    
+
 
 s = Silhouette(dm, p)
 s.run()

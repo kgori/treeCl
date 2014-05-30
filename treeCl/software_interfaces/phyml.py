@@ -22,12 +22,14 @@ ANALYSES = ['tlr', 'lr', 'l', 'r', 'ml', 'full', 'nj', 'bionj', 'bionj+', 'lk']
 
 
 class LSFPhyml(ExternalSoftware):
+    """ Wraps Phyml objects and runs them on LSF """
 
     default_binary = 'phyml'
     score_regex = re.compile('(?<=Log-likelihood: ).+')
     local_dir = fileIO.path_to(__file__)
 
     def __init__(self, records, tmpdir, supplied_binary=''):
+        """ Parent class init method sets temp dir and binary """
         super(LSFPhyml, self).__init__(tmpdir, supplied_binary)
         self.records = records
         self.temp_dirs = self.setup_temp_dirs()
@@ -58,26 +60,90 @@ class LSFPhyml(ExternalSoftware):
         return [phyml.run(analysis, dry_run=True)
                 for phyml in self.phyml_objects]
 
-    def setup_lsf_launchers(self, analysis):
-        command_strings = self.get_command_strings(analysis)
-        assert (len(self.phyml_objects) ==
-                len(command_strings) ==
-                len(self.tempdirs))
-        launchers = [LSFJobHandler(phyml_object, command_string, td)
-                     for (phyml_object, command_string, td)
-                     in zip(self.phyml_objects,
-                            command_strings,
-                            self.temp_dirs)]
-        return launchers
+    # def setup_lsf_launchers(self, analysis):
+    #     command_strings = self.get_command_strings(analysis)
+    #     assert (len(self.phyml_objects) ==
+    #             len(command_strings) ==
+    #             len(self.tempdirs))
+    #     launchers = [LSFJobHandler(phyml_object, command_string, td)
+    #                  for (phyml_object, command_string, td)
+    #                  in zip(self.phyml_objects,
+    #                         command_strings,
+    #                         self.temp_dirs)]
+    #     return launchers
 
-    def launch_lsf(self, command_strings, verbose=False, output='/dev/null'):
+    @staticmethod
+    def _memcalc(taxa, categories, sites, states, grace=1.2, affine=256):
+        """ 18, 4, 65235, 20, grace=1.0) = 2284.8621368408203 ~= 2285 """
+        branches = 2 * taxa - 3
+        minmem = 4 * (4 * branches * categories * sites * states +
+                      2 * branches * categories  * states ** 2 +
+                      2 * branches * sites * states +
+                      6 * branches * sites -
+                      2 * categories * sites * states * taxa -
+                      sites * taxa) / 1024.0 ** 2
+        return int(round(minmem * grace, 0)) + affine
+
+    def get_memory_requirements(self):
+        l = []
+        for record in self.records:
+            ntaxa = record.length
+            ncategories = 4
+            nsites = record.distinct_sites
+            nstates = 20 if record.datatype == 'protein' else 4
+            memory = self._memcalc(ntaxa, ncategories, nsites, nstates)
+            l.append(memory)
+        return l
+
+    def launch_lsf(self, command_strings, strategy, minmem=4096, verbose=False,
+                   output_files=False):
+        optioncheck(strategy, ['fixed', 'dynamic'])
+        if strategy == 'fixed':
+            return self._launch_lsf_fixed_memory(command_strings, minmem,
+                                                 verbose, output_files)
+        elif strategy == 'dynamic':
+            return self._launch_lsf_dynamic_memory(command_strings, minmem,
+                                                   verbose, output_files)
+
+    def _launch_lsf_fixed_memory(self, command_strings, minmem=4096,
+                                 verbose=False, output_files=False):
+        """ Uses bsub package to send phyml jobs to lsf """
         curr_dir = os.getcwd()
         os.chdir(self.tmpdir)
-        job_ids = [bsub('treeCl_phyml_task',
-                        o='/dev/null',
-                        e='/dev/null',
-                        verbose=verbose)(cmd).job_id
+
+        job_factory = bsub('treeCl_static_phyml_task',
+                           R='rusage[mem={}]'.format(minmem),
+                           M=minmem,
+                           verbose=verbose)
+
+        # overwrite kwargs pertaining to output log files
+        if not output_files:
+            job_factory.kwargs['o'] = job_factory.kwargs['e'] = '/dev/null'
+
+        job_ids = [job_factory(cmd).job_id
                    for cmd in command_strings]
+        self.job_ids.update(job_ids)
+        bsub.poll(job_ids)
+        os.chdir(curr_dir)
+
+    def _launch_lsf_dynamic_memory(self, command_strings, minmem=256,
+                                   verbose=False, output_files=False):
+        curr_dir = os.getcwd()
+        os.chdir(self.tmpdir)
+
+        memory = self.get_memory_requirements()
+        job_ids = []
+        for i, cmd in enumerate(command_strings):
+            memory_reqd = memory[i]
+            job_launcher = bsub('treeCl_dynamic_phyml_task',
+                                R='rusage[mem={}]'.format(max(memory_reqd, minmem)),
+                                M=max(memory_reqd, minmem),
+                                verbose=verbose)
+            if not output_files:
+                job_launcher.kwargs['o'] = '/dev/null'
+                job_launcher.kwargs['e'] = '/dev/null'
+
+            job_ids.append(job_launcher(cmd).job_id)
         self.job_ids.update(job_ids)
         bsub.poll(job_ids)
         os.chdir(curr_dir)
@@ -96,6 +162,7 @@ class LSFPhyml(ExternalSoftware):
         return self.trees
 
     def clean(self):
+        """ Delete generated files - TODO: check this works properly """
         for phyml in self.phyml_objects:
             phyml.clean()
         for d in self.temp_dirs:
@@ -112,9 +179,12 @@ class LSFPhyml(ExternalSoftware):
                 deleted.add(job_id)
         self.job_ids.discard(deleted)
 
-    def run(self, analysis, verbose=False, **kwargs):
+    def run(self, analysis, strategy, minmem, verbose=False, output_files=False,
+            **kwargs):
+        """ Run the chosen phyml analysis over LSF """
         command_strings = self.get_command_strings(analysis)
-        self.launch_lsf(command_strings, verbose)
+        self.launch_lsf(command_strings, strategy, minmem, verbose,
+                        output_files)
         trees = self.read('phyml+' + analysis, **kwargs)
         if len(trees) == len(self.records):
             self.clean()
@@ -257,9 +327,25 @@ def runPhyml(rec, tmpdir, analysis, verbosity=0, tree=None, **kwargs):
         p.add_flag('-u', tmp_treefile)
     return p.run(analysis, verbosity, **kwargs)
 
-def runLSFPhyml(records, tmpdir, analysis, verbosity, **kwargs):
+def runLSFPhyml(records, tmpdir, analysis, verbosity, strategy,
+                minmem=256, **kwargs):
     optioncheck(analysis, ANALYSES)
+    optioncheck(strategy, ['fixed', 'dynamic'])
     lsfphyml = LSFPhyml(records, tmpdir)
-    trees = lsfphyml.run(analysis, verbose=(True if verbosity > 0 else False),
+    verbose = output_files = (True if verbosity > 0 else False)
+    trees = lsfphyml.run(analysis,
+                         strategy=strategy,
+                         minmem=minmem,
+                         verbose=verbose,
+                         output_files=output_files,
                          **kwargs)
     return trees
+
+def phyml_memcalc(taxa, categories, sites, states):
+    branches = 2 * taxa - 3
+    return 4 * (4 * branches * categories * sites * states +
+                2 * branches * categories  * states ** 2 +
+                2 * branches * sites * states +
+                6 * branches * sites -
+                2 * categories * sites * states * taxa -
+                sites * taxa) / 1024.0 ** 2

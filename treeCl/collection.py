@@ -191,7 +191,8 @@ class Collection(object):
             rec.tree_collection(taxon_set=self.taxon_set,
                                 quiet=(True if verbosity==0 else False))
 
-    def calc_ML_trees(self, lsf=False, verbosity=0):
+    def calc_ML_trees(self, lsf=False, strategy='dynamic', minmem=256,
+                      verbosity=0):
         """ Deprecated"""
         print('deprecated: use calc_phyml_trees instead')
         self.analysis = 'ml'
@@ -200,6 +201,8 @@ class Collection(object):
                                 self.tmpdir,
                                 analysis=self.analysis,
                                 verbosity=verbosity,
+                                strategy=strategy,
+                                minmem=minmem,
                                 taxon_set=self.taxon_set)
             for rec, tree in zip(self.records, trees):
                 rec.tree = TrClTree.cast(tree)
@@ -212,7 +215,8 @@ class Collection(object):
                          taxon_set=self.taxon_set)
                 rec.tree = TrClTree.cast(rec.tree)
 
-    def calc_phyml_trees(self, lsf=False, analysis='nj', verbosity=0):
+    def calc_phyml_trees(self, lsf=False, strategy='dynamic', minmem=256,
+                         analysis='nj', verbosity=0):
         """ Calculates trees for each record using phyml """
         optioncheck(analysis, ANALYSES)
         if lsf:
@@ -220,6 +224,8 @@ class Collection(object):
                                 self.tmpdir,
                                 analysis=analysis,
                                 verbosity=verbosity,
+                                strategy=strategy,
+                                minmem=minmem,
                                 taxon_set=self.taxon_set)
             for rec, tree in zip(self.records, trees):
                 rec.tree = TrClTree.cast(tree)
@@ -301,6 +307,32 @@ class Concatenation(object):
         total = float(self.collection.num_species())
         return [len(self.collection.records[i]) / total for i in self.indices]
 
+    @lazyprop
+    def datatypes(self):
+        return [self.collection.records[i].datatype for i in self.indices]
+
+    def qfile(self, dna_model='GTRGAMMA', protein_model='PROTGAMMAWAG',
+              ml_freqs=False):
+        from_ = 1
+        to_ = 0
+        qs = list()
+        if ml_freqs:
+            dna_model += 'X'
+            protein_model += 'X'
+
+        models = dict(dna=dna_model, protein=protein_model)
+        for length, name, datatype in zip(self.lengths, self.names,
+                                          self.datatypes):
+            to_ += length
+            qs.append('{}, {} = {}-{}'.format(models[datatype], name, from_,
+                                              to_))
+            from_ += length
+        return '\n'.join(qs)
+
+    def paml_partitions(self):
+        return 'G {} {}'.format(len(self.lengths),
+                                ' '.join(str(x) for x in self.lengths))
+
 
 class Scorer(object):
 
@@ -320,7 +352,7 @@ class Scorer(object):
         ):
 
         optioncheck(analysis, ANALYSES + ['tc', 'TreeCollection'])
-        if self.analysis == 'tc':
+        if analysis == 'tc':
             self.analysis = 'TreeCollection'
         else:
             self.analysis = analysis
@@ -356,6 +388,8 @@ class Scorer(object):
                                 self.tmpdir,
                                 analysis=self.analysis,
                                 verbosity=self.verbosity,
+                                strategy='dynamic',
+                                minmem=512,
                                 taxon_set=self.collection.taxon_set)
             for tree in trees:
                 tree = TrClTree.cast(tree)
