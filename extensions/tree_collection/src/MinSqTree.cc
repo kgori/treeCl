@@ -3041,7 +3041,7 @@ MinSquareTreeCollection::MinSquareTreeCollection( const vector<DblMatrix> &matri
       }
    }
 
-   // MinLen = 1e-2 // NOW THIS IS ASSIGNED IN THE HEADER - KG
+   MinLen = 1e-6; // Reduced MinLen from 1e-2 - KG
 
    /* allocate working storage */
    /* EdgeC.len for all Edges */
@@ -3124,7 +3124,7 @@ MinSquareTreeCollection::~MinSquareTreeCollection() {
 void MinSquareTreeCollection::compute(bool KeepTopology, int iter, bool quiet) throw (RuntimeException)
 {
    int nswap, i;
-   double d1, d2, d3;
+   double d1, d2;
    IntVector Skip;
    DblMatrix L,M,W;
 
@@ -3144,14 +3144,11 @@ void MinSquareTreeCollection::compute(bool KeepTopology, int iter, bool quiet) t
    if (!quiet) printf("initial distance fit: %.8g\n",d1);
 
    if (KeepTopology) {
-
       IncidencesC();
       d1 = DBL_MAX;
       i = 4;
       while (i-- > 0) {
          FitLabeledEdgesC(1);
-         d3 = DistanceFitCollection();
-         if (!quiet) printf("  on iter %d: distance fit=%.8g\n", 4-i, d3);
       }
       d2 = DistanceFitCollection();
       i = iter;
@@ -3170,6 +3167,7 @@ void MinSquareTreeCollection::compute(bool KeepTopology, int iter, bool quiet) t
 
       d2 = DistanceFitCollection();
       if (!quiet) printf("after fitting edges with FitLabeledEdgesC, fit %.12g\n", d2);
+
       while( i-- > 0) {
          if (ne > 4) {
              nswap = FiveOptimCollection(0,L,Skip,M,W);
@@ -3198,7 +3196,7 @@ void MinSquareTreeCollection::compute(bool KeepTopology, int iter, bool quiet) t
       }
    }
    if (i <= 0)
-      if (!quiet) printf("Warning: stopped after %d iterations without swap, not yet at minimum\n",iter);
+      printf("Warning: stopped after %d iterations without swap, not yet at minimum\n",iter);
 
 
    //d1 = ne<=3 ? d1 : d1/(ne-2)/(ne-3)*2;

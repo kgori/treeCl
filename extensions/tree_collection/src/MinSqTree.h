@@ -78,7 +78,7 @@ class MinSquareTreeCollection
       int NewInternalNode, NewEdgeIndex;
 
       /** Minimum edge length */
-      double MinLen = 1e-6;
+      double MinLen; 
 
       /** number of external nodes */
       int ne;

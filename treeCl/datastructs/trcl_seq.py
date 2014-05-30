@@ -119,15 +119,10 @@ class TrClSeq(Seq):
         return self.__class__(headers=self.headers, sequences=bootstrap_sequences,
                         datatype=self.datatype)
 
-    def dv_matrix(self, tmpdir):
+    def dv_matrix(self, verbosity=0):
         """ Uses darwin (via treeCl.externals.DVWrapper) to calculate pairwise
         distances and variances"""
-        if self.tmpdir is not None:
-            tmpdir = self.tmpdir
-        else:
-            directorycheck(tmpdir)
-
-        runDV(self, tmpdir)
+        runDV(self, verbosity)
 
     def phyml(self, tmpdir, verbosity=0):
         """ Uses phyml (via treeCl.externals.tree_builders.Phyml) to build a
