@@ -2,6 +2,7 @@
 from __future__ import print_function
 
 # standard library
+import numbers
 import os
 import sys
 
@@ -132,4 +133,9 @@ def optioncheck(option, choices):
 def rangecheck(n, lower, upper):
     if n < lower or n > upper:
         raise RangeError(n, lower, upper)
+    return n
+
+def isnumbercheck(n):
+    if not isinstance(n, numbers.Number):
+        raise ValueError('{0} is not a number.')
     return n

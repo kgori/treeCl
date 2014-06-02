@@ -12,6 +12,9 @@ DNA_ACGT_THRESHOLD = 0.75 # proportion of ACGT in sequence to call it as DNA
 POSINF = float('inf')     # positive infinity
 NEGINF = -POSINF          # negative infinity
 VERSION = '1.0.0'
+PHYML_MEMORY_MULTIPLIER = 1.2 # Add %age wiggle room when calculating Phyml
+                              # memory requirements on LSF
+PHYML_MEMORY_SPARE = 256      # Allocate extra Mb of memory on LSF jobs
 logo = """
 ═══════════ ╔═╗┬
 ┌┬┐┬─┐┌─┐┌─┐║  │

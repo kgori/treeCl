@@ -12,8 +12,9 @@ from bsub import bsub
 
 # treeCl
 from external import ExternalSoftware, TreeSoftware, LSFJobHandler
-from ..errors import filecheck, optioncheck
+from ..constants import PHYML_MEMORY_MULTIPLIER, PHYML_MEMORY_SPARE
 from ..datastructs.tree import Tree
+from ..errors import filecheck, optioncheck
 from ..utils import fileIO
 from ..utils.printing import print_and_return
 
@@ -73,7 +74,8 @@ class LSFPhyml(ExternalSoftware):
     #     return launchers
 
     @staticmethod
-    def _memcalc(taxa, categories, sites, states, grace=1.2, affine=256):
+    def _memcalc(taxa, categories, sites, states, grace=PHYML_MEMORY_MULTIPLIER,
+                 affine=PHYML_MEMORY_SPARE):
         """ 18, 4, 65235, 20, grace=1.0) = 2284.8621368408203 ~= 2285 """
         branches = 2 * taxa - 3
         minmem = 4 * (4 * branches * categories * sites * states +
@@ -126,7 +128,8 @@ class LSFPhyml(ExternalSoftware):
         bsub.poll(job_ids)
         os.chdir(curr_dir)
 
-    def _launch_lsf_dynamic_memory(self, command_strings, minmem=256,
+    def _launch_lsf_dynamic_memory(self, command_strings,
+                                   minmem=PHYML_MEMORY_SPARE,
                                    verbose=False, output_files=False):
         curr_dir = os.getcwd()
         os.chdir(self.tmpdir)

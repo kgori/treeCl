@@ -112,13 +112,19 @@ class TrClSeq(Seq):
         self.tree = TrClTree.cast(p.run('lr', verbosity))
         return self.tree
 
-    def bootstrap_sample(self):
+    def bootstrap_sample(self, suffix=''):
         """ Samples with replacement from the columns of the alignment """
         columns = self._pivot(self.sequences)
         bootstrap_columns = sample_wr(columns, len(columns))
         bootstrap_sequences = self._pivot(bootstrap_columns)
-        return self.__class__(headers=self.headers, sequences=bootstrap_sequences,
-                        datatype=self.datatype)
+        if self.name:
+            name = '{}.{}'.format(self.name, suffix)
+        else:
+            name = None
+        return self.__class__(headers=self.headers,
+                              sequences=bootstrap_sequences,
+                              datatype=self.datatype,
+                              name=name)
 
     @lazyprop
     def distinct_sites(self):

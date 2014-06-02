@@ -21,7 +21,7 @@ from software_interfaces.treecollection import runTC
 from utils import flatten_list
 from utils.lazyprop import lazyprop
 from errors import  OptionError, optioncheck, directorymake,\
-    directorycheck
+    directorycheck, isnumbercheck
 from utils import fileIO
 from constants import TMPDIR, SORT_KEY, ANALYSES
 
@@ -214,12 +214,20 @@ class Collection(object):
                          taxon_set=self.taxon_set)
                 rec.tree = TrClTree.cast(rec.tree)
 
-    def calc_phyml_trees(self, lsf=False, strategy='dynamic', minmem=256,
-                         analysis='nj', verbosity=0):
+    def calc_phyml_trees(self, analysis='nj', lsf=False, strategy='dynamic',
+                         minmem=256, bootstraps=None, verbosity=0):
         """ Calculates trees for each record using phyml """
         optioncheck(analysis, ANALYSES)
+        if bootstraps is not None:
+            bootstraps = int(isnumbercheck(bootstraps))
+            records = list(itertools.chain(*[[r.bootstrap_sample(str(i))
+                                              for i in range(bootstraps)]
+                                             for r in self]))
+        else:
+            records = self.records
+
         if lsf:
-            trees = runLSFPhyml(self.records,
+            trees = runLSFPhyml(records,
                                 self.tmpdir,
                                 analysis=analysis,
                                 verbosity=verbosity,
@@ -228,13 +236,17 @@ class Collection(object):
                                 taxon_set=self.taxon_set)
             for rec, tree in zip(self.records, trees):
                 rec.tree = TrClTree.cast(tree)
+
         else:
-            for rec in self.records:
+            for rec in records:
                 runPhyml(rec, self.tmpdir, analysis=analysis,
                          verbosity=verbosity, taxon_set=self.taxon_set)
                 rec.tree = TrClTree.cast(rec.tree)
         if verbosity == 1:
             print()
+
+        if bootstraps is not None:
+            return [r.tree for r in records]
 
     def get_phyml_command_strings(self, analysis, tmpdir, verbosity=0):
         """ Gets command lines required for running phyml on every record """
