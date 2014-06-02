@@ -10,7 +10,6 @@ import timeit
 from dendropy import TaxonSet
 
 # treeCl
-from datastructs.seq import concatenate
 from datastructs.trcl_seq import TrClSeq
 from datastructs.trcl_tree import TrClTree
 from distance_matrix import DistanceMatrix
