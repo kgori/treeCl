@@ -59,3 +59,6 @@ coverage.xml
 # Sphinx documentation
 docs/_build/makefile
 makefile
+
+# IPython Notebooks
+.ipynb_checkpoints/
