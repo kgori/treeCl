@@ -190,32 +190,9 @@ class Collection(object):
             rec.tree_collection(taxon_set=self.taxon_set,
                                 quiet=(True if verbosity==0 else False))
 
-    def calc_ML_trees(self, lsf=False, strategy='dynamic', minmem=256,
-                      verbosity=0):
-        """ Deprecated"""
-        print('deprecated: use calc_phyml_trees instead')
-        self.analysis = 'ml'
-        if lsf:
-            trees = runLSFPhyml(self.records,
-                                self.tmpdir,
-                                analysis=self.analysis,
-                                verbosity=verbosity,
-                                strategy=strategy,
-                                minmem=minmem,
-                                taxon_set=self.taxon_set)
-            for rec, tree in zip(self.records, trees):
-                rec.tree = TrClTree.cast(tree)
-        else:
-            for rec in self.records:
-                runPhyml(rec,
-                         self.tmpdir,
-                         analysis=self.analysis,
-                         verbosity=verbosity,
-                         taxon_set=self.taxon_set)
-                rec.tree = TrClTree.cast(rec.tree)
-
     def calc_phyml_trees(self, analysis='nj', lsf=False, strategy='dynamic',
-                         minmem=256, bootstraps=None, verbosity=0):
+                         minmem=256, bootstraps=None, add_originals=False,
+                         verbosity=0):
         """ Calculates trees for each record using phyml """
         optioncheck(analysis, ANALYSES)
         if bootstraps is not None:
@@ -223,6 +200,8 @@ class Collection(object):
             records = list(itertools.chain(*[[r.bootstrap_sample(str(i))
                                               for i in range(bootstraps)]
                                              for r in self]))
+            if add_originals:
+                records.extend(self.records)
         else:
             records = self.records
 
@@ -234,7 +213,7 @@ class Collection(object):
                                 strategy=strategy,
                                 minmem=minmem,
                                 taxon_set=self.taxon_set)
-            for rec, tree in zip(self.records, trees):
+            for rec, tree in zip(records, trees):
                 rec.tree = TrClTree.cast(tree)
 
         else:

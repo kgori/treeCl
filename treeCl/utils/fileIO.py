@@ -124,7 +124,7 @@ def locate_file(filename, env_var='', directory=''):
     return (os.path.abspath(f) if can_locate(f) else None)
 
 def path_to(filename):
-    return os.path.dirname(filename)
+    return os.path.dirname(os.path.abspath(filename))
 
 def strip_extensions(filename):
     toplevel = os.path.splitext(os.path.basename(filename))
