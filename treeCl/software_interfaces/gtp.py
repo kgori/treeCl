@@ -14,7 +14,7 @@ import numpy as np
 
 # treeCl
 from external import ExternalSoftware
-from ..utils import fileIO, setup_progressbar
+from ..utils import fileIO, symmetrise
 
 
 class LSFGTP(ExternalSoftware):
@@ -38,8 +38,13 @@ class LSFGTP(ExternalSoftware):
     def trees(self, trees):
         self._trees = trees
 
-    def write(self):
-        pass
+    def write(self, trees):
+        with open('{0}/geotrees.nwk'.format(self.tmpdir), 'w') as tmpf:
+            tmpf.write('\n'.join(self.get_safe_newick_string(tree)
+                                     for tree in trees))
+        input_file = '{0}/geotrees.nwk'.format(self.tmpdir)
+        self.input_file = input_file
+        self.add_tempfile(input_file)
 
     def setup_temp_dirs(self):
         temp_dirs = [tempfile.mkdtemp(dir=self.tmpdir) for tree in self.trees]
@@ -49,32 +54,18 @@ class LSFGTP(ExternalSoftware):
         gtp_objects = [GTP(td) for td in self.temp_dirs]
         return gtp_objects
 
-    def get_command_strings(self, write=True):
-        cmds = []
-        size = len(self.trees)
-        pbar = setup_progressbar('Generating command strings:', size)
-        pbar.start()
-        for i in range(size):
-            cmds.append(self.gtp_objects[i].run(self.trees, i, dry_run=True))
-            if write:
-                self.gtp_objects[i].write(self.trees, i)
-            pbar.update(i)
-        pbar.finish()
-        return cmds
-        #return [self.gtp_objects[i].run(self.trees, i, dry_run=True)
-        #        for i in range(len(self.trees))]
+    def get_command_strings(self):
+        return [self.gtp_objects[i].run(self.trees, i, dry_run=True,
+                                        input_file=self.input_file)
+                for i in range(len(self.trees))]
 
-    def launch_lsf(self, command_strings, verbose=False):
+    def launch_lsf(self, command_strings, verbose=False, output='/dev/null'):
         curr_dir = os.getcwd()
         os.chdir(self.tmpdir)
-        job_factory = bsub('treeCl_gtp_task',
-                           verbose=verbose)
-
-        # overwrite kwargs pertaining to output log files
-        if not verbose:
-            job_factory.kwargs['o'] = job_factory.kwargs['e'] = '/dev/null'
-
-        job_ids = [job_factory(cmd).job_id
+        job_ids = [bsub('treeCl_gtp_task',
+                        o='/dev/null',
+                        e='/dev/null',
+                        verbose=verbose)(cmd).job_id
                    for cmd in command_strings]
         self.job_ids.update(job_ids)
         bsub.poll(job_ids)
@@ -83,7 +74,8 @@ class LSFGTP(ExternalSoftware):
     def read(self):
         rows = [gtp.read(len(self.trees), i)
                 for i, gtp in enumerate(self.gtp_objects)]
-        return np.vstack(rows)
+        matrix = np.vstack(rows)
+        return symmetrise(matrix)
 
     def clean(self):
         for gtp in self.gtp_objects:
@@ -163,16 +155,17 @@ class GTP(ExternalSoftware):
         bincall = 'java -jar {0}'.format(self.binary)
         flags = []
         if row is not None:
-            flags.append('-r')
+            flags.append('-r {}'.format(row))
         if not rooted:
             flags.append('-u')
         flags.append('-o')
         flags = ' '.join(flags)
 
         outf = '{0}/output.txt'.format(self.tmpdir)
-        inf = '{0}/geotrees.nwk > /dev/null'.format(self.tmpdir)
+        inf = self.input_file
+        silencer = ' > /dev/null'
 
-        cmd = ' '.join((bincall, flags, outf, inf))
+        cmd = ' '.join((bincall, flags, outf, inf, silencer))
         if dry_run:
             return cmd
         fileIO.syscall(cmd)
@@ -180,9 +173,8 @@ class GTP(ExternalSoftware):
     def pairwise(self, tree1, tree2):
         return self.run((tree1, tree2))[0, 1]
 
-    def read(self, size, row, tries=5, translation=None):
+    def read(self, size, row, tries=5):
         row = self.check_row_value(row, size)
-        translation = translation or self.translation
         if row is not None:
             matrix = np.zeros((1,size))
         else:
@@ -193,14 +185,10 @@ class GTP(ExternalSoftware):
                 for line in outf:
                     line = line.rstrip()
                     if line:
-                        # print("line = ", line)
                         (i, j, value) = line.split()
-                        i = int(i)
-                        j = translation[int(j)]
-                        # print("i, j = ", i, j)
+                        i = int(i) if row is None else 0
+                        j = int(j)
                         value = float(value)
-                        # print("value = ", value)
-                        # print("matrix dims = ", matrix.shape)
                         matrix[i, j] = value
                         if row is None:
                             matrix[j, i] = value
@@ -209,25 +197,27 @@ class GTP(ExternalSoftware):
         except IOError, e:
             if tries > 0:
                 time.sleep(1)
-                return self.read(size, row, tries-1, translation)
+                return self.read(size, row, tries-1)
             print('There was an IOError: {0}'.format(e))
             print('Geodesic distances couldn\'t be calculated')
             self.clean()
             raise
 
-    def run(self, trees, row=None, dry_run=False):
+    def run(self, trees, row=None, dry_run=False, input_file=None):
         row = self.check_row_value(row, len(trees))
-        translation = self.get_translation(trees, row)
         rooted = self.allrooted(trees)
 
         if dry_run:
             return self.call(rooted, row, True)
         else:
-            self.write(trees, row)
+            if input_file is not None and os.path.exists(input_file):
+                self.input_file = input_file
+            else:
+                self.write(trees)
             self.call(rooted, row, False)
 
         try:
-            matrix = self.read(len(trees), row, translation=translation)
+            matrix = self.read(len(trees), row)
             self.clean()
             return matrix
         except IOError:
@@ -235,43 +225,13 @@ class GTP(ExternalSoftware):
             matrix = None
             raise
 
-    def get_translation(self, trees, row):
-        row = self.check_row_value(row, len(trees))
-        if row is None:
-            translation = zip(range(len(trees)), range(len(trees)))
-        else:
-            translation = []
-            for i, tree in enumerate(trees):
-                if i < row:
-                    translation.append((i + 1, i))
-                elif i == row:
-                    translation.append((0, i))
-                else:
-                    translation.append((i, i))
-        translation = dict(translation)
-        self.translation = translation
-        return translation # key:pos_new_list => value:pos_orig_list
-
-    def write(self, trees, row):
-        row = self.check_row_value(row, len(trees))
+    def write(self, trees):
         with open('{0}/geotrees.nwk'.format(self.tmpdir), 'w') as tmpf:
-            if row is None:
-                tmpf.write('\n'.join(self.get_safe_newick_string(tree)
+            tmpf.write('\n'.join(self.get_safe_newick_string(tree)
                                      for tree in trees))
-            else:
-                tmpf.write(self.get_safe_newick_string(trees[row]) + '\n')
-                for i, tree in enumerate(trees):
-                    if i < row:
-                        tmpf.write(self.get_safe_newick_string(tree) + '\n')
-                    elif i == row:
-                        continue
-                    else:
-                        tmpf.write(self.get_safe_newick_string(tree) + '\n')
-
-        self.add_tempfile('{0}/geotrees.nwk'.format(self.tmpdir))
-        if not hasattr(self, 'translation'):
-            self.translation = self.get_translation(trees, row)
-        return self.translation
+        input_file = '{0}/geotrees.nwk'.format(self.tmpdir)
+        self.input_file = input_file
+        self.add_tempfile(input_file)
 
 
 def breakpoints(n, m=100):
