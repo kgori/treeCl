@@ -14,7 +14,7 @@ import numpy as np
 
 # treeCl
 from external import ExternalSoftware
-from ..utils import fileIO
+from ..utils import fileIO, setup_progressbar
 
 
 class LSFGTP(ExternalSoftware):
@@ -49,17 +49,32 @@ class LSFGTP(ExternalSoftware):
         gtp_objects = [GTP(td) for td in self.temp_dirs]
         return gtp_objects
 
-    def get_command_strings(self):
-        return [self.gtp_objects[i].run(self.trees, i, dry_run=True)
-                for i in range(len(self.trees))]
+    def get_command_strings(self, write=True):
+        cmds = []
+        size = len(self.trees)
+        pbar = setup_progressbar('Generating command strings:', size)
+        pbar.start()
+        for i in range(size):
+            cmds.append(self.gtp_objects[i].run(self.trees, i, dry_run=True))
+            if write:
+                self.gtp_objects[i].write(self.trees, i)
+            pbar.update(i)
+        pbar.finish()
+        return cmds
+        #return [self.gtp_objects[i].run(self.trees, i, dry_run=True)
+        #        for i in range(len(self.trees))]
 
-    def launch_lsf(self, command_strings, verbose=False, output='/dev/null'):
+    def launch_lsf(self, command_strings, verbose=False):
         curr_dir = os.getcwd()
         os.chdir(self.tmpdir)
-        job_ids = [bsub('treeCl_gtp_task',
-                        o='/dev/null',
-                        e='/dev/null',
-                        verbose=verbose)(cmd).job_id
+        job_factory = bsub('treeCl_gtp_task',
+                           verbose=verbose)
+
+        # overwrite kwargs pertaining to output log files
+        if not verbose:
+            job_factory.kwargs['o'] = job_factory.kwargs['e'] = '/dev/null'
+
+        job_ids = [job_factory(cmd).job_id
                    for cmd in command_strings]
         self.job_ids.update(job_ids)
         bsub.poll(job_ids)
@@ -202,11 +217,15 @@ class GTP(ExternalSoftware):
 
     def run(self, trees, row=None, dry_run=False):
         row = self.check_row_value(row, len(trees))
-        translation = self.write(trees, row)
+        translation = self.get_translation(trees, row)
         rooted = self.allrooted(trees)
-        cmd = self.call(rooted, row, dry_run)
+
         if dry_run:
-            return cmd
+            return self.call(rooted, row, True)
+        else:
+            self.write(trees, row)
+            self.call(rooted, row, False)
+
         try:
             matrix = self.read(len(trees), row, translation=translation)
             self.clean()
@@ -216,30 +235,43 @@ class GTP(ExternalSoftware):
             matrix = None
             raise
 
+    def get_translation(self, trees, row):
+        row = self.check_row_value(row, len(trees))
+        if row is None:
+            translation = zip(range(len(trees)), range(len(trees)))
+        else:
+            translation = []
+            for i, tree in enumerate(trees):
+                if i < row:
+                    translation.append((i + 1, i))
+                elif i == row:
+                    translation.append((0, i))
+                else:
+                    translation.append((i, i))
+        translation = dict(translation)
+        self.translation = translation
+        return translation # key:pos_new_list => value:pos_orig_list
+
     def write(self, trees, row):
         row = self.check_row_value(row, len(trees))
         with open('{0}/geotrees.nwk'.format(self.tmpdir), 'w') as tmpf:
             if row is None:
                 tmpf.write('\n'.join(self.get_safe_newick_string(tree)
                                      for tree in trees))
-                translation = zip(range(len(trees)), range(len(trees)))
-
             else:
                 tmpf.write(self.get_safe_newick_string(trees[row]) + '\n')
-                translation = []
                 for i, tree in enumerate(trees):
                     if i < row:
                         tmpf.write(self.get_safe_newick_string(tree) + '\n')
-                        translation.append((i + 1, i))
                     elif i == row:
-                        translation.append((0, i))
+                        continue
                     else:
                         tmpf.write(self.get_safe_newick_string(tree) + '\n')
-                        translation.append((i, i))
 
         self.add_tempfile('{0}/geotrees.nwk'.format(self.tmpdir))
-        self.translation = dict(translation)
-        return self.translation # key:pos_new_list => value:pos_orig_list
+        if not hasattr(self, 'translation'):
+            self.translation = self.get_translation(trees, row)
+        return self.translation
 
 
 def breakpoints(n, m=100):
