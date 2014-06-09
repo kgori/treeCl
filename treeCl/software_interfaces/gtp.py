@@ -22,6 +22,8 @@ class LSFGTP(ExternalSoftware):
     default_binary = 'gtp.jar'
     default_env = 'GTP_PATH'
     local_dir = fileIO.path_to(__file__)
+    get_safe_newick_string = lambda self, tree: tree.as_string('newick',
+        internal_labels=False, suppress_rooting=True).rstrip()
 
     def __init__(self, trees, tmpdir):
         super(LSFGTP, self).__init__(tmpdir)
@@ -38,10 +40,10 @@ class LSFGTP(ExternalSoftware):
     def trees(self, trees):
         self._trees = trees
 
-    def write(self, trees):
+    def write(self):
         with open('{0}/geotrees.nwk'.format(self.tmpdir), 'w') as tmpf:
             tmpf.write('\n'.join(self.get_safe_newick_string(tree)
-                                     for tree in trees))
+                                     for tree in self.trees))
         input_file = '{0}/geotrees.nwk'.format(self.tmpdir)
         self.input_file = input_file
         self.add_tempfile(input_file)
@@ -94,6 +96,7 @@ class LSFGTP(ExternalSoftware):
         self.job_ids.discard(deleted)
 
     def run(self, verbose=False):
+        self.write()
         command_strings = self.get_command_strings()
         self.launch_lsf(command_strings, verbose)
         time.sleep(1)
@@ -207,13 +210,16 @@ class GTP(ExternalSoftware):
         row = self.check_row_value(row, len(trees))
         rooted = self.allrooted(trees)
 
+        if input_file is not None and os.path.exists(input_file):
+                self.input_file = input_file
+
+        else:
+            self.write(trees)
+
         if dry_run:
             return self.call(rooted, row, True)
+
         else:
-            if input_file is not None and os.path.exists(input_file):
-                self.input_file = input_file
-            else:
-                self.write(trees)
             self.call(rooted, row, False)
 
         try:

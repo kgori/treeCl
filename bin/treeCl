@@ -177,7 +177,7 @@ def load_trees(directory, collection, tmpdir):
 
 def load_distances(args_string):
     d = {}
-    for key, file_ in zip(*[iter(args_string.split())]*2):
+    for key, file_ in zip(*[iter(args_string)]*2):
         filecheck(file_)
         d[key] = load_distance_matrix(file_)
     return d
@@ -530,29 +530,29 @@ if __name__ == "__main__":
         for method in args.c:
             prefix = '{}_{}'.format(method, metric)
             dir_ = directorymake(os.path.join(args.o, 'memberships'))
-            write_memberships(os.path.join(dir_,
-                                           ('{}_memberships.txt'
-                                            .format(prefix))),
-                              method,
-                              metric,
-                              partitions,
-                              scorer)
+            write_memberships(
+                os.path.join(dir_, ('{}_memberships.txt'.format(prefix))),
+                method,
+                metric,
+                partitions,
+                scorer
+            )
             dir_ = directorymake(os.path.join(args.o, 'cluster_trees'))
-            write_cluster_trees(os.path.join(dir_,
-                                             ('{}_cluster_trees.txt'
-                                              .format(prefix))),
-                                method,
-                                metric,
-                                partitions,
-                                scorer)
+            write_cluster_trees(
+                os.path.join(dir_, ('{}_cluster_trees.txt'.format(prefix))),
+                method,
+                metric,
+                partitions,
+                scorer
+            )
             dir_ = directorymake(os.path.join(args.o, 'tree_details'))
-            write_tree_details(os.path.join(dir_,
-                                            ('{}_tree_details.txt'
-                                             .format(prefix))),
-                               method,
-                               metric,
-                               partitions,
-                               scorer)
+            write_tree_details(
+                os.path.join(dir_, ('{}_tree_details.txt'.format(prefix))),
+                method,
+                metric,
+                partitions,
+                scorer
+            )
 
 
     #================================================================#
