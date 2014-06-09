@@ -175,9 +175,12 @@ def load_trees(directory, collection, tmpdir):
             raise Exception('Can\'t match alignment {} to tree {}'
                             ' in {}'.format(rec, treefile, directory))
 
-def load_distances(args_string):
+def load_distances(arg):
+    if len(arg) == 1:
+        arg = arg[0].split()
+
     d = {}
-    for key, file_ in zip(*[iter(args_string)]*2):
+    for key, file_ in zip(*[iter(arg)]*2):
         filecheck(file_)
         d[key] = load_distance_matrix(file_)
     return d

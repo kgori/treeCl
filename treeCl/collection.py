@@ -23,7 +23,7 @@ from utils.lazyprop import lazyprop
 from errors import  OptionError, optioncheck, directorymake,\
     directorycheck, isnumbercheck
 from utils import fileIO
-from constants import TMPDIR, SORT_KEY, ANALYSES
+from constants import TMPDIR, SORT_KEY, ANALYSES, PHYML_MEMORY_MIN
 
 
 class NoRecordsError(Exception):
@@ -192,7 +192,7 @@ class Collection(object):
 
     def calc_phyml_trees(self, analysis='nj', lsf=False, strategy='dynamic',
                          minmem=256, bootstraps=None, add_originals=False,
-                         verbosity=0):
+                         verbosity=0, debug=False):
         """ Calculates trees for each record using phyml """
         optioncheck(analysis, ANALYSES)
         if bootstraps is not None:
@@ -212,7 +212,8 @@ class Collection(object):
                                 verbosity=verbosity,
                                 strategy=strategy,
                                 minmem=minmem,
-                                taxon_set=self.taxon_set)
+                                taxon_set=self.taxon_set,
+                                debug=debug)
             for rec, tree in zip(records, trees):
                 rec.tree = TrClTree.cast(tree)
 
@@ -370,7 +371,7 @@ class Scorer(object):
         missing = sorted(set(index_tuples).difference(self.cache.keys()))
         self._add_index_tuple_list(missing)
 
-    def _add_index_tuple_list(self, index_tuple_list):
+    def _add_index_tuple_list(self, index_tuple_list, debug=False):
         if self.lsf and not self.analysis == 'TreeCollection':
             supermatrices = [self.concatenate(index_tuple).sequence_record
                              for index_tuple in index_tuple_list]
@@ -379,7 +380,8 @@ class Scorer(object):
                                 analysis=self.analysis,
                                 verbosity=self.verbosity,
                                 strategy='dynamic',
-                                minmem=512,
+                                minmem=PHYML_MEMORY_MIN,
+                                debug=debug,
                                 taxon_set=self.collection.taxon_set)
             for tree in trees:
                 tree = TrClTree.cast(tree)

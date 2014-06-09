@@ -61,13 +61,18 @@ class LSFGTP(ExternalSoftware):
                                         input_file=self.input_file)
                 for i in range(len(self.trees))]
 
-    def launch_lsf(self, command_strings, verbose=False, output='/dev/null'):
+    def launch_lsf(self, command_strings, verbose=False, debug=False):
         curr_dir = os.getcwd()
         os.chdir(self.tmpdir)
-        job_ids = [bsub('treeCl_gtp_task',
+        job_launcher = bsub('treeCl_gtp_task',
                         o='/dev/null',
                         e='/dev/null',
-                        verbose=verbose)(cmd).job_id
+                        verbose=verbose)
+
+        if not debug:
+            job_launcher.kwargs['o'] = job_launcher.kwargs['e'] = '/dev/null'
+
+        job_ids = [job_launcher(cmd).job_id
                    for cmd in command_strings]
         self.job_ids.update(job_ids)
         bsub.poll(job_ids)
@@ -95,12 +100,13 @@ class LSFGTP(ExternalSoftware):
                 deleted.add(job_id)
         self.job_ids.discard(deleted)
 
-    def run(self, verbose=False):
+    def run(self, verbose=False, debug=False):
         self.write()
         command_strings = self.get_command_strings()
-        self.launch_lsf(command_strings, verbose)
+        self.launch_lsf(command_strings, verbose, debug)
         time.sleep(1)
         matrix = self.read()
+        self.clean()
         return matrix
 
     def call(self):

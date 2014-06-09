@@ -12,6 +12,7 @@ import numpy as np
 # treeCl
 from ..errors import FileError, filecheck, optioncheck
 from ..utils import fileIO, regex_search_extract
+from ..utils.lazyprop import lazyprop
 
 
 def cast(dendropy_tree):
@@ -514,14 +515,11 @@ class Tree(dendropy.Tree):
     def ntaxa(self):
         return len(self)
 
-    def patristic(self, taxon_label1, taxon_label2):
-        if not hasattr(self, 'pdm'):
-            try:
-                self.pdm = dendropy.treecalc.PatristicDistanceMatrix(self)
-            except TypeError:
-                print('Error calculating patristic distances - maybe this '
-                      'tree has no branch lengths?')
-                return
+    def pairdist(self, taxon_label1, taxon_label2):
+        if self.patristic is None:
+            print('Error calculating patristic distances - maybe this '
+                  'tree has no branch lengths?')
+            return
 
         leaf1 = self.find_node_with_taxon_label(taxon_label1)
         leaf2 = self.find_node_with_taxon_label(taxon_label2)
@@ -538,7 +536,15 @@ class Tree(dendropy.Tree):
             print('Couldn\'t find {0} on the tree'.format(taxon_label2))
             return
 
-        return self.pdm(taxon1, taxon2)
+        return self.patristic(taxon1, taxon2)
+
+    @lazyprop
+    def patristic(self):
+        try:
+            pdm = dendropy.treecalc.PatristicDistanceMatrix(self)
+        except TypeError:
+            pdm = None
+        return pdm
 
     def prune_to_subset(self, subset, inplace=False):
         """ Prunes the Tree to just the taxon set given in `subset` """
