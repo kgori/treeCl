@@ -220,10 +220,6 @@ class Seq(object):
         else:
             return default
 
-    @staticmethod
-    def linebreaker(string, length):
-        for i in range(0, len(string), length):
-            yield string[i:i + length]
 
     def make_chunks(self, chunksize):
         num_chunks = self.seqlength / chunksize
@@ -370,44 +366,72 @@ class Seq(object):
         self._update()
 
 
+    @staticmethod
+    def linebreaker(string, length):
+        for i in range(0, len(string), length):
+            yield string[i:i + length]
+
+
+    @staticmethod
+    def _grouper(n, iterable, fillvalue=''):
+        "grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"
+        args = [iter(iterable)] * n
+        return itertools.izip_longest(fillvalue=fillvalue, *args)
+
+
+    @staticmethod
+    def _join(it, sep=''):
+        for el in it:
+            yield sep.join(el)
+
+    def seqs_to_units(self, units_per_line, unit_size, unit_sep=' '):
+        """ Uses nested grouper pattern list comprehension to break sequences
+        into `unit_size` length blocks separated by `unit_sep`, with
+        `units_per_line` units per line"""
+        #
+        return ['\n'.join(self._join(self._grouper(units_per_line, self._join(self._grouper(unit_size, s))), unit_sep)).strip(unit_sep) for s in self.sequences]
+
     def write_fasta(
         self,
         outfile='stdout',
         print_to_screen=False,
         linebreaks=None,
+        units_per_line=10,
+        unit_size=10,
+        unit_sep='',
         ):
         """ Writes sequences to file in fasta format If outfile = 'stdout' the
         sequences are printed to screen, not written to file If print_to_screen
         = True the sequences are printed to screen whether they are written to
         disk or not """
 
-        if linebreaks:
-            try:
-                int(linebreaks)
-            except ValueError:
-                print('Can\'t use {0} as value for linebreaks'
-                      .format(linebreaks))
-            sequences = ['\n'.join(self.linebreaker(s, linebreaks)) for s in
-                         self.sequences]
-        else:
-            sequences = self.sequences
+        if linebreaks is not None:
+            unit_size = linebreaks
 
-        lines = ['>{0}\n{1}'.format(h, seq) for (h, seq) in zip(self.headers,
+        if unit_size is None:
+            unit_size = max(len(s) for s in self.sequences)
+            units_per_line = 1
+
+        sequences = self.seqs_to_units(units_per_line, unit_size, unit_sep)
+
+        lines = ['>{0}\n{1}\n'.format(h, seq) for (h, seq) in zip(self.headers,
                  sequences)]
-        s = '\n'.join(lines)
-        s += '\n'
+
         if outfile == 'stdout':
+            s = ''.join(lines)
             print(s)
             return s
         elif outfile == 'pipe':
+            s = ''.join(lines)
             if print_to_screen:
                 print(s)
             return s
         else:
-            with fileIO.fwriter(outfile) as fwr:
-                fwr.write(s)
+            file_writer = fileIO.fwriter(outfile)
+            with file_writer as fwr:
+                fwr.writelines(lines)
             if print_to_screen:
-                print(s)
+                print(''.join(lines))
             return outfile
 
     def write_nexus(self, outfile='stdout', sequence_type='protein'):
@@ -441,6 +465,9 @@ class Seq(object):
         print_to_screen=False,
         interleaved=False,
         linebreaks=None,
+        units_per_line=10,
+        unit_size=10,
+        unit_sep='',
         ):
         """ Writes sequences to file in phylip format, interleaving optional If
         outfile = 'stdout' the sequences are printed to screen, not written to
@@ -448,10 +475,10 @@ class Seq(object):
         whether they are written to disk or not """
 
         linebreaks = linebreaks or 120
-        maxlen = len(max(self.sequences, key=len))
+        maxlen = max(len(seq) for seq in self.sequences)
         file_header = ' {0} {1}'.format(self.length, maxlen)
         s = [file_header]
-        maxheader = len(max(self.headers, key=len))
+        maxheader = max(len(h) for h in self.headers)
         label_length = max(maxheader + 1, 10)
         if interleaved:
             seq_length = linebreaks - label_length

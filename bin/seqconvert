@@ -23,19 +23,23 @@ def sort(rec, scheme):
     elif scheme == 'nr':
         rec.sort_by_name(reverse=True)
 
+def remove_gaps(rec):
+    rec.sequences = [sequence.replace('-', '') for sequence in rec.sequences]
+    rec._update()
 
 def write(rec, outfile, to_format='phylip',
           interleaved=False, linebreaks=None,
-          datatype='protein'):
+          datatype='protein', units_per_line=5, unit_size=10):
 
     if to_format == 'fasta':
-        rec.write_fasta(outfile, linebreaks=linebreaks)
+        rec.write_fasta(outfile, linebreaks=linebreaks,
+            units_per_line=units_per_line,
+            unit_size=unit_size)
     elif to_format == 'nexus':
         rec.write_nexus(outfile, datatype)
     elif to_format == 'phylip':
         rec.write_phylip(outfile, interleaved=interleaved,
             linebreaks=linebreaks)
-
 
 def parse_args():
     prog = fileIO.basename(sys.argv[0])
@@ -74,6 +78,13 @@ def parse_args():
         help='Break lines up by length')
     parser.add_argument('-c', '--case', dest='case', type=str,
         choices=c_choices, help='Change case of sequences')
+    parser.add_argument('-r', '--remove_gaps', dest='remove',
+        action='store_true',
+        help=('Remove gaps from the sequences, making them unaligned.\n'
+              'Phylip output format will pad shorter sequences to a\n'
+              'consistent length'))
+    parser.add_argument('-b', '--breaks', type=int, dest='spaces', default=0,
+        help='Use spaces at [int value] intervals to break up sequences')
 
     return parser.parse_args()
 
@@ -86,6 +97,8 @@ def main():
         sort(rec, args.sort)
     if args.case:
         change_case(rec, args.case)
+    if args.remove:
+        remove_gaps(rec)
 
     write(rec, args.outfile, args.to, args.interleaved,
           args.linewidth, args.datatype)

@@ -257,7 +257,7 @@ class Collection(object):
         """
         lengths, names = zip(*[(rec.seqlength, rec.name)
                                for rec in self.records])
-        concat = concatenate(self.records)
+        concat = Concatenation(self, range(len(self))).sequence_record
         concat.shuffle()
         new_records = concat.split_by_lengths(lengths, names)
         return self.__class__(new_records)
@@ -418,17 +418,21 @@ class Scorer(object):
         if index_tuple in self.cache:
             return self.cache[index_tuple]
 
-        concat = self.concatenate(index_tuple)
+        if len(index_tuple) == 1:
+            sequence_record = self.collection[index_tuple[0]]
+        else:
+            concat = self.concatenate(index_tuple)
+            sequence_record = concat.sequence_record
 
         if self.analysis == 'TreeCollection':
             guidetrees = [self.records[n].tree for n in
                           index_tuple][:self.max_guidetrees]
-            tree = concat.sequence_record.tree_collection(
+            tree = sequence_record.tree_collection(
                                     taxon_set=self.collection.taxon_set,
                                     guide_tree=guidetrees[0])
 
         else:
-            tree = TrClTree.cast(runPhyml(concat.sequence_record,
+            tree = TrClTree.cast(runPhyml(sequence_record,
                                           self.tmpdir,
                                           analysis=self.analysis,
                                           verbosity=self.verbosity,
