@@ -4,6 +4,7 @@ tree_collection/cython/build/
 # Mac cruft
 *.DS_Store*
 *._.*
+*._*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -15,7 +16,7 @@ __pycache__/
 # Distribution / packaging
 .Python
 env/
-bin/
+#bin/
 build/
 develop-eggs/
 dist/

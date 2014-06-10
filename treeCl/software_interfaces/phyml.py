@@ -33,7 +33,7 @@ class LSFPhyml(ExternalSoftware):
     def __init__(self, records, tmpdir, supplied_binary='', debug=False):
         """ Parent class init method sets temp dir and binary
             Debug=True allows lsf output to be written to tmpdir """
-        super(LSFPhyml, self).__init__(tmpdir, supplied_binary)
+        super(LSFPhyml, self).__init__(tmpdir, supplied_binary, debug)
         self.records = records
         self.temp_dirs = self.setup_temp_dirs()
         self.phyml_objects = self.setup_phyml_objects()
@@ -75,7 +75,7 @@ class LSFPhyml(ExternalSoftware):
                       6 * branches * sites -
                       2 * categories * sites * states * taxa -
                       sites * taxa) / 1024.0 ** 2
-        return int(max(round(minmem * grace, 0)) + affine, PHYML_MEMORY_MIN)
+        return int(max(round(minmem * grace, 0) + affine, PHYML_MEMORY_MIN))
 
     def get_memory_requirements(self):
         l = []
@@ -94,10 +94,9 @@ class LSFPhyml(ExternalSoftware):
         optioncheck(strategy, ['fixed', 'dynamic'])
         if strategy == 'fixed':
             return self._launch_lsf_fixed_memory(command_strings, minmem,
-                                                 verbose, output_files)
+                                                 verbose)
         elif strategy == 'dynamic':
-            return self._launch_lsf_dynamic_memory(command_strings, verbose,
-                                                   output_files)
+            return self._launch_lsf_dynamic_memory(command_strings, verbose)
 
     def _launch_lsf_fixed_memory(self, command_strings, minmem=4096,
                                  verbose=False):
@@ -130,7 +129,7 @@ class LSFPhyml(ExternalSoftware):
             memory_reqd = memory[i]
             job_launcher = bsub('treeCl_dynamic_phyml_task',
                                 R='rusage[mem={}]'.format(memory_reqd),
-                                M=max(memory_reqd, minmem),
+                                M=memory_reqd,
                                 verbose=verbose)
             if not self.debug:
                 job_launcher.kwargs['o'] = '/dev/null'
@@ -159,7 +158,8 @@ class LSFPhyml(ExternalSoftware):
         for phyml in self.phyml_objects:
             phyml.clean()
         for d in self.temp_dirs:
-            shutil.rmtree(d)
+            if fileIO.can_open(d):
+                shutil.rmtree(d)
 
         deleted = set()
         for job_id in self.job_ids:
@@ -194,20 +194,16 @@ class Phyml(TreeSoftware):
     score_regex = re.compile('(?<=Log-likelihood: ).+')
     local_dir = fileIO.path_to(__file__)
 
-    def read(self, tries=5, filename=None):
+    def read(self, filename=None, tries=5):
         filename = filename or self.filename
-        tree_filename = filename + '_phyml_tree.txt'
-        stats_filename = filename + '_phyml_stats.txt'
-        self.add_tempfile(tree_filename)
-        self.add_tempfile(stats_filename)
         try:
-            with open(tree_filename) as treefile:
-                with open(stats_filename) as statsfile:
+            with open(self.tree_filename) as treefile:
+                with open(self.stats_filename) as statsfile:
                     return (treefile.read(), statsfile.read())
         except IOError, e:
             if tries > 0:
                 time.sleep(1)
-                return self.read(tries-1, filename)
+                return self.read(filename, tries-1)
             print('There was an IOError: {0}'.format(e))
             print('Couldn\'t read PhyML output')
             self.clean()
@@ -226,6 +222,11 @@ class Phyml(TreeSoftware):
         filename = self.write()
         filecheck(filename)
         self.add_flag('-i', filename)
+
+        self.tree_filename = filename + '_phyml_tree.txt'
+        self.stats_filename = filename + '_phyml_stats.txt'
+        self.add_tempfile(self.tree_filename)
+        self.add_tempfile(self.stats_filename)
 
         # OUTPUT TO USER
         if verbosity == 1:
@@ -309,14 +310,20 @@ class Phyml(TreeSoftware):
 
 def runPhyml(rec, tmpdir, analysis, verbosity=0, tree=None, **kwargs):
     optioncheck(analysis, ANALYSES)
-    p = Phyml(rec, tmpdir)
+    phyml = Phyml(rec, tmpdir)
     if (analysis == 'lk' or analysis == 'r') and tree is not None:
         tree_name = (tree.name if tree.name else 'tmp_tree')
         tmp_treefile = '{0}/{1}.nwk'.format(tmpdir, tree_name)
         tree.write_to_file(tmp_treefile)
-        p.add_tempfile(filecheck(tmp_treefile))
-        p.add_flag('-u', tmp_treefile)
-    return p.run(analysis, verbosity, **kwargs)
+        phyml.add_tempfile(filecheck(tmp_treefile))
+        phyml.add_flag('-u', tmp_treefile)
+    try:
+        return phyml.run(analysis, verbosity, **kwargs)
+    finally:
+        if not phyml.debug:
+            phyml.clean()
+            if verbosity > 2:
+                print('Cleaned up')
 
 def runLSFPhyml(records, tmpdir, analysis, verbosity, strategy,
                 minmem=PHYML_MEMORY_STANDARD, debug=False, **kwargs):
@@ -324,13 +331,19 @@ def runLSFPhyml(records, tmpdir, analysis, verbosity, strategy,
     optioncheck(strategy, ['fixed', 'dynamic'])
     lsfphyml = LSFPhyml(records, tmpdir, debug=debug)
     verbose = output_files = (True if verbosity > 0 else False)
-    trees = lsfphyml.run(analysis,
-                         strategy=strategy,
-                         minmem=minmem,
-                         verbose=verbose,
-                         output_files=output_files,
-                         **kwargs)
-    return trees
+    try:
+        return lsfphyml.run(analysis,
+                            strategy=strategy,
+                            minmem=minmem,
+                            verbose=verbose,
+                            output_files=output_files,
+                            **kwargs)
+    finally:
+        if not lsfphyml.debug:
+            lsfphyml.clean()
+            if verbosity > 2:
+                print('Cleaned up')
+
 
 def phyml_memcalc(taxa, categories, sites, states):
     branches = 2 * taxa - 3

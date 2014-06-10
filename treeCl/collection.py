@@ -62,10 +62,12 @@ class Collection(object):
         tmpdir=TMPDIR,
         calc_distances=False,
         compression=None,
+        debug=False,
         ):
 
         self.tmpdir = directorymake(tmpdir)
         self._records = None
+        self.debug = debug
 
         if records:
             self.records = records
@@ -105,6 +107,14 @@ class Collection(object):
     def __getitem__(self, i):
         if hasattr(self, 'records'):
             return self.records[i]
+
+    @property
+    def debug(self):
+        return (self._debug if hasattr(self, '_debug') else False)
+
+    @debug.setter
+    def debug(self, boolean):
+        self._debug = bool(boolean)
 
     @property
     def records(self):
@@ -192,7 +202,7 @@ class Collection(object):
 
     def calc_phyml_trees(self, analysis='nj', lsf=False, strategy='dynamic',
                          minmem=256, bootstraps=None, add_originals=False,
-                         verbosity=0, debug=False):
+                         verbosity=0):
         """ Calculates trees for each record using phyml """
         optioncheck(analysis, ANALYSES)
         if bootstraps is not None:
@@ -213,7 +223,7 @@ class Collection(object):
                                 strategy=strategy,
                                 minmem=minmem,
                                 taxon_set=self.taxon_set,
-                                debug=debug)
+                                debug=self.debug)
             for rec, tree in zip(records, trees):
                 rec.tree = TrClTree.cast(tree)
 
@@ -340,6 +350,7 @@ class Scorer(object):
         datatype=None,
         verbosity=0,
         populate_cache=True,
+        debug=False,
         ):
 
         optioncheck(analysis, ANALYSES + ['tc', 'TreeCollection'])
@@ -357,12 +368,21 @@ class Scorer(object):
         directorymake(self.tmpdir)
         self.cache = {}
         self.history = []
+        self.debug=debug
         if populate_cache:
             self.populate_cache()
 
     @property
     def records(self):
         return self.collection.records
+
+    @property
+    def debug(self):
+        return (self._debug if hasattr(self, '_debug') else False)
+
+    @debug.setter
+    def debug(self, boolean):
+        self._debug = bool(boolean)
 
     def add_partition_list(self, partition_list):
         """ Calculates concatenated trees for a list of Partitions """
@@ -371,7 +391,7 @@ class Scorer(object):
         missing = sorted(set(index_tuples).difference(self.cache.keys()))
         self._add_index_tuple_list(missing)
 
-    def _add_index_tuple_list(self, index_tuple_list, debug=False):
+    def _add_index_tuple_list(self, index_tuple_list):
         if self.lsf and not self.analysis == 'TreeCollection':
             supermatrices = [self.concatenate(index_tuple).sequence_record
                              for index_tuple in index_tuple_list]
@@ -381,7 +401,7 @@ class Scorer(object):
                                 verbosity=self.verbosity,
                                 strategy='dynamic',
                                 minmem=PHYML_MEMORY_MIN,
-                                debug=debug,
+                                debug=self.debug,
                                 taxon_set=self.collection.taxon_set)
             for tree in trees:
                 tree = TrClTree.cast(tree)

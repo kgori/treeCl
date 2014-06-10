@@ -14,7 +14,7 @@ class ExternalSoftware(object):
     default_env = ''
     local_dir = fileIO.path_to(__file__)
 
-    def __init__(self, tmpdir, supplied_binary=''):
+    def __init__(self, tmpdir, supplied_binary='', debug=False):
 
         self.flags = {}
         self.tempfiles = []
@@ -36,6 +36,7 @@ class ExternalSoftware(object):
             raise FileError(supplied_binary)
 
         self.tmpdir = tmpdir.rstrip('/')
+        self.debug = debug
 
     def __enter__(self):
         return self
@@ -69,7 +70,14 @@ class ExternalSoftware(object):
             print(cmd)
         if dry_run:
             return cmd
-        (stdout, stderr) = fileIO.subprocess(cmd)
+        try:
+            (stdout, stderr) = fileIO.subprocess(cmd)
+        except KeyboardInterrupt:
+            if not self.debug:
+                self.clean()
+                if verbose:
+                    print('Cleaned up')
+            raise
         if verbose:
             print(stdout, stderr)
         return (stdout, stderr)

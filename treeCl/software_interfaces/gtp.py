@@ -25,8 +25,8 @@ class LSFGTP(ExternalSoftware):
     get_safe_newick_string = lambda self, tree: tree.as_string('newick',
         internal_labels=False, suppress_rooting=True).rstrip()
 
-    def __init__(self, trees, tmpdir):
-        super(LSFGTP, self).__init__(tmpdir)
+    def __init__(self, trees, tmpdir, debug=False):
+        super(LSFGTP, self).__init__(tmpdir, debug)
         self.trees = trees
         self.temp_dirs = self.setup_temp_dirs()
         self.gtp_objects = self.setup_gtp_objects()
@@ -307,11 +307,15 @@ def geodist_offdiagonals(matrix, trees, breakpoints, calculator):
 
 def geodist(trees, tmpdir, row=None, lsf=False):
 
-    if lsf and row is None:
-        lsfgtp = LSFGTP(trees, tmpdir)
-        return lsfgtp.run()
-    else:
-        g = GTP(tmpdir=tmpdir)
-        l = len(trees)
-        row = g.check_row_value(row, l)
-        return g.run(trees, row)
+    try:
+        if lsf and row is None:
+            gtp = LSFGTP(trees, tmpdir)
+            return gtp.run()
+        else:
+            gtp = GTP(tmpdir=tmpdir)
+            l = len(trees)
+            row = gtp.check_row_value(row, l)
+            return gtp.run(trees, row)
+    finally:
+        if not gtp.debug:
+            gtp.clean()

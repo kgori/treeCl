@@ -240,6 +240,8 @@ def parse_args():
         'b': 'Use LSF [b]sub if available',
         'c': '[c]lustering method',
         'd': '[d]atatype',
+        'e': ('d[e]bug mode - external software wrappers will not clean up '
+              'their temp files when this flag is set')
         'f': '[f]ile format',
         'g': ('Tree search strate[g]y: ml=full maximum likelihood, '
               'nj=BioNJ, lr=BioNJ topology, optimised lengths and rates'),
@@ -285,6 +287,7 @@ def parse_args():
                         help=help_messages['c'], required=True)
     parser.add_argument('-d', type=str, choices=dchoices,
                         help=help_messages['d'], required=True)
+    parser.add_argument('-e', action=store_true, help=help_messages['e'])
     parser.add_argument('-f', type=str, choices=fchoices,
                         help=help_messages['f'], required=True)
     parser.add_argument('-g', type=str, choices=lchoices,
@@ -366,7 +369,8 @@ if __name__ == "__main__":
         datatype=args.d,
         file_format=args.f,
         compression=args.z,
-        tmpdir=tmpdir
+        tmpdir=tmpdir,
+        debug=args.e,
     )
 
     # RESAMPLING
@@ -405,7 +409,8 @@ if __name__ == "__main__":
         collection = Collection(
             records=records,
             datatype=args.d,
-            tmpdir=tmpdir
+            tmpdir=tmpdir,
+            debug=args.e,
         )
 
     # TREES
@@ -483,16 +488,19 @@ if __name__ == "__main__":
         try:
             scorer = fileIO.gunpickle(args.q)
             scorer.tmpdir = tmpdir
+            scorer.debug = args.e
         except:
             scorer = Scorer(collection,
                             args.g,
                             lsf=args.b,
-                            verbosity=args.v)
+                            verbosity=args.v,
+                            debug=args.e)
     else:
         scorer = Scorer(collection,
                         args.g,
                         lsf=args.b,
-                        verbosity=args.v)
+                        verbosity=args.v,
+                        debug=args.e)
 
     partitions_to_calculate = list(chain(*partitions.values()))
     scorer.add_partition_list(partitions_to_calculate)
@@ -586,7 +594,8 @@ if __name__ == "__main__":
                           '\trep {2}/{3}'.format(k, k + 1, i, args.s))
                     param_coll = Collection(records=sim_recs,
                                             datatype=args.d,
-                                            tmpdir=tmpdir)
+                                            tmpdir=tmpdir,
+                                            debug=args.e)
                     param_coll.calc_phyml_trees(analysis=args.g,
                                                 lsf=args.b,
                                                 verbosity=args.v)
@@ -602,7 +611,8 @@ if __name__ == "__main__":
                     param_sc = Scorer(param_coll.records,
                                       args.g,
                                       lsf=args.b,
-                                      verbosity=args.v)
+                                      verbosity=args.v,
+                                      debug=args.e)
                     param_sc.add_partition_list(param_parts_l)
                     kp1_score = param_sc.score(param_parts_l[1])
                     k_score = param_sc.score(param_parts_l[0])
@@ -659,7 +669,8 @@ if __name__ == "__main__":
                 nonparam_sc = Scorer(nonparam_coll.records,
                                      args.g,
                                      lsf=args.b,
-                                     verbosity=args.v)
+                                     verbosity=args.v,
+                                     debug=args.e)
                 nonparam_sc.add_partition_list(nonparam_parts_l)
                 for k in range(args.l, args.u):
                     k_idx = k - args.l

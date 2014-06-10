@@ -73,6 +73,8 @@ setup(name = "treeCl",
     scripts=[
         'bin/simulator',
         'bin/treeCl',
+        'bin/seqconvert',
+        'bin/bootstrap',
     ],
     install_requires=[
         'biopython',
