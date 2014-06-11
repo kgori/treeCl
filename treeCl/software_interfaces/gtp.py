@@ -26,7 +26,7 @@ class LSFGTP(ExternalSoftware):
         internal_labels=False, suppress_rooting=True).rstrip()
 
     def __init__(self, trees, tmpdir, debug=False):
-        super(LSFGTP, self).__init__(tmpdir, debug)
+        super(LSFGTP, self).__init__(tmpdir, debug=debug)
         self.trees = trees
         self.temp_dirs = self.setup_temp_dirs()
         self.gtp_objects = self.setup_gtp_objects()
@@ -61,7 +61,7 @@ class LSFGTP(ExternalSoftware):
                                         input_file=self.input_file)
                 for i in range(len(self.trees))]
 
-    def launch_lsf(self, command_strings, verbose=False, debug=False):
+    def launch_lsf(self, command_strings, verbose=False):
         curr_dir = os.getcwd()
         os.chdir(self.tmpdir)
         job_launcher = bsub('treeCl_gtp_task',
@@ -69,7 +69,7 @@ class LSFGTP(ExternalSoftware):
                         e='/dev/null',
                         verbose=verbose)
 
-        if not debug:
+        if not self.debug:
             job_launcher.kwargs['o'] = job_launcher.kwargs['e'] = '/dev/null'
 
         job_ids = [job_launcher(cmd).job_id
@@ -88,7 +88,8 @@ class LSFGTP(ExternalSoftware):
         for gtp in self.gtp_objects:
             gtp.clean()
         for d in self.temp_dirs:
-            shutil.rmtree(d)
+            if fileIO.can_open(d):
+                shutil.rmtree(d)
         deleted = set()
         for job_id in self.job_ids:
             output_file = os.path.join(self.tmpdir,
@@ -100,10 +101,10 @@ class LSFGTP(ExternalSoftware):
                 deleted.add(job_id)
         self.job_ids.discard(deleted)
 
-    def run(self, verbose=False, debug=False):
+    def run(self, verbose=False):
         self.write()
         command_strings = self.get_command_strings()
-        self.launch_lsf(command_strings, verbose, debug)
+        self.launch_lsf(command_strings, verbose)
         time.sleep(1)
         matrix = self.read()
         self.clean()
@@ -316,6 +317,8 @@ def geodist(trees, tmpdir, row=None, lsf=False):
             l = len(trees)
             row = gtp.check_row_value(row, l)
             return gtp.run(trees, row)
+    except Exception, err:
+        raise err
     finally:
         if not gtp.debug:
             gtp.clean()

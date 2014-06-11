@@ -248,8 +248,7 @@ class Collection(object):
 
     def distance_matrix(self, metric, **kwargs):
         """ Generate a distance matrix from a fully-populated Collection """
-        trees = [rec.tree for rec in self.records]
-        return DistanceMatrix(trees, metric, tmpdir=self.tmpdir,
+        return DistanceMatrix(self.trees, metric, tmpdir=self.tmpdir,
             **kwargs)
 
     def permuted_copy(self):
