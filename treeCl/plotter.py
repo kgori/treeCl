@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 from __future__ import print_function
 
+# standard library
+import itertools
+
 # third party
 import matplotlib.pyplot as plt
 from matplotlib import cm as CM
@@ -130,10 +133,11 @@ class Plotter(object):
 
         optioncheck(dimensions, [2,3])
         partition = (partition or
-                     Partition(tuple([6] * len(self.collection.records))))
+                     Partition(tuple([0] * len(coordinates))))
 
-        colours = 'bgrcmyk'
-        colour_mapping = np.array([colours[i]
+        colours = zip(*zip(range(len(partition)), itertools.cycle('bgrcmyk')))[1]
+        print(colours)
+        colour_mapping = np.array([colours[i-1]
                                    for i in partition.partition_vector])
         fig = plt.figure()
 
