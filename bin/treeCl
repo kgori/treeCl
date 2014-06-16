@@ -98,7 +98,8 @@ def write_tree_details(outfile, method, metric, partitions, scorer):
             inds = partition.get_membership()
             for ix in inds:
                 tree = scorer.cache[ix]
-                file_.write(tree.output +'\n')
+                if hasattr(tree, 'output') and tree.output is not None:
+                    file_.write(tree.output +'\n')
             file_.write('\n')
 
 def write_tsv(outfile, analysis_strategy,

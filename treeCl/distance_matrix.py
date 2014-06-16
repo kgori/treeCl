@@ -360,8 +360,9 @@ class DistanceMatrix(np.ndarray):
         if shi_malik_type:
             invD = np.diag(1 / diagonal).view(type(self))
             return invD.dot(affinity_matrix)
-        invRootD = np.diag(np.sqrt(1 / diagonal)).view(type(self))
-        return invRootD.dot(affinity_matrix).dot(invRootD)
+        # invRootD = np.diag(np.sqrt(1 / diagonal)).view(type(self))
+        # return invRootD.dot(affinity_matrix).dot(invRootD)
+        return affinity_matrix * np.outer(diagonal, diagonal)
 
     def normalise(self):
         """ Shift and scale matrix to [0,1] interval """
