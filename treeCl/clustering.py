@@ -211,8 +211,10 @@ class Clustering(object):
         verbosity=0,
         ):
 
-        (coords, cve) = \
-            (decomp.coords_by_cutoff(cutoff) if cutoff else decomp.coords_by_dimension(nclusters))
+        L = np.diag(np.sqrt(decomp.vals[:nclusters]))
+        E = decomp.vecs[:, :nclusters]
+        cve = decomp.cve
+        coords = E.dot(L)
         if verbosity > 0:
             print('{0} dimensions explain {1:.2f}% of '
                   'the variance'.format(coords.shape[1], cve * 100))

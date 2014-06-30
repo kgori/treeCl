@@ -67,7 +67,14 @@ class Plotter(object):
 
     def get_coords(self, method, dimensions, normalise=False, **kwargs):
         decomp = self.get_decomp(method, **kwargs)
-        return self.decomp_to_coords(decomp, dimensions, normalise)
+        if method in ['mds', 'MDS']:
+            L = np.diag(np.sqrt(decomp.vals[:dimensions]))
+            E = decomp.vecs[:, :dimensions]
+            coords = E.dot(L)
+            return coords
+
+        else:
+            return self.decomp_to_coords(decomp, dimensions, normalise=True)
 
     def decomp_to_coords(self, decomp, dimensions, normalise=False):
         optioncheck(dimensions, [2,3])
