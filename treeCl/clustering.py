@@ -56,7 +56,7 @@ class Clustering(object):
     def __str__(self):
         return str(self.distance_matrix)
 
-    def kmedoids(self, nclusters, noise=False):
+    def kmedoids(self, nclusters, noise=False, npass=100, nreps=1):
 
         if Biopython_Unavailable:
             print('kmedoids not available without Biopython')
@@ -67,8 +67,8 @@ class Clustering(object):
         else:
             matrix = self.distance_matrix
 
-        p = [kmedoids(matrix, nclusters=nclusters, npass=100) for _ in
-             range(100)]
+        p = [kmedoids(matrix, nclusters=nclusters, npass=npass) for _ in
+             range(nreps)]
         p.sort(key=lambda x: x[1])
         return Partition(p[0][0])
 

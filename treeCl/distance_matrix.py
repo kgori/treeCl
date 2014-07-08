@@ -3,6 +3,7 @@ from __future__ import print_function
 
 # third party
 import numpy as np
+from sklearn import manifold
 
 # treeCl
 from software_interfaces.gtp import geodist
@@ -294,6 +295,43 @@ class DistanceMatrix(np.ndarray):
         vals_[vals_ < 0] = 0.
         cum_var_exp = np.cumsum(vals_ / vals_.sum())
         return Decomp(self.copy(), vals, vecs, cum_var_exp)
+
+    def embedding(self, dimensions, method):
+        optioncheck(method, ['cmds', 'mmds', 'nmmds', 'spectral'])
+        if method == 'cmds':
+            return self._embedding_classical_mds(dimensions)
+        if method == 'mmds':
+            return self._embedding_metric_mds(dimensions)
+        if method == 'nmmds':
+            return self._embedding_nonmetric_mds(dimensions)
+        if method == 'spectral':
+            return self._embedding_spectral(dimensions)
+
+    def _embedding_classical_mds(self, dimensions=3):
+        dbc     = self.double_centre()
+        decomp  = dbc.eigen()
+        lambda_ = np.diag(np.sqrt(np.abs(decomp.vals[:dimensions])))
+        evecs   = decomp.vecs[:, :nclusters]
+        coords  = evecs.dot(lambda_)
+        return coords
+
+    def _embedding_spectral(self, dimensions=3):
+        aff = self.affinity()
+        return manifold.spectral_embedding(aff, n_components=dimensions)
+
+    def _embedding_metric_mds(self, dimensions=3):
+        mds = manifold.MDS(n_components=dimensions,
+                           dissimilarity='precomputed',
+                           metric=True)
+        mds.fit(self)
+        return mds.embedding_
+
+    def _embedding_nonmetric_mds(self, dimensions=3):
+        mds = manifold.MDS(n_components=dimensions,
+                           dissimilarity='precomputed',
+                           metric=False)
+        mds.fit(self)
+        return mds.embedding_
 
     def normalise_rows(self):
         """ Scales all rows to length 1. Fails when row is 0-length, so it
