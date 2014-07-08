@@ -9,7 +9,9 @@ import uuid
 # third party
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.cluster.hierarchy import linkage, fcluster, dendrogram
+from scipy.cluster.hierarchy import fcluster, dendrogram
+from scipy.spatial.distance import squareform
+from fastcluster import linkage
 try:
     from Bio.Cluster import kmedoids
     Biopython_Unavailable = False
@@ -82,7 +84,7 @@ class Clustering(object):
         else:
             matrix = self.distance_matrix
 
-        linkmat = linkage(matrix, linkage_method)
+        linkmat = linkage(squareform(matrix), linkage_method)
         linkmat_size = len(linkmat)
         if nclusters <= 1:
             br_top = linkmat[linkmat_size - nclusters][2]
@@ -211,7 +213,7 @@ class Clustering(object):
         verbosity=0,
         ):
 
-        L = np.diag(np.sqrt(decomp.vals[:nclusters]))
+        L = np.diag(np.sqrt(np.abs(decomp.vals[:nclusters])))
         E = decomp.vecs[:, :nclusters]
         cve = decomp.cve
         coords = E.dot(L)
