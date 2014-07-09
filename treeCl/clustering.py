@@ -20,6 +20,7 @@ except ImportError:
     Biopython_Unavailable = True
 try:
     from sklearn.cluster import KMeans
+    from sklearn.mixture import GMM
 except ImportError:
     print("sklearn unavailable: KMeans disabled")
 
@@ -30,6 +31,7 @@ except ImportError:
     # print('evrot is not currently in use')
     pass
 from utils import fileIO
+from distance_matrix import DistanceMatrix
 
 
 class Clustering(object):
@@ -51,7 +53,7 @@ class Clustering(object):
 
     def __init__(self, distance_matrix):
 
-        self.distance_matrix = distance_matrix
+        self.distance_matrix = distance_matrix.view(DistanceMatrix)
 
     def __str__(self):
         return str(self.distance_matrix)
@@ -223,13 +225,19 @@ class Clustering(object):
         P = self.kmeans(nclusters, coords)
         return P
 
-    def kmeans(self, nclusters, coords=None, noise=False):
-        coords = coords if coords is not None else self.distance_matrix
+    def kmeans(self, nclusters, coords, noise=False):
         if noise:
             coords.add_noise()
         est = KMeans(n_clusters=nclusters, n_init=50, max_iter=500)
         est.fit(coords)
         return Partition(est.labels_)
+
+    def gmm(self, nclusters, coords, noise=False, n_init=50, n_iter=500):
+        if noise:
+            coords.add_noise()
+        est = GMM(n_clusters=nclusters, n_init=n_init, n_iter=n_iter)
+        est.fit(coords)
+        return Partition(est.predict(coords))
 
     def plot_dendrogram(self, compound_key):
         """ Extracts data from clustering to plot dendrogram """

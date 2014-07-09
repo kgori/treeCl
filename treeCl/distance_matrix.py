@@ -3,7 +3,7 @@ from __future__ import print_function
 
 # third party
 import numpy as np
-from sklearn import manifold
+from sklearn import manifold, decomposition
 
 # treeCl
 from software_interfaces.gtp import geodist
@@ -296,22 +296,24 @@ class DistanceMatrix(np.ndarray):
         cum_var_exp = np.cumsum(vals_ / vals_.sum())
         return Decomp(self.copy(), vals, vecs, cum_var_exp)
 
-    def embedding(self, dimensions, method):
-        optioncheck(method, ['cmds', 'mmds', 'nmmds', 'spectral'])
+    def embedding(self, dimensions, method, **kwargs):
+        optioncheck(method, ['cmds', 'kpca', 'mmds', 'nmmds', 'spectral'])
         if method == 'cmds':
             return self._embedding_classical_mds(dimensions)
-        if method == 'mmds':
+        elif method == 'kpca':
+            return self._embedding_kernel_pca(dimensions, **kwargs)
+        elif method == 'mmds':
             return self._embedding_metric_mds(dimensions)
-        if method == 'nmmds':
-            return self._embedding_nonmetric_mds(dimensions)
-        if method == 'spectral':
+        elif method == 'nmmds':
+            return self._embedding_nonmetric_mds(dimensions, **kwargs)
+        elif method == 'spectral':
             return self._embedding_spectral(dimensions)
 
     def _embedding_classical_mds(self, dimensions=3):
         dbc     = self.double_centre()
         decomp  = dbc.eigen()
         lambda_ = np.diag(np.sqrt(np.abs(decomp.vals[:dimensions])))
-        evecs   = decomp.vecs[:, :nclusters]
+        evecs   = decomp.vecs[:, :dimensions]
         coords  = evecs.dot(lambda_)
         return coords
 
@@ -326,12 +328,20 @@ class DistanceMatrix(np.ndarray):
         mds.fit(self)
         return mds.embedding_
 
-    def _embedding_nonmetric_mds(self, dimensions=3):
+    def _embedding_nonmetric_mds(self, dimensions=3, initial_coords=None):
         mds = manifold.MDS(n_components=dimensions,
                            dissimilarity='precomputed',
                            metric=False)
-        mds.fit(self)
+        if initial_coords is not None:
+            mds.fit(self, init=initial_coords)
+        else:
+            mds.fit(self)
         return mds.embedding_
+
+    def _embedding_kernel_pca(self, dimensions=3, sigma):
+        rbf = self.rbf(sigma)
+        kpca = decomposition.KPCA(kernel='precomputed', n_components=dimensions)
+        kpca.fit_transform(rbf)
 
     def normalise_rows(self):
         """ Scales all rows to length 1. Fails when row is 0-length, so it
@@ -406,6 +416,11 @@ class DistanceMatrix(np.ndarray):
         """ Shift and scale matrix to [0,1] interval """
 
         return self.shift_and_scale(0, 1)
+
+    def rbf(self, sigma=1):
+        """ Returns the Radial Basis Function kernel from the distance matrix
+        """
+        return np.exp(-self**2 / (2 * sigma**2))
 
     def shift_and_scale(self, shift, scale):
         """ Shift and scale matrix so its minimum value is placed at `shift` and
