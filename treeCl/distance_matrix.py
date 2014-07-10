@@ -307,7 +307,7 @@ class DistanceMatrix(np.ndarray):
         elif method == 'nmmds':
             return self._embedding_nonmetric_mds(dimensions, **kwargs)
         elif method == 'spectral':
-            return self._embedding_spectral(dimensions)
+            return self._embedding_spectral(dimensions, **kwargs)
 
     def _embedding_classical_mds(self, dimensions=3):
         dbc     = self.double_centre()
@@ -317,9 +317,16 @@ class DistanceMatrix(np.ndarray):
         coords  = evecs.dot(lambda_)
         return coords
 
-    def _embedding_spectral(self, dimensions=3):
-        aff = self.affinity()
-        return manifold.spectral_embedding(aff, n_components=dimensions)
+    def _embedding_spectral(self, dimensions=3, unit_length=False,
+                            affinity_matrix=None, sigma=1):
+        if affinity_matrix is None:
+            aff = self.rbf(sigma=1)
+        else:
+            aff = affinity_matrix
+        coords = aff.laplace(aff).eigen().vecs[:, :dimensions]
+        if unit_length: # normalise all vectors to unit length
+            coords /= np.sqrt((coords**2).sum(axis=1))[:, np.newaxis]
+        return coords
 
     def _embedding_metric_mds(self, dimensions=3):
         mds = manifold.MDS(n_components=dimensions,
@@ -338,10 +345,15 @@ class DistanceMatrix(np.ndarray):
             mds.fit(self)
         return mds.embedding_
 
-    def _embedding_kernel_pca(self, dimensions=3, sigma):
-        rbf = self.rbf(sigma)
-        kpca = decomposition.KPCA(kernel='precomputed', n_components=dimensions)
-        kpca.fit_transform(rbf)
+    def _embedding_kernel_pca(self, dimensions=3, affinity_matrix=None,
+                              sigma=1):
+        if affinity_matrix is None:
+            aff = self.rbf(sigma)
+        else:
+            aff = affinity_matrix
+        kpca = decomposition.KernelPCA(kernel='precomputed',
+                                       n_components=dimensions)
+        return kpca.fit_transform(aff)
 
     def normalise_rows(self):
         """ Scales all rows to length 1. Fails when row is 0-length, so it
@@ -395,22 +407,24 @@ class DistanceMatrix(np.ndarray):
         return scale
 
     def laplace(self, affinity_matrix, shi_malik_type=False):
-        """ Converts affinity matrix into graph Laplacian, for spectral
-        clustering. (At least) two forms exist:
+        """ Converts affinity matrix into normalised graph Laplacian,
+        for spectral clustering.
+        (At least) two forms exist:
 
         L = (D^-0.5).A.(D^-0.5) - default
 
         L = (D^-1).A - `Shi-Malik` type, from Shi Malik paper"""
 
         diagonal = affinity_matrix.sum(axis=1) - affinity_matrix.diagonal()
+        zeros = diagonal <= 1e-10
+        diagonal[zeros] = 1
         if (diagonal <= 1e-10).any(): # arbitrarily small value
             raise ZeroDivisionError
         if shi_malik_type:
             invD = np.diag(1 / diagonal).view(type(self))
             return invD.dot(affinity_matrix)
-        # invRootD = np.diag(np.sqrt(1 / diagonal)).view(type(self))
-        # return invRootD.dot(affinity_matrix).dot(invRootD)
-        return affinity_matrix * np.outer(diagonal, diagonal)
+        diagonal = np.sqrt(diagonal)
+        return affinity_matrix / diagonal / diagonal[:, np.newaxis]
 
     def normalise(self):
         """ Shift and scale matrix to [0,1] interval """

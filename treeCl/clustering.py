@@ -235,7 +235,7 @@ class Clustering(object):
     def gmm(self, nclusters, coords, noise=False, n_init=50, n_iter=500):
         if noise:
             coords.add_noise()
-        est = GMM(n_clusters=nclusters, n_init=n_init, n_iter=n_iter)
+        est = GMM(n_components=nclusters, n_init=n_init, n_iter=n_iter)
         est.fit(coords)
         return Partition(est.predict(coords))
 
