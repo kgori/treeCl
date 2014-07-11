@@ -9,9 +9,10 @@ data_dir = pkg_resources.resource_filename('autowrap', 'data_files')
 extensions = Extension(name='py_seq',
     sources=['py_seq.pyx', 'src/Seq.cpp', 'src/SiteContainerBuilder.cpp', 'src/ModelFactory.cpp'],
     language='c++',
-    include_dirs=[data_dir], 
+    include_dirs=[data_dir],
     libraries=['bpp-core', 'bpp-seq', 'bpp-phyl'],
-    extra_compile_args=['-std=c++11'])
+    extra_compile_args=['-std=c++11'],
+    )
 
 setup(
     name = "py_seq",

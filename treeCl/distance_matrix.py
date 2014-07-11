@@ -25,7 +25,6 @@ def get_dendropy_distances(trees, fn, dec_places=None, **kwargs):
 
 
 def get_geo_distances(trees, dec_places=None, tmpdir=None, lsf=False):
-
     matrix = geodist(trees, tmpdir, lsf=lsf)
 
     if dec_places is not None:
@@ -78,16 +77,15 @@ def isconnected(mask):
 
 
 class Decomp(object):
-
     """ Eigen decomposition result """
 
     def __init__(
-        self,
-        matrix,
-        vals,
-        vecs,
-        cve,
-        ):
+            self,
+            matrix,
+            vals,
+            vecs,
+            cve,
+    ):
         self.matrix = matrix
         self.vals = vals
         self.vecs = vecs
@@ -102,7 +100,7 @@ class Decomp(object):
 
         i = np.where(self.cve >= cutoff)[0][0]
         coords_matrix = self.vecs[:, :i + 1]
-        return (coords_matrix, self.cve[i])
+        return coords_matrix, self.cve[i]
 
     def coords_by_dimension(self, dimensions=3):
         """ Returns fitted coordinates in specified number of dimensions, and
@@ -110,25 +108,24 @@ class Decomp(object):
 
         coords_matrix = self.vecs[:, :dimensions]
         varexp = self.cve[dimensions - 1]
-        return (coords_matrix, varexp)
+        return coords_matrix, varexp
 
 
 class DistanceMatrix(np.ndarray):
-
     def __new__(
-        cls,
-        trees,
-        metric,
-        tmpdir=TMPDIR,
-        dtype=float,
-        add_noise=False,
-        normalise=False,
-        dec_places=None,
-        lsf=False,
-        ):
+            cls,
+            trees,
+            metric,
+            tmpdir=TMPDIR,
+            dtype=float,
+            add_noise=False,
+            normalise=False,
+            dec_places=None,
+            lsf=False,
+    ):
         optioncheck(metric, ['euc', 'geo', 'rf', 'wrf'])
         input_array = get_distance_matrix(trees, metric, tmpdir,
-            normalise=normalise, dec_places=dec_places, lsf=lsf)
+                                          normalise=normalise, dec_places=dec_places, lsf=lsf)
         obj = np.asarray(input_array, dtype).view(cls)
         obj.metric = metric
         obj.tmpdir = tmpdir
@@ -163,10 +160,10 @@ class DistanceMatrix(np.ndarray):
         return noisy
 
     def affinity(
-        self,
-        mask=None,
-        scale=None,
-        ):
+            self,
+            mask=None,
+            scale=None,
+    ):
         """
         Mask is a 2d boolean matrix. Scale is a 2d local scale matrix,
         as output by self.kscale(). It's the outer product of the kdists column
@@ -184,7 +181,7 @@ class DistanceMatrix(np.ndarray):
         scaled_matrix[np.where(np.isnan(scaled_matrix))] = -1.0
         affinity_matrix = np.exp(scaled_matrix)
         affinity_matrix[ix] = 0.  # mask
-        affinity_matrix.flat[::len(affinity_matrix) + 1] = 0. # diagonal
+        affinity_matrix.flat[::len(affinity_matrix) + 1] = 0.  # diagonal
         return affinity_matrix
 
     def binsearch_dists(self, tolerance=0.001):
@@ -200,12 +197,12 @@ class DistanceMatrix(np.ndarray):
                 guessk = mink + (guessk - mink) / 2
             else:
                 mink = guessk
-                guessk = guessk + (maxk - guessk) / 2
+                guessk += (maxk - guessk) / 2
 
         if last_result[0] == guessk + 1:
             return last_result
         dists = self.kdists(k=guessk + 1)
-        return (guessk + 1, dists)
+        return guessk + 1, dists
 
     def binsearch_mask(self, logic='or'):
 
@@ -222,7 +219,7 @@ class DistanceMatrix(np.ndarray):
                 guessk = mink + (guessk - mink) / 2  # try a lower number
             else:
                 mink = guessk  # too low
-                guessk = guessk + (maxk - guessk) / 2
+                guessk += (maxk - guessk) / 2
 
         if result[0] == guessk + 1:
             k, mask = result
@@ -230,19 +227,19 @@ class DistanceMatrix(np.ndarray):
             return k, mask, scale
         else:
             k = guessk + 1
-            mask = self.kmask(k=guessk+1, logic=logic)
+            mask = self.kmask(k=guessk + 1, logic=logic)
             scale = self.kscale(k)
-        return (k, mask, scale)
+        return k, mask, scale
 
     def check_euclidean(self):
         """ A distance matrix is euclidean iff F = -0.5 * (I - 1/n)D(I - 1/n) is
         PSD, where I is the identity matrix D is the distance matrix, `1` is a
         square matrix of ones, and n is the matrix size, common to all """
 
-        F = self.double_centre(square_input=True)
-        return F.check_PSD()
+        f = self.double_centre(square_input=True)
+        return f.check_psd()
 
-    def check_PD(self):
+    def check_pd(self):
         """ A symmetric matrix is PD if 1: all diagonal entries are positive,
         and 2: the diagonal element is greater than the sum of all other entries
         """
@@ -256,7 +253,7 @@ class DistanceMatrix(np.ndarray):
         row_dominant = (diagonal > rowsum - diagonal).all()
         return np.all([symmetric, diag_pos, col_dominant, row_dominant])
 
-    def check_PSD(self):
+    def check_psd(self):
         """ A square matrix is PSD if all eigenvalues of its Hermitian part are
         non- negative. The Hermitian part is given by (self + M*)/2, where M* is
         the complex conjugate transpose of M """
@@ -271,15 +268,15 @@ class DistanceMatrix(np.ndarray):
         from: Torgerson, W S (1952). Multidimensional scaling: I. Theory and
         method. Alternatively M = -0.5 * (I - 1/n)D[^2](I - 1/n) """
 
-        M = (self * self if square_input else self.copy())
-        (rows, cols) = M.shape
+        m = (self * self if square_input else self.copy())
+        (rows, cols) = m.shape
 
-        cm = np.mean(M, axis=0)  # column means
-        rm = np.mean(M, axis=1).reshape((rows, 1))  # row means
+        cm = np.mean(m, axis=0)  # column means
+        rm = np.mean(m, axis=1).reshape((rows, 1))  # row means
         gm = np.mean(cm)  # grand mean
-        M -= rm + cm - gm
-        M /= -2
-        return M
+        m -= rm + cm - gm
+        m /= -2
+        return m
 
     def eigen(self):
         """ Calculates the eigenvalues and eigenvectors of the input matrix.
@@ -297,6 +294,28 @@ class DistanceMatrix(np.ndarray):
         return Decomp(self.copy(), vals, vecs, cum_var_exp)
 
     def embedding(self, dimensions, method, **kwargs):
+        """
+        Embeds the distance matrix in a coordinate space. Implemented methods are:
+            cmds: Classical MultiDimensional Scaling
+            kpca: Kernel Principal Components Analysis
+            mmds: Metric MultiDimensional Scaling
+            nmmds: Non-Metric MultiDimensional Scaling
+            spectral: Spectral decomposition of Laplacian matrix
+
+        Valid kwargs:
+            kpca: affinity_matrix - a precomputed array of affinities
+                  sigma - the value of sigma to use when computing the affinity matrix via
+                          the Radial Basis Function
+            nmmds: initial_coords - a set of coordinates to refine. NMMDS works very badly
+                                    without this
+            spectral: affinity_matrix, sigma
+                      unit_length - scale the coordinates to unit length, so points sit
+                                    on the surface of the unit sphere
+        :param dimensions: (int) number of coordinate axes to use
+        :param method: (string) one of cmds, kpca, mmds, nmmds, spectral
+        :param kwargs: unit_length (bool), affinity_matrix (np.array), sigma (float), initial_coords (np.array)
+        :return: coordinate matrix (np.array)
+        """
         optioncheck(method, ['cmds', 'kpca', 'mmds', 'nmmds', 'spectral'])
         if method == 'cmds':
             return self._embedding_classical_mds(dimensions)
@@ -310,22 +329,22 @@ class DistanceMatrix(np.ndarray):
             return self._embedding_spectral(dimensions, **kwargs)
 
     def _embedding_classical_mds(self, dimensions=3):
-        dbc     = self.double_centre()
-        decomp  = dbc.eigen()
+        dbc = self.double_centre()
+        decomp = dbc.eigen()
         lambda_ = np.diag(np.sqrt(np.abs(decomp.vals[:dimensions])))
-        evecs   = decomp.vecs[:, :dimensions]
-        coords  = evecs.dot(lambda_)
+        evecs = decomp.vecs[:, :dimensions]
+        coords = evecs.dot(lambda_)
         return coords
 
-    def _embedding_spectral(self, dimensions=3, unit_length=False,
+    def _embedding_spectral(self, dimensions=3, unit_length=True,
                             affinity_matrix=None, sigma=1):
         if affinity_matrix is None:
-            aff = self.rbf(sigma=1)
+            aff = self.rbf(sigma=sigma)
         else:
             aff = affinity_matrix
         coords = aff.laplace(aff).eigen().vecs[:, :dimensions]
-        if unit_length: # normalise all vectors to unit length
-            coords /= np.sqrt((coords**2).sum(axis=1))[:, np.newaxis]
+        if unit_length:  # normalise all vectors to unit length
+            coords /= np.sqrt((coords ** 2).sum(axis=1))[:, np.newaxis]
         return coords
 
     def _embedding_metric_mds(self, dimensions=3):
@@ -376,16 +395,16 @@ class DistanceMatrix(np.ndarray):
         """ Returns indices to select the kth nearest neighbour"""
 
         ix = (np.arange(len(self)), self.argsort(axis=0)[k])
-        #ix = list(np.ix_(*[np.arange(i) for i in self.shape]))
-        #ix[0] = self.argsort(0)[k:k+1, :]
+        # ix = list(np.ix_(*[np.arange(i) for i in self.shape]))
+        # ix[0] = self.argsort(0)[k:k+1, :]
         return ix
 
     def kmask(
-        self,
-        k=7,
-        dists=None,
-        logic='or',
-        ):
+            self,
+            k=7,
+            dists=None,
+            logic='or',
+    ):
         """ Creates a boolean mask to include points within k nearest
         neighbours, and exclude the rest.
         Logic can be OR or AND. OR gives the k-nearest-neighbour mask,
@@ -418,11 +437,11 @@ class DistanceMatrix(np.ndarray):
         diagonal = affinity_matrix.sum(axis=1) - affinity_matrix.diagonal()
         zeros = diagonal <= 1e-10
         diagonal[zeros] = 1
-        if (diagonal <= 1e-10).any(): # arbitrarily small value
+        if (diagonal <= 1e-10).any():  # arbitrarily small value
             raise ZeroDivisionError
         if shi_malik_type:
-            invD = np.diag(1 / diagonal).view(type(self))
-            return invD.dot(affinity_matrix)
+            inv_d = np.diag(1 / diagonal).view(type(self))
+            return inv_d.dot(affinity_matrix)
         diagonal = np.sqrt(diagonal)
         return affinity_matrix / diagonal / diagonal[:, np.newaxis]
 
@@ -434,7 +453,7 @@ class DistanceMatrix(np.ndarray):
     def rbf(self, sigma=1):
         """ Returns the Radial Basis Function kernel from the distance matrix
         """
-        return np.exp(-self**2 / (2 * sigma**2))
+        return np.exp(-self ** 2 / (2 * sigma ** 2))
 
     def shift_and_scale(self, shift, scale):
         """ Shift and scale matrix so its minimum value is placed at `shift` and
@@ -444,13 +463,14 @@ class DistanceMatrix(np.ndarray):
         scaled = (scale - shift) * (zeroed / zeroed.max())
         return scaled + shift
 
-    def get_permutation_matrix(self, input_ordering, desired_ordering):
+    @staticmethod
+    def get_permutation_matrix(input_ordering, desired_ordering):
         length = len(input_ordering)
         if not len(desired_ordering) == length:
             print('List lengths don\'t match')
             return
-        P = np.zeros((length, length), dtype=np.int)
+        p = np.zeros((length, length), dtype=np.int)
         for i in range(length):
             j = desired_ordering.index(input_ordering[i])
-            P[i, j] = 1
-        return P
+            p[i, j] = 1
+        return p

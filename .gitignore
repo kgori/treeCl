@@ -1,5 +1,7 @@
 aa_alignments
 tree_collection/cython/build/
+extensions/cpp/py_seq.*
+
 
 # Mac cruft
 *.DS_Store*
@@ -52,6 +54,9 @@ coverage.xml
 
 # Rope
 .ropeproject
+
+# PyCharm
+.idea
 
 # Django stuff:
 *.log
