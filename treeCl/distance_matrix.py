@@ -329,6 +329,11 @@ class DistanceMatrix(np.ndarray):
             return self._embedding_spectral(dimensions, **kwargs)
 
     def _embedding_classical_mds(self, dimensions=3):
+        """
+        Private method to calculate CMDS embedding
+        :param dimensions: (int)
+        :return: coordinate matrix (np.array)
+        """
         dbc = self.double_centre()
         decomp = dbc.eigen()
         lambda_ = np.diag(np.sqrt(np.abs(decomp.vals[:dimensions])))
@@ -338,6 +343,11 @@ class DistanceMatrix(np.ndarray):
 
     def _embedding_spectral(self, dimensions=3, unit_length=True,
                             affinity_matrix=None, sigma=1):
+        """
+        Private method to calculate Spectral embedding
+        :param dimensions: (int)
+        :return: coordinate matrix (np.array)
+        """
         if affinity_matrix is None:
             aff = self.rbf(sigma=sigma)
         else:
@@ -348,6 +358,11 @@ class DistanceMatrix(np.ndarray):
         return coords
 
     def _embedding_metric_mds(self, dimensions=3):
+        """
+        Private method to calculate MMDS embedding
+        :param dimensions: (int)
+        :return: coordinate matrix (np.array)
+        """
         mds = manifold.MDS(n_components=dimensions,
                            dissimilarity='precomputed',
                            metric=True)
@@ -355,6 +370,11 @@ class DistanceMatrix(np.ndarray):
         return mds.embedding_
 
     def _embedding_nonmetric_mds(self, dimensions=3, initial_coords=None):
+        """
+        Private method to calculate NMMDS embedding
+        :param dimensions: (int)
+        :return: coordinate matrix (np.array)
+        """
         mds = manifold.MDS(n_components=dimensions,
                            dissimilarity='precomputed',
                            metric=False)
@@ -366,6 +386,11 @@ class DistanceMatrix(np.ndarray):
 
     def _embedding_kernel_pca(self, dimensions=3, affinity_matrix=None,
                               sigma=1):
+        """
+        Private method to calculate KPCA embedding
+        :param dimensions: (int)
+        :return: coordinate matrix (np.array)
+        """
         if affinity_matrix is None:
             aff = self.rbf(sigma)
         else:
