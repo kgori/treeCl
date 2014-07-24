@@ -18,12 +18,11 @@ from ..utils import fileIO, symmetrise
 
 
 class LSFGTP(ExternalSoftware):
-
     default_binary = 'gtp.jar'
     default_env = 'GTP_PATH'
     local_dir = fileIO.path_to(__file__)
     get_safe_newick_string = lambda self, tree: tree.as_string('newick',
-        internal_labels=False, suppress_rooting=True).rstrip()
+                                                               internal_labels=False, suppress_rooting=True).rstrip()
 
     def __init__(self, trees, tmpdir, debug=False):
         super(LSFGTP, self).__init__(tmpdir, debug=debug)
@@ -43,7 +42,7 @@ class LSFGTP(ExternalSoftware):
     def write(self):
         with open('{0}/geotrees.nwk'.format(self.tmpdir), 'w') as tmpf:
             tmpf.write('\n'.join(self.get_safe_newick_string(tree)
-                                     for tree in self.trees))
+                                 for tree in self.trees))
         input_file = '{0}/geotrees.nwk'.format(self.tmpdir)
         self.input_file = input_file
         self.add_tempfile(input_file)
@@ -65,9 +64,9 @@ class LSFGTP(ExternalSoftware):
         curr_dir = os.getcwd()
         os.chdir(self.tmpdir)
         job_launcher = bsub('treeCl_gtp_task',
-                        o='/dev/null',
-                        e='/dev/null',
-                        verbose=verbose)
+                            o='/dev/null',
+                            e='/dev/null',
+                            verbose=verbose)
 
         if not self.debug:
             job_launcher.kwargs['o'] = job_launcher.kwargs['e'] = '/dev/null'
@@ -93,11 +92,11 @@ class LSFGTP(ExternalSoftware):
         deleted = set()
         for job_id in self.job_ids:
             output_file = os.path.join(self.tmpdir,
-                                    'treeCl_gtp_task.{}.out'.format(job_id))
+                                       'treeCl_gtp_task.{}.out'.format(job_id))
             errors_file = os.path.join(self.tmpdir,
-                                    'treeCl_gtp_task.{}.err'.format(job_id))
+                                       'treeCl_gtp_task.{}.err'.format(job_id))
             if (fileIO.delete_if_exists(output_file) and
-                fileIO.delete_if_exists(errors_file)):
+                    fileIO.delete_if_exists(errors_file)):
                 deleted.add(job_id)
         self.job_ids.discard(deleted)
 
@@ -115,7 +114,6 @@ class LSFGTP(ExternalSoftware):
 
 
 class GTP(ExternalSoftware):
-
     """
     Interacts with gtp.jar to calculate geodesic distances from trees
     """
@@ -124,7 +122,7 @@ class GTP(ExternalSoftware):
     default_env = 'GTP_PATH'
     local_dir = fileIO.path_to(__file__)
     get_safe_newick_string = lambda self, tree: tree.as_string('newick',
-                internal_labels=False, suppress_rooting=True).rstrip()
+                                                               internal_labels=False, suppress_rooting=True).rstrip()
 
     def __str__(self):
         desc = 'Wrapper for gtp.jar - geodesic distance calculator'
@@ -135,7 +133,7 @@ class GTP(ExternalSoftware):
 
         details = \
             'Jarfile: {0}\nTemp directory: {1}'.format(self.binary,
-                self.tmpdir)
+                                                       self.tmpdir)
 
         return '\n'.join((
             desc,
@@ -145,7 +143,7 @@ class GTP(ExternalSoftware):
             '',
             details,
             '',
-            ))
+        ))
 
     def check_row_value(self, row, maxval):
         if row is not None:
@@ -154,7 +152,7 @@ class GTP(ExternalSoftware):
                     row))
             if row > (maxval - 1):
                 raise ValueError('row value ({0}) is too big to index into'
-                    ' a tree list of length {1}'.format(row, maxval))
+                                 ' a tree list of length {1}'.format(row, maxval))
             return int(row)
 
     def allrooted(self, trees):
@@ -186,7 +184,7 @@ class GTP(ExternalSoftware):
     def read(self, size, row, tries=5):
         row = self.check_row_value(row, size)
         if row is not None:
-            matrix = np.zeros((1,size))
+            matrix = np.zeros((1, size))
         else:
             matrix = np.zeros((size, size))
 
@@ -207,7 +205,7 @@ class GTP(ExternalSoftware):
         except IOError, e:
             if tries > 0:
                 time.sleep(1)
-                return self.read(size, row, tries-1)
+                return self.read(size, row, tries - 1)
             print('There was an IOError: {0}'.format(e))
             print('Geodesic distances couldn\'t be calculated')
             self.clean()
@@ -218,7 +216,7 @@ class GTP(ExternalSoftware):
         rooted = self.allrooted(trees)
 
         if input_file is not None and os.path.exists(input_file):
-                self.input_file = input_file
+            self.input_file = input_file
 
         else:
             self.write(trees)
@@ -241,7 +239,7 @@ class GTP(ExternalSoftware):
     def write(self, trees):
         with open('{0}/geotrees.nwk'.format(self.tmpdir), 'w') as tmpf:
             tmpf.write('\n'.join(self.get_safe_newick_string(tree)
-                                     for tree in trees))
+                                 for tree in trees))
         input_file = '{0}/geotrees.nwk'.format(self.tmpdir)
         self.input_file = input_file
         self.add_tempfile(input_file)
@@ -263,19 +261,21 @@ def breakpoints(n, m=100):
     for i in range(r):
         l[i] += 1
 
-    assert(sum(l) == n) # debug
-    return np.array([0]+l).cumsum()
+    assert (sum(l) == n)  # debug
+    return np.array([0] + l).cumsum()
+
 
 def offdiagonal_indices(breakpoints):
     matrix_length = breakpoints[-1]
     rows = []
     cols = []
     for i, curr in enumerate(breakpoints[1:], start=1):
-        prev = breakpoints[i-1]
+        prev = breakpoints[i - 1]
         for j in range(prev, curr):
-            rows.extend([j]*(matrix_length-curr))
-            cols.extend(range(curr,matrix_length))
+            rows.extend([j] * (matrix_length - curr))
+            cols.extend(range(curr, matrix_length))
     return rows, cols
+
 
 def fill_diagonal_blocks(matrix, submatrices):
     i = 0
@@ -285,10 +285,11 @@ def fill_diagonal_blocks(matrix, submatrices):
             r = c = 1
         else:
             r, c = subm.shape
-        matrix[i:i+r, j:j+c] = subm
+        matrix[i:i + r, j:j + c] = subm
         i += r
         j += c
     return matrix
+
 
 def geodist_diagonals(matrix, trees, breakpoints, calculator):
     """
@@ -302,12 +303,13 @@ def geodist_diagonals(matrix, trees, breakpoints, calculator):
         submatrices.append(calculator.run(tree_sublist))
     fill_diagonal_blocks(matrix, submatrices)
 
+
 def geodist_offdiagonals(matrix, trees, breakpoints, calculator):
-    for (r,c) in zip(*offdiagonal_indices(breakpoints)):
-        matrix[r,c] = matrix[c,r] = calculator.pairwise(trees[r], trees[c])
+    for (r, c) in zip(*offdiagonal_indices(breakpoints)):
+        matrix[r, c] = matrix[c, r] = calculator.pairwise(trees[r], trees[c])
+
 
 def geodist(trees, tmpdir, row=None, lsf=False):
-
     try:
         if lsf and row is None:
             gtp = LSFGTP(trees, tmpdir)

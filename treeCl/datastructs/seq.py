@@ -12,23 +12,23 @@ from ..constants import DNA_ACGT_THRESHOLD
 from ..errors import optioncheck, directorycheck
 from ..utils import fileIO
 
-class Seq(object):
 
+class Seq(object):
     """ Class for reading sequence files in fasta or phylip formats Supports
     writing in fasta, phylip, phylip interleaved, nexus formats, sorting
     sequences by length and name, concatenating sequences when sequence names
     are a perfect match, iterating over records. """
 
     def __init__(
-        self,
-        infile=None,
-        file_format='fasta',
-        name=None,
-        datatype=None,
-        headers=[],
-        sequences=[],
-        tmpdir=None,
-        ):
+            self,
+            infile=None,
+            file_format='fasta',
+            name=None,
+            datatype=None,
+            headers=[],
+            sequences=[],
+            tmpdir=None,
+    ):
 
         self.name = name
         self.headers = headers
@@ -102,12 +102,12 @@ class Seq(object):
         for i in range(len(self.headers)):
             if len(self.sequences[i]) > 50:
                 output_string += '>{0}\n'.format(self.headers[i]) \
-                    + '{0}\n'.format((self.sequences[i])[:50]) \
-                    + '... ({0}) ...\n'.format(len(self.sequences[i]) - 100) \
-                    + '{0}\n'.format((self.sequences[i])[-50:]) + '\n'
+                                 + '{0}\n'.format((self.sequences[i])[:50]) \
+                                 + '... ({0}) ...\n'.format(len(self.sequences[i]) - 100) \
+                                 + '{0}\n'.format((self.sequences[i])[-50:]) + '\n'
             else:
                 output_string += '>{0}\n{1}'.format(self.headers[i],
-                        self.sequences[i]) + '\n' + '\n'
+                                                    self.sequences[i]) + '\n' + '\n'
         output_string += '{0} sequences in record'.format(len(self))
         return output_string
 
@@ -169,7 +169,7 @@ class Seq(object):
     def __eq__(self, other):
         if type(other) is type(self):
             return set(self.headers) == set(other.headers) \
-                and set(self.sequences) == set(other.sequences)
+                   and set(self.sequences) == set(other.sequences)
         return False
 
     def __ne__(self, other):
@@ -184,8 +184,8 @@ class Seq(object):
         # Uses zip as its own inverse [ zip(*zip(A,B)) == (A,B) ]
 
         (h, s) = zip(*sorted(zip(self.headers, self.sequences),
-                     key=lambda item: len(item[1].replace('-', '')),
-                     reverse=reverse))
+                             key=lambda item: len(item[1].replace('-', '')),
+                             reverse=reverse))
         if in_place:
             self.headers = h
             self.sequences = s
@@ -199,8 +199,8 @@ class Seq(object):
 
         items = self.mapping.items()
         sort_key = lambda item: tuple((int(num) if num else alpha) for (num,
-                                      alpha) in re.findall(r'(\d+)|(\D+)',
-                                      item[0]))
+                                                                        alpha) in re.findall(r'(\d+)|(\D+)',
+                                                                                             item[0]))
         items = sorted(items, key=sort_key, reverse=reverse)
         (h, s) = zip(*items)
         if in_place:
@@ -236,11 +236,11 @@ class Seq(object):
         return new_records
 
     def read_fasta_file(
-        self,
-        fasta_file,
-        name=None,
-        datatype=None,
-        ):
+            self,
+            fasta_file,
+            name=None,
+            datatype=None,
+    ):
         """ FASTA format parser: turns fasta file into Alignment_record object
         """
 
@@ -248,17 +248,17 @@ class Seq(object):
         sequences = []
         with fileIO.freader(fasta_file) as openfile:
 
-            while True:                     # skip over file until first header
+            while True:  # skip over file until first header
                 line = openfile.readline()  # is found,
                 if not line:
                     return
-                if line[0] == '>':          # then break the loop and put the
-                    break                   # first header into the headers list
+                if line[0] == '>':  # then break the loop and put the
+                    break  # first header into the headers list
             headers.append(line[1:].rstrip())
 
             while True:
                 line = openfile.readline()
-                sequence_so_far = []        # build up sequence a line at a time
+                sequence_so_far = []  # build up sequence a line at a time
                 while True:
                     if not line:
                         break
@@ -268,13 +268,13 @@ class Seq(object):
                     else:
                         break
                 sequences.append(''.join(sequence_so_far).translate(None,
-                    '\n\r\t ,'))
+                                                                    '\n\r\t ,'))
                 if not line:
                     break
                 headers.append(line[1:].rstrip())
 
-            first_seq_length = len(sequences[0]) # check if all sequences are
-            is_alignment = True                  # the same length
+            first_seq_length = len(sequences[0])  # check if all sequences are
+            is_alignment = True  # the same length
             for seq in sequences:
                 if len(seq) != first_seq_length:
                     is_alignment = False
@@ -294,11 +294,11 @@ class Seq(object):
             self._update()
 
     def read_phylip_file(
-        self,
-        phylip_file,
-        name=None,
-        datatype=None,
-        ):
+            self,
+            phylip_file,
+            name=None,
+            datatype=None,
+    ):
         """ PHYLIP format parser"""
 
         with fileIO.freader(phylip_file) as openfile:
@@ -359,7 +359,7 @@ class Seq(object):
 
     def change_case(self, case):
         optioncheck(case, ['lower', 'upper'])
-        if case=='upper':
+        if case == 'upper':
             self.sequences = [x.upper() for x in self.sequences]
         else:
             self.sequences = [x.lower() for x in self.sequences]
@@ -389,17 +389,19 @@ class Seq(object):
         into `unit_size` length blocks separated by `unit_sep`, with
         `units_per_line` units per line"""
         #
-        return ['\n'.join(self._join(self._grouper(units_per_line, self._join(self._grouper(unit_size, s))), unit_sep)).strip(unit_sep) for s in self.sequences]
+        return ['\n'.join(
+            self._join(self._grouper(units_per_line, self._join(self._grouper(unit_size, s))), unit_sep)).strip(
+            unit_sep) for s in self.sequences]
 
     def write_fasta(
-        self,
-        outfile='stdout',
-        print_to_screen=False,
-        linebreaks=None,
-        units_per_line=10,
-        unit_size=10,
-        unit_sep='',
-        ):
+            self,
+            outfile='stdout',
+            print_to_screen=False,
+            linebreaks=None,
+            units_per_line=10,
+            unit_size=10,
+            unit_sep='',
+    ):
         """ Writes sequences to file in fasta format If outfile = 'stdout' the
         sequences are printed to screen, not written to file If print_to_screen
         = True the sequences are printed to screen whether they are written to
@@ -415,7 +417,7 @@ class Seq(object):
         sequences = self.seqs_to_units(units_per_line, unit_size, unit_sep)
 
         lines = ['>{0}\n{1}\n'.format(h, seq) for (h, seq) in zip(self.headers,
-                 sequences)]
+                                                                  sequences)]
 
         if outfile == 'stdout':
             s = ''.join(lines)
@@ -460,15 +462,15 @@ class Seq(object):
             return outfile
 
     def write_phylip(
-        self,
-        outfile='stdout',
-        print_to_screen=False,
-        interleaved=False,
-        linebreaks=None,
-        units_per_line=10,
-        unit_size=10,
-        unit_sep='',
-        ):
+            self,
+            outfile='stdout',
+            print_to_screen=False,
+            interleaved=False,
+            linebreaks=None,
+            units_per_line=10,
+            unit_size=10,
+            unit_sep='',
+    ):
         """ Writes sequences to file in phylip format, interleaving optional If
         outfile = 'stdout' the sequences are printed to screen, not written to
         disk If print_to_screen = True the sequences are printed to screen
@@ -490,12 +492,13 @@ class Seq(object):
                 for seq_header in self.headers:
                     if i == 0:
                         s.append('{0:<{1}} {2}'.format(seq_header,
-                                 label_length, (self.mapping[seq_header])[i
-                                 * seq_length:(i + 1) * seq_length]))
+                                                       label_length, (self.mapping[seq_header])[i
+                                                                                                * seq_length:(
+                                                                                                             i + 1) * seq_length]))
                     else:
                         s.append('{0} {1}'.format(' ' * label_length,
-                                 (self.mapping[seq_header])[i * seq_length:(i
-                                 + 1) * seq_length]))
+                                                  (self.mapping[seq_header])[i * seq_length:(i
+                                                                                             + 1) * seq_length]))
                 s.append('')
         else:
             lines = ['{0:<{1}} {2:-<{3}}'.format(x, label_length, y, maxlen)

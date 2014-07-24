@@ -9,6 +9,7 @@ if __name__ == '__main__':
 
     within_variation_choices = ['autocorrelated', 'uncorrelated', 'scaled']
     import argparse
+
     prog = fileIO.basename(__file__)
     parser = argparse.ArgumentParser(description='{0}'.format(prog))
     parser.add_argument('classes', type=int, nargs='+')
@@ -27,11 +28,11 @@ if __name__ == '__main__':
     parser.add_argument('-w', '--within_variation', type=str,
                         choices=within_variation_choices,
                         help=('Trees within a class can vary in their size or '
-                        'branch lengths: branch rates (and lengths) can be '
-                        'generated from an autocorrelated lognormal '
-                        'relaxed clock, an uncorrelated lognormal relaxed '
-                        'clock, or scaled uniformly by a parameter, drawn '
-                        'randomly from [0.666, 1.333]'))
+                              'branch lengths: branch rates (and lengths) can be '
+                              'generated from an autocorrelated lognormal '
+                              'relaxed clock, an uncorrelated lognormal relaxed '
+                              'clock, or scaled uniformly by a parameter, drawn '
+                              'randomly from [0.666, 1.333]'))
     parser.add_argument('-v', '--verbosity', type=int)
     args = parser.parse_args()
 

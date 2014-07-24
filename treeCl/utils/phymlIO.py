@@ -7,14 +7,16 @@ TO DO: Add PAML class to estimate these kinds of parameters better then
 can dispense with this
 """
 
+
 def extract_gamma_parameter(tree):
-        gamma_regex = re.compile(r'(?<=Gamma shape parameter: \t\t)[.\d+]+')
-        try:
-            gamma = float(gamma_regex.search(tree.output).group())
-        except AttributeError:
-            print('Couldn\'t extract alpha parameter')
-            return 1.0
-        return gamma
+    gamma_regex = re.compile(r'(?<=Gamma shape parameter: \t\t)[.\d+]+')
+    try:
+        gamma = float(gamma_regex.search(tree.output).group())
+    except AttributeError:
+        print('Couldn\'t extract alpha parameter')
+        return 1.0
+    return gamma
+
 
 def extract_GTR_parameters(tree):
     Afreq_regex = re.compile(r'(?<=f\(A\)= )[.\d+]+')
@@ -55,6 +57,6 @@ def extract_GTR_parameters(tree):
         CtoG=CtoG,
         CtoT=CtoT,
         GtoT=GtoT,
-        )
+    )
 
     return d

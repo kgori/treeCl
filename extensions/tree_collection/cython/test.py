@@ -3,7 +3,7 @@ from __future__ import print_function
 import tree_collection
 
 mat = open('/Users/kgori/git_repos/gitolite/treesoflife/data/DistVar.txt').read()
-map_= open('/Users/kgori/git_repos/gitolite/treesoflife/data/GenomeMap.txt').read()
+map_ = open('/Users/kgori/git_repos/gitolite/treesoflife/data/GenomeMap.txt').read()
 lab = open('/Users/kgori/git_repos/gitolite/treesoflife/data/Labels.txt').read()
 tre = open('/Users/kgori/git_repos/gitolite/treesoflife/data/Tree.nwk').read()
 

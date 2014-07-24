@@ -1,9 +1,12 @@
 #!/usr/bin/env python
 
+import argparse
+import math
+import sys
+
 from treeCl.datastructs.trcl_seq import TrClSeq as Seq
 from treeCl.utils import fileIO
 from treeCl.errors import filecheck, directorymake, optioncheck
-import argparse, math, sys
 
 
 def bootstrap(filename, directory, n=100, **kwargs):
@@ -20,13 +23,14 @@ def bootstrap(filename, directory, n=100, **kwargs):
 
     rec = Seq(filename, **kwargs)
     rec.name = get_prefix(filename)
-    nfigures = int(math.ceil(math.log10(n+1)))
+    nfigures = int(math.ceil(math.log10(n + 1)))
     for i in range(n):
-        sample_name = '{0}_{1:0>{2}}.phy'.format(rec.name, i+1, nfigures)
+        sample_name = '{0}_{1:0>{2}}.phy'.format(rec.name, i + 1, nfigures)
         boot = rec.bootstrap_sample()
-        boot.write_phylip('{0}/{1}'.format(directory, sample_name), 
-            interleaved=True)
+        boot.write_phylip('{0}/{1}'.format(directory, sample_name),
+                          interleaved=True)
     print '{0} files written to {1}'.format(n, directory)
+
 
 def parse_args():
     prog = fileIO.basename(sys.argv[0])
@@ -41,11 +45,12 @@ def parse_args():
     parser = argparse.ArgumentParser(prog=prog, description=desc)
     parser.add_argument('infile', type=str, help=i_help)
     parser.add_argument('directory', type=str, help=d_help)
-    parser.add_argument('-f', '--file-format', type=str, default='fasta', 
-        choices=f_choices, help=f_help)
+    parser.add_argument('-f', '--file-format', type=str, default='fasta',
+                        choices=f_choices, help=f_help)
     parser.add_argument('-n', '--number', type=int, default=100, help=n_help)
 
     return parser.parse_args()
+
 
 def check_args(args):
     filecheck(args.infile)
@@ -55,11 +60,12 @@ def check_args(args):
 
     return args
 
+
 def get_prefix(filename):
     base = fileIO.basename(filename)
     try:
         dot_position = base.index('.')
-    except ValueError: # no dot found
+    except ValueError:  # no dot found
         dot_position = len(base)
 
     return base[:dot_position]
@@ -67,8 +73,9 @@ def get_prefix(filename):
 
 def main():
     args = check_args(parse_args())
-    bootstrap(args.infile, args.directory, n=args.number, 
-        file_format=args.file_format)
+    bootstrap(args.infile, args.directory, n=args.number,
+              file_format=args.file_format)
+
 
 if __name__ == '__main__':
     sys.exit(main())

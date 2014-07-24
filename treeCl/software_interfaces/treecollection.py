@@ -11,7 +11,6 @@ from ..utils.printing import print_and_return
 
 
 class TreeCollection(TreeSoftware):
-
     """ __init__ takes a Seq sequence record as
     first (only) positional argument, and supplied_binary= and
     tmpdir= as keyword arguments """
@@ -82,7 +81,7 @@ class TreeCollection(TreeSoftware):
         dv_file.write('{0}\n'.format(num_matrices))
         map_file.write('{0} {1}\n'.format(num_matrices, labels_len))
         labels_file.write('{0}\n{1}\n'.format(labels_len,
-                          ' '.join(all_labels)))
+                                              ' '.join(all_labels)))
         labels_file.close()
 
         # Write info
@@ -94,7 +93,7 @@ class TreeCollection(TreeSoftware):
             dv_file.flush()
             for lab in all_labels:
                 map_file.write(('{0} '.format(labels.index(lab) + 1) if lab
-                               in labels else '-1 '))
+                                                                        in labels else '-1 '))
             map_file.write('\n')
             map_file.flush()
         dv_file.close()
@@ -118,6 +117,7 @@ class TreeCollection(TreeSoftware):
         tree.write_to_file(filename)
         self.add_tempfile(filename)
         return filename
+
 
 def runTC(rec, tmpdir, guidetrees=None, verbosity=0, **kwargs):
     if not isinstance(guidetrees, list):

@@ -19,6 +19,7 @@ def cast(dendropy_tree):
     """ Cast dendropy.Tree instance as Tree instance """
     return Tree(dendropy_tree.as_newick_string() + ';')
 
+
 def edge_length_check(length, edge):
     """ Raises error if length is not in interval [0, edge.length] """
     try:
@@ -30,10 +31,12 @@ def edge_length_check(length, edge):
             'This edge isn\'t long enough to prune at length {0}\n'
             '(Edge length = {1})'.format(length, edge.length))
 
+
 def rootcheck(edge, msg='This is the root edge'):
     """ Raises error if edge is the root edge (has no tail node) """
     if not edge.tail_node:
         raise TreeError(msg)
+
 
 def logN_correlated_rate(parent_rate, branch_length, autocorrel_param, size=1):
     """
@@ -58,7 +61,8 @@ def logN_correlated_rate(parent_rate, branch_length, autocorrel_param, size=1):
     ln_descendant_rate = np.random.normal(np.log(parent_rate) - 0.5 * variance,
                                           scale=stdev, size=size)
     descendant_rate = np.exp(ln_descendant_rate)
-    return float(descendant_rate) if size==1 else descendant_rate
+    return float(descendant_rate) if size == 1 else descendant_rate
+
 
 class TreeError(Exception):
     def __init__(self, msg):
@@ -66,6 +70,7 @@ class TreeError(Exception):
 
     def __str__(self):
         return self.msg
+
 
 class SPR(object):
     """ Subtree prune and regraft functionality """
@@ -106,12 +111,12 @@ class SPR(object):
         length (defaults to middle of edge). """
 
         rootcheck(edge, 'SPR regraft is not allowed on the root edge')
-        length = length or edge.length/2. # Length measured from head to tail
+        length = length or edge.length / 2.  # Length measured from head to tail
         edge_length_check(length, edge)
 
         t = edge.tail_node
         h = edge.head_node
-        new = t.new_child(edge_length=edge.length-length)
+        new = t.new_child(edge_length=edge.length - length)
         t.remove_child(h)
         new.add_child(h, edge_length=length)
         new.add_child(node)
@@ -119,12 +124,12 @@ class SPR(object):
 
     def spr(self, prune_edge, length1, regraft_edge, length2):
         assert (regraft_edge.head_node
-            not in prune_edge.head_node.preorder_iter())
+                not in prune_edge.head_node.preorder_iter())
         node = self.prune(prune_edge, length1)
         self.regraft(regraft_edge, node, length2)
 
     def rspr(self, disallow_sibling_sprs=False,
-        keep_entire_edge=False, rescale=False):
+             keep_entire_edge=False, rescale=False):
         """ Random SPR, with prune and regraft edges chosen randomly, and
         lengths drawn uniformly from the available edge lengths.
 
@@ -133,7 +138,7 @@ class SPR(object):
 
         starting_length = self.tree.length()
 
-        excl = [self.tree.seed_node.edge] #exclude r
+        excl = [self.tree.seed_node.edge]  # exclude r
         if disallow_sibling_sprs:
             excl.extend(self._check_single_outgroup())
         prune_edge, l1 = self.tree.map_event_onto_tree(excl)
@@ -160,10 +165,10 @@ class SPR(object):
 
         self.spr(prune_edge, l1, regraft_edge, l2)
         if rescale:
-            self.tree.scale(starting_length/self.tree.length())
+            self.tree.scale(starting_length / self.tree.length())
+
 
 class LGT(object):
-
     def __init__(self, tree):
         self.SPR = SPR(tree)
         self.tree = self.SPR.tree
@@ -231,8 +236,8 @@ class LGT(object):
         self.tree.update_splits(delete_outdegree_one=False)
         self.tree.calc_node_ages()
 
-class NNI(object):
 
+class NNI(object):
     def __init__(self, tree):
         self.tree = tree
         if tree.rooted:
@@ -271,11 +276,11 @@ class NNI(object):
         return {'head': head_children, 'tail': tail_children}
 
     def nni(
-        self,
-        edge,
-        head_subtree,
-        tail_subtree,
-        ):
+            self,
+            edge,
+            head_subtree,
+            tail_subtree,
+    ):
         """ *Inplace* Nearest-neighbour interchange (NNI) operation.
 
         An edge in the tree has two or more subtrees at each end (ends are
@@ -322,25 +327,25 @@ class NNI(object):
         e = random.choice(self.tree.get_inner_edges())
         children = self.get_children(e)
         (h, t) = (random.choice(children['head']), random.choice(children['tail'
-                  ]))
+        ]))
         self.nni(e, h, t)
 
-class Tree(dendropy.Tree):
 
+class Tree(dendropy.Tree):
     """Augmented version of dendropy Tree class"""
 
     name_regex = re.compile('([A-Za-z0-9\-_]+).([A-Za-z0-9\-_]+)(?=_phyml_)')
     score_regex = re.compile('(?<=Log-likelihood: ).+')
 
     def __init__(
-        self,
-        newick=None,
-        score=0,
-        output=None,
-        program=None,
-        name=None,
-        **kwargs
-        ):
+            self,
+            newick=None,
+            score=0,
+            output=None,
+            program=None,
+            name=None,
+            **kwargs
+    ):
 
         super(Tree, self).__init__(**kwargs)
         if newick:
@@ -367,10 +372,10 @@ class Tree(dendropy.Tree):
             s += 'Name:\t{0}\n'.format(self.name)
 
         s += ('Program:\t{0}\n'
-            'Score:\t{1}\n'
-            'Rooted:\t{2}\n'
-            'Tree:\t]{3}'.format(self.program,
-                self.score, self.rooted, self.newick))
+              'Score:\t{1}\n'
+              'Rooted:\t{2}\n'
+              'Tree:\t]{3}'.format(self.program,
+                                   self.score, self.rooted, self.newick))
 
         return s
 
@@ -448,8 +453,8 @@ class Tree(dendropy.Tree):
         t2.prune_taxa_with_labels(symdiff)
         # t1.prune_to_subset(intersection, inplace=True)
         # t2.prune_to_subset(intersection, inplace=True)
-        t1.seed_node.edge_length=0.0
-        t2.seed_node.edge_length=0.0
+        t1.seed_node.edge_length = 0.0
+        t2.seed_node.edge_length = 0.0
         # To avoid taxon set nightmares do this:
         tax = dendropy.TaxonSet()
         t1 = cls(t1.as_string('newick'), taxon_set=tax)
@@ -476,7 +481,7 @@ class Tree(dendropy.Tree):
 
     def get_nonroot_edges(self):
         return [e for e in self.preorder_edge_iter()
-             if e.head_node and e.tail_node]
+                if e.head_node and e.tail_node]
 
     def intersection(self, other):
         """ Returns the intersection of the taxon sets of two Trees """
@@ -560,12 +565,12 @@ class Tree(dendropy.Tree):
         return t
 
     def randomise_branch_lengths(
-        self,
-        i=(1, 1),
-        l=(1, 1),
-        distribution_func=random.gammavariate,
-        inplace=False,
-        ):
+            self,
+            i=(1, 1),
+            l=(1, 1),
+            distribution_func=random.gammavariate,
+            inplace=False,
+    ):
         """ Replaces branch lengths with values drawn from the specified
         distribution_func. Parameters of the distribution are given in the
         tuples i and l, for interior and leaf nodes respectively. """
@@ -583,9 +588,9 @@ class Tree(dendropy.Tree):
         return t
 
     def randomise_labels(
-        self,
-        inplace=False,
-        ):
+            self,
+            inplace=False,
+    ):
         """ Shuffles the leaf labels, but doesn't alter the tree structure """
 
         if not inplace:
@@ -627,16 +632,16 @@ class Tree(dendropy.Tree):
         """
         root_edge = self.seed_node.edge
         lengths = dict([(edge, edge.length) for edge
-            in self.seed_node.incident_edges() if edge is not root_edge])
+                        in self.seed_node.incident_edges() if edge is not root_edge])
         self.deroot()
         reroot_edge = (set(self.seed_node.incident_edges())
-                            & set(lengths.keys())).pop()
+                       & set(lengths.keys())).pop()
         self.update_splits()
         return (reroot_edge, reroot_edge.length - lengths[reroot_edge],
-            lengths[reroot_edge])
+                lengths[reroot_edge])
 
     def autocorrelated_relaxed_clock(self, root_rate, autocorrel,
-        distribution='lognormal'):
+                                     distribution='lognormal'):
         """
         Attaches rates to each node according to autocorrelated lognormal
         model from Kishino et al.(2001), or autocorrelated exponential
@@ -656,12 +661,12 @@ class Tree(dendropy.Tree):
                 bl = node.edge_length
                 if distribution == 'lognormal':
                     node.rate = logN_correlated_rate(parent_rate, bl,
-                        autocorrel)
+                                                     autocorrel)
                 else:
                     node.rate = np.random.exponential(parent_rate)
 
     def uncorrelated_relaxed_clock(self, root_rate, variance,
-        distribution='lognormal'):
+                                   distribution='lognormal'):
         optioncheck(distribution, ['exponential', 'lognormal'])
 
         for node in self.preorder_node_iter():
@@ -669,13 +674,13 @@ class Tree(dendropy.Tree):
                 node.rate = root_rate
             else:
                 if distribution == 'lognormal':
-                    mu = np.log(root_rate) - 0.5*variance
+                    mu = np.log(root_rate) - 0.5 * variance
                     node.rate = np.random.lognormal(mu, variance)
                 else:
                     node.rate = np.random.exponential(root_rate)
 
     def rlgt(self, inplace=False, time=None, times=1,
-        disallow_sibling_lgts=False):
+             disallow_sibling_lgts=False):
         """ Uses class LGT to perform random lateral gene transfer on
         ultrametric tree """
 
@@ -770,16 +775,13 @@ class Tree(dendropy.Tree):
         return tree
 
 
-
-
-
     def write_to_file(
-        self,
-        outfile,
-        metadata=False,
-        scale=1,
-        **kwargs
-        ):
+            self,
+            outfile,
+            metadata=False,
+            scale=1,
+            **kwargs
+    ):
         """ Writes the tree to file. If metadata==True it writes the tree's
         likelihood score, name and generating program to the file inside a
         comment.
@@ -791,10 +793,10 @@ class Tree(dendropy.Tree):
             edge_label_compose_func...
         suppress_rooting is set to True by default
         """
-        if scale<=0:
+        if scale <= 0:
             kwargs.update({'suppress_edge_lengths': True})
         else:
-            l = lambda x:str(x.length*scale)
+            l = lambda x: str(x.length * scale)
             kwargs.update({'edge_label_compose_func': l})
         if not 'suppress_rooting' in kwargs:
             kwargs.update({'suppress_rooting': True})
@@ -816,23 +818,23 @@ class Tree(dendropy.Tree):
         for e in self.preorder_edge_iter():
             edges[e] = ' ---> '.join([nodes[e.tail_node], nodes[e.head_node]])
 
-        r_edges = {value: key for key,value in edges.items()}
-        r_nodes = {value: key for key,value in nodes.items()}
+        r_edges = {value: key for key, value in edges.items()}
+        r_nodes = {value: key for key, value in nodes.items()}
         return edges, nodes, r_edges, r_nodes
 
     @classmethod
     def new_tree_from_phyml_results(
-        cls,
-        tree_file,
-        stats_file,
-        name=None,
-        program='phyml',
-        ):
+            cls,
+            tree_file,
+            stats_file,
+            name=None,
+            program='phyml',
+    ):
         """ Given the usual phyml output files - xxx_phyml_tree.txt and
         xxx_phyml_stats.txt, instantiates a Tree from the information
         in the phyml files.
         TODO: refactor into phymlIO module """
-        #newick score output program name
+        # newick score output program name
 
         exit = False
         for f in (tree_file, stats_file):
@@ -854,9 +856,9 @@ class Tree(dendropy.Tree):
         score = float(score) if score else None
 
         return cls(newick=newick, score=score, output=stats, program=program,
-            name=name)
+                   name=name)
 
-    ### DISTANCE CALCULATIONS
+    # ## DISTANCE CALCULATIONS
     # __unify_taxon_sets() might not be necessary - can't seem to reproduce
     # the bug that made me introduce it
 
@@ -878,12 +880,12 @@ class Tree(dendropy.Tree):
             t1, t2 = self, other
         if len(t1) < 4:
             msg = ('The intersection of the trees is too small to calculate'
-            ' the RF distance')
+                   ' the RF distance')
             raise TreeError(msg)
         try:
             distance = t1.symmetric_difference(t2)
             if normalise:
-                rfmax = float(2*(len(t1)-3))
+                rfmax = float(2 * (len(t1) - 3))
                 distance /= rfmax
             return distance
         except:
@@ -961,14 +963,13 @@ class Tree(dendropy.Tree):
         if not inplace:
             t1_copy = t1.copy()
             t2_copy = t2.copy()
-        normalisation = 1/(t1.length()+t2.length())
+        normalisation = 1 / (t1.length() + t2.length())
         t1_copy.scale(normalisation)
         t2_copy.scale(normalisation)
         return t1_copy, t2_copy
 
 
 class RandomTree(object):
-
     def __init__(self):
         self.tree = Tree('(l1:1,l2:1,l3:1):0')
         self.number = 3
@@ -998,21 +999,20 @@ class RandomTree(object):
     @classmethod
     def new(cls, n):
         rt = cls()
-        for _ in range(n-3):
+        for _ in range(n - 3):
             e = rt.select()
             rt.add(e)
         return rt.tree
 
 
 class TreeGen(object):
-
     def __init__(
-        self,
-        nspecies=16,
-        names=None,
-        template=None,
-        cf=False,
-        ):
+            self,
+            nspecies=16,
+            names=None,
+            template=None,
+            cf=False,
+    ):
 
         """ Generates a new Tree using a coalescent process (coal method), a
         Yule pure-birth process (yule method), a random tree (rtree), or by
@@ -1030,7 +1030,7 @@ class TreeGen(object):
             self.names = random.sample(cfnames, nspecies)
         else:
             self.names = names or ['Sp{0}'.format(i) for i in range(1, nspecies
-                                   + 1)]
+                                                                    + 1)]
         if template and not isinstance(template, Tree):
             raise TypeError('template should be \'Tree\' object. Got',
                             type(template))
@@ -1041,11 +1041,11 @@ class TreeGen(object):
         return cast(dendropy.treesim.pure_kingman(taxon_set))
 
     def gene_tree(
-        self,
-        scale_to=None,
-        population_size=1,
-        trim_names=True,
-        ):
+            self,
+            scale_to=None,
+            population_size=1,
+            trim_names=True,
+    ):
         """ Using the current tree object as a species tree, generate a gene
         tree using the constrained Kingman coalescent process from dendropy. The
         species tree should probably be a valid, ultrametric tree, generated by
@@ -1063,7 +1063,7 @@ class TreeGen(object):
             leaf.num_genes = 1
 
         tree_height = tree.seed_node.distance_from_root() \
-            + tree.seed_node.distance_from_tip()
+                      + tree.seed_node.distance_from_tip()
 
         if scale_to:
             population_size = tree_height / scale_to
@@ -1076,10 +1076,10 @@ class TreeGen(object):
         if trim_names:
             for leaf in gene_tree.leaf_iter():
                 leaf.taxon.label = leaf.taxon.label.replace('\'', '').split('_'
-                        )[0]
+                )[0]
 
         return {'gene_tree': tree.__class__.cast(gene_tree),
-            'species_tree': tree}
+                'species_tree': tree}
 
     def rtree(self):
         m = self.yule()
