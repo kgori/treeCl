@@ -345,7 +345,7 @@ class Params(object):
             max_gain_length=10,
             loss_rate=0.00002,
             loss_model='ZIPF',
-            loss_params=list(1.821),
+            loss_params=None,
             max_loss_length=10,
     ):
         if not gain_params:

@@ -310,21 +310,31 @@ class Concatenation(object):
     def datatypes(self):
         return [self.collection.records[i].datatype for i in self.indices]
 
-    def qfile(self, dna_model='GTRGAMMA', protein_model='PROTGAMMAWAG',
-              ml_freqs=False):
+    def qfile(self, dna_model='DNA', protein_model='LG', sep_codon_pos=False,
+              ml_freqs=False, eq_freqs=False):
         from_ = 1
         to_ = 0
         qs = list()
         if ml_freqs:
             dna_model += 'X'
             protein_model += 'X'
+        if eq_freqs and not ml_freqs:
+            protein_model += 'F'
 
         models = dict(dna=dna_model, protein=protein_model)
         for length, name, datatype in zip(self.lengths, self.names,
                                           self.datatypes):
             to_ += length
-            qs.append('{}, {} = {}-{}'.format(models[datatype], name, from_,
-                                              to_))
+            if datatype == 'dna' and sep_codon_pos:
+                qs.append('{}, {} = {}-{}/3'.format(models[datatype], name, from_,
+                                                    to_))
+                qs.append('{}, {} = {}-{}/3'.format(models[datatype], name, from_+1,
+                                                    to_))
+                qs.append('{}, {} = {}-{}/3'.format(models[datatype], name, from_+2,
+                                                    to_))
+            else:
+                qs.append('{}, {} = {}-{}'.format(models[datatype], name, from_,
+                                                  to_))
             from_ += length
         return '\n'.join(qs)
 
