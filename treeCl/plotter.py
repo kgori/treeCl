@@ -7,6 +7,7 @@ import itertools
 # third party
 import matplotlib.pyplot as plt
 from matplotlib import cm as CM
+from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 
 # treeCl
