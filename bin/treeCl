@@ -18,7 +18,7 @@ from treeCl import Collection, Clustering, DistanceMatrix, Partition, \
                    Plotter, Scorer
 from treeCl.constants import logo, SORT_KEY
 from treeCl.errors import directorycheck, directorymake, filecheck
-from treeCl.utils import fileIO
+from treeCl.utils import fileIO, symmetrise
 
 def print_distance_matrix_update(args):
     """ User update function: distance matrix calculation """
@@ -313,7 +313,10 @@ def parse_args():
                      'previously computed Scorer, loaded via -q. '
                      'Usage= --simulate [RESULT.TSV, N] where N is the number '
                      'of clusters to start from'),
-        'tsv_only': 'Only write the .tsv results file'
+        'tsv_only': 'Only write the .tsv results file',
+        'true': 'The known true partition',
+        'piecewise_distances': ('For geo dists, compute the rows separately '
+                                '(slower, but saves memory)')
     }
 
     parser = argparse.ArgumentParser(description=fileIO.basename(__file__))
@@ -364,7 +367,11 @@ def parse_args():
                         help=help_messages['tsv_only'])
     parser.add_argument('--exit', action='store_true')
     parser.add_argument('--no_cluster', action='store_true')
-    parser.add_argument('--true', type=int, nargs='+')
+    parser.add_argument('--true', help=help_messages['true'], type=int,
+                        nargs='+')
+    parser.add_argument('--piecewise_distances',
+                        help=help_messages['piecewise_distances'],
+                        action='store_true')
 
     return parser.parse_args()
 
@@ -481,7 +488,13 @@ if __name__ == "__main__":
     else:
         distance_matrices = {}
         for metric in args.m:
-            distance_matrices[metric] = collection.distance_matrix(metric,
+            if (args.m == 'geo' and args.piecewise_distances and not args.b):
+                dm_rows = [geodist(collection.trees, collection.tmpdir, row=i)
+                           for i in range(len(collection.trees))]
+                dm = symmetrise(np.vstack(dm_rows)).view(DistanceMatrix)
+                distance_matrices[metric] = dm
+            else:
+                distance_matrices[metric] = collection.distance_matrix(metric,
                                                                    lsf=args.b)
 
     if args.distances_out:
