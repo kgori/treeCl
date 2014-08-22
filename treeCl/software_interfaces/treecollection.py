@@ -68,10 +68,9 @@ class TreeCollection(TreeSoftware):
         labels_len = len(all_labels)
 
         base_filename = self.record.get_name(default='tmp_TC')
-        f = {}
-        f['dv'] = '{0}/{1}_dv.txt'.format(self.tmpdir, base_filename)
-        f['lab'] = '{0}/{1}_labels.txt'.format(self.tmpdir, base_filename)
-        f['map'] = '{0}/{1}_map.txt'.format(self.tmpdir, base_filename)
+        f = {'dv': '{0}/{1}_dv.txt'.format(self.tmpdir, base_filename),
+             'lab': '{0}/{1}_labels.txt'.format(self.tmpdir, base_filename),
+             'map': '{0}/{1}_map.txt'.format(self.tmpdir, base_filename)}
         dv_file = open(f['dv'], 'w')
         labels_file = open(f['lab'], 'w')
         map_file = open(f['map'], 'w')

@@ -30,9 +30,10 @@ class TrClSeq(Seq):
     """ A version of the SequenceRecord class with some extra functionality for
     working with tree inference packages, notably TreeCollection """
 
-    def __init__(self, infile=None, file_format='fasta', name=None, datatype=None, headers=None, sequences=[], dv=None,
-                 tree=None, tmpdir=None):
+    def __init__(self, infile=None, file_format='fasta', name=None, datatype=None, headers=None, sequences=None,
+                 dv=None, tree=None, tmpdir=None):
 
+        if not sequences: sequences = []
         if not headers: headers = []
         self.TCfiles = {}
         self.dv = dv or []

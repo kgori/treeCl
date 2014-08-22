@@ -19,17 +19,11 @@ class Seq(object):
     sequences by length and name, concatenating sequences when sequence names
     are a perfect match, iterating over records. """
 
-    def __init__(
-            self,
-            infile=None,
-            file_format='fasta',
-            name=None,
-            datatype=None,
-            headers=[],
-            sequences=[],
-            tmpdir=None,
-    ):
+    def __init__(self, infile=None, file_format='fasta', name=None, datatype=None, headers=None, sequences=None,
+                 tmpdir=None):
 
+        if not sequences: sequences = []
+        if not headers: headers = []
         self.name = name
         self.headers = headers
         self.sequences = sequences
