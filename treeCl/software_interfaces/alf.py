@@ -22,20 +22,21 @@ from ..utils.gapmasker import GapMasker
 from ..utils import phymlIO
 from ..utils import fileIO
 
+
 class ALFError(Exception):
     pass
 
-class Params(object):
 
+class Params(object):
     """ Class for writing parameter files for use with alfsim """
 
     def __init__(
-        self,
-        simulation_name='sim',
-        working_directory='./alftmp/',
-        outfile_path='./',
-        unit_is_pam=True,
-        ):
+            self,
+            simulation_name='sim',
+            working_directory='./alftmp/',
+            outfile_path='./',
+            unit_is_pam=True,
+    ):
 
         if unit_is_pam is True:
             unit_is_pam = 'true'
@@ -72,16 +73,16 @@ class Params(object):
             '''.format(simulation_name))
 
         self.outfile_path = outfile_path
-        self.name         = simulation_name
+        self.name = simulation_name
 
-        self.files        = file_string
-        self.pam          = pam_string
-        self.name_string  = name_string
-        self.genome       = ''
-        self.subst        = ''
+        self.files = file_string
+        self.pam = pam_string
+        self.name_string = name_string
+        self.genome = ''
+        self.subst = ''
         self.indel_string = ''
-        self.ratevar      = ''
-        self.tree         = ''
+        self.ratevar = ''
+        self.tree = ''
 
     def __str__(self):
 
@@ -95,7 +96,7 @@ class Params(object):
             'indel_string',
             'ratevar',
             'tree',
-            ]:
+        ]:
             if hasattr(self, section):
                 sections.append(getattr(self, section))
         return ''.join(sections)
@@ -115,18 +116,18 @@ class Params(object):
             mname := {1};
 
             '''.format(working_directory,
-                   simulation_name))
+                       simulation_name))
 
         self.files = file_string
         return file_string
 
     def root_genome(
-        self,
-        number_of_genes=100,
-        min_length=10,
-        kappa=1,
-        theta=1,
-        ):
+            self,
+            number_of_genes=100,
+            min_length=10,
+            kappa=1,
+            theta=1,
+    ):
 
         genome_string = \
             dedent('''\
@@ -139,7 +140,7 @@ class Params(object):
             blocksize := 1:
 
             '''.format(number_of_genes,
-                   min_length, kappa, theta))
+                       min_length, kappa, theta))
 
         self.genome = genome_string
         return genome_string
@@ -179,19 +180,19 @@ class Params(object):
         return name_string
 
     def gtr_model(
-        self,
-        CtoT,
-        AtoT,
-        GtoT,
-        AtoC,
-        CtoG,
-        AtoG,
-        Afreq,
-        Cfreq,
-        Gfreq,
-        Tfreq,
-        allow_nonsense=False,
-        ):
+            self,
+            CtoT,
+            AtoT,
+            GtoT,
+            AtoC,
+            CtoG,
+            AtoG,
+            Afreq,
+            Cfreq,
+            Gfreq,
+            Tfreq,
+            allow_nonsense=False,
+    ):
 
         if allow_nonsense:
             allow_nonsense = 'true'
@@ -205,32 +206,32 @@ class Params(object):
             substModels := [SubstitutionModel('GTR', [{0}, {1}, {2}, {3}, {4}, {5}], [{6}, {7}, {8}, {9}], {10})];
 
             '''.format(
-            CtoT,
-            AtoT,
-            GtoT,
-            AtoC,
-            CtoG,
-            AtoG,
-            Afreq,
-            Cfreq,
-            Gfreq,
-            Tfreq,
-            allow_nonsense,
+                CtoT,
+                AtoT,
+                GtoT,
+                AtoC,
+                CtoG,
+                AtoG,
+                Afreq,
+                Cfreq,
+                Gfreq,
+                Tfreq,
+                allow_nonsense,
             ))
 
         self.subst = subst_string
         return subst_string
 
     def hky_model(
-        self,
-        alpha,
-        beta,
-        Afreq,
-        Cfreq,
-        Gfreq,
-        Tfreq,
-        allow_nonsense=False,
-        ):
+            self,
+            alpha,
+            beta,
+            Afreq,
+            Cfreq,
+            Gfreq,
+            Tfreq,
+            allow_nonsense=False,
+    ):
 
         if allow_nonsense:
             allow_nonsense = 'true'
@@ -244,28 +245,28 @@ class Params(object):
             substModels := [SubstitutionModel('HKY', [{0}, {1}], [{2}, {3}, {4}, {5}], {6})];
 
             '''.format(
-            alpha,
-            beta,
-            Afreq,
-            Cfreq,
-            Gfreq,
-            Tfreq,
-            allow_nonsense,
+                alpha,
+                beta,
+                Afreq,
+                Cfreq,
+                Gfreq,
+                Tfreq,
+                allow_nonsense,
             ))
 
         self.subst = subst_string
         return subst_string
 
     def f84_model(
-        self,
-        kappa,
-        beta,
-        Afreq,
-        Cfreq,
-        Gfreq,
-        Tfreq,
-        allow_nonsense=False,
-        ):
+            self,
+            kappa,
+            beta,
+            Afreq,
+            Cfreq,
+            Gfreq,
+            Tfreq,
+            allow_nonsense=False,
+    ):
 
         if allow_nonsense:
             allow_nonsense = 'true'
@@ -279,13 +280,13 @@ class Params(object):
             substModels := [SubstitutionModel('F84', [{0}, {1}], [{2}, {3}, {4}, {5}], {6})];
 
             '''.format(
-            kappa,
-            beta,
-            Afreq,
-            Cfreq,
-            Gfreq,
-            Tfreq,
-            allow_nonsense,
+                kappa,
+                beta,
+                Afreq,
+                Cfreq,
+                Gfreq,
+                Tfreq,
+                allow_nonsense,
             ))
         return subst_string
 
@@ -320,7 +321,7 @@ class Params(object):
                 'JTT',
                 'LG',
                 'WAG',
-                ])
+            ])
         except OptionError, e:
             print(e)
             return
@@ -337,16 +338,21 @@ class Params(object):
         return subst_string
 
     def indels(
-        self,
-        gain_rate=0.00002,
-        gain_model='ZIPF',
-        gain_params=[1.821],
-        max_gain_length=10,
-        loss_rate=0.00002,
-        loss_model='ZIPF',
-        loss_params=[1.821],
-        max_loss_length=10,
-        ):
+            self,
+            gain_rate=0.00002,
+            gain_model='ZIPF',
+            gain_params=None,
+            max_gain_length=10,
+            loss_rate=0.00002,
+            loss_model='ZIPF',
+            loss_params=None,
+            max_loss_length=10,
+    ):
+        if not gain_params:
+            gain_params = [1.821]
+
+        if not loss_params:
+            loss_params = [1.821]
 
         indel_string = \
             dedent('''\
@@ -355,25 +361,25 @@ class Params(object):
             indelModels := [IndelModel({0}, {1}, {2}, {3}, {4}, {5}, {6}, {7})];
 
             '''.format(
-            gain_rate,
-            gain_model,
-            gain_params,
-            max_gain_length,
-            loss_rate,
-            loss_model,
-            loss_params,
-            max_loss_length,
+                gain_rate,
+                gain_model,
+                gain_params,
+                max_gain_length,
+                loss_rate,
+                loss_model,
+                loss_params,
+                max_loss_length,
             ))
 
         self.indel_string = indel_string
         return indel_string
 
     def rate_variation(
-        self,
-        shape=1,
-        ncat=4,
-        pinvar=0,
-        ):
+            self,
+            shape=1,
+            ncat=4,
+            pinvar=0,
+    ):
         """ Models rate variation among sites Only uses gamma distribution (ALF
         allows more options) """
 
@@ -384,7 +390,7 @@ class Params(object):
             rateVarModels := [RateVarModel(Gamma, {0}, {1}, {2})];
 
             '''.format(ncat,
-                   pinvar, shape))
+                       pinvar, shape))
 
         self.ratevar = rate_var_string
         return rate_var_string
@@ -404,14 +410,14 @@ class Params(object):
         return custom_tree_string
 
     def BDtree(
-        self,
-        birthrate=0.01,
-        deathrate=0.001,
-        nspecies=15,
-        mutation_rate=250,
-        scale_tree=True,
-        ultrametric=False,
-        ):
+            self,
+            birthrate=0.01,
+            deathrate=0.001,
+            nspecies=15,
+            mutation_rate=250,
+            scale_tree=True,
+            ultrametric=False,
+    ):
 
         if ultrametric:
             ultrametric = 'true'
@@ -436,12 +442,12 @@ class Params(object):
             scaleTree := {5};
 
             '''.format(
-            birthrate,
-            deathrate,
-            nspecies,
-            ultrametric,
-            mutation_rate,
-            scale_tree,
+                birthrate,
+                deathrate,
+                nspecies,
+                ultrametric,
+                mutation_rate,
+                scale_tree,
             ))
 
         self.tree = bdtree_string
@@ -458,12 +464,11 @@ class Params(object):
 
 
 class LSFALF(ExternalSoftware):
-
     default_binary = 'alfsim'
 
     def __init__(self, tree, datatype, tmpdir, ntimes, num_genes=1,
-        seqlength=10, gene_length_kappa=1, gene_length_theta=1,
-        name='no_name', max_retries=1, **kwargs):
+                 seqlength=10, gene_length_kappa=1, gene_length_theta=1,
+                 name='no_name', max_retries=1, **kwargs):
 
         super(LSFALF, self).__init__(tmpdir)
         self.temp_dirs = self.setup_temp_dirs(ntimes)
@@ -484,9 +489,9 @@ class LSFALF(ExternalSoftware):
         return temp_dirs
 
     def setup_alf_objects(
-        self, tree, datatype, temp_dirs, num_genes,
-        seqlength, gene_length_kappa, gene_length_theta, name, **kwargs
-        ):
+            self, tree, datatype, temp_dirs, num_genes,
+            seqlength, gene_length_kappa, gene_length_theta, name, **kwargs
+    ):
         alf_objects = [ALF(tree, datatype, tmpdir, num_genes, seqlength,
                            gene_length_kappa, gene_length_theta,
                            name, **kwargs)
@@ -527,11 +532,11 @@ class LSFALF(ExternalSoftware):
         deleted = set()
         for job_id in self.job_ids:
             output_file = os.path.join(self.tmpdir,
-                                    'treeCl_alfsim_task.{}.out'.format(job_id))
+                                       'treeCl_alfsim_task.{}.out'.format(job_id))
             errors_file = os.path.join(self.tmpdir,
-                                    'treeCl_alfsim_task.{}.err'.format(job_id))
+                                       'treeCl_alfsim_task.{}.err'.format(job_id))
             if (fileIO.delete_if_exists(output_file) and
-                fileIO.delete_if_exists(errors_file)):
+                    fileIO.delete_if_exists(errors_file)):
                 deleted.add(job_id)
         self.job_ids.discard(deleted)
 
@@ -555,49 +560,49 @@ class LSFALF(ExternalSoftware):
     def call(self):
         pass
 
-class ALF(ExternalSoftware):
 
+class ALF(ExternalSoftware):
     """ This class is a front end to the ALF simulator """
 
     default_binary = 'alfsim'
 
     def __init__(
-        self,
-        tree,
-        datatype,
-        tmpdir,
-        num_genes=1,
-        seqlength=10,
-        gene_length_kappa=1,
-        gene_length_theta=1,
-        name='no_name',
-        max_tries=1,
-        **kwargs
-        ):
+            self,
+            tree,
+            datatype,
+            tmpdir,
+            num_genes=1,
+            seqlength=10,
+            gene_length_kappa=1,
+            gene_length_theta=1,
+            name='no_name',
+            max_tries=1,
+            **kwargs
+    ):
 
         super(ALF, self).__init__(tmpdir, **kwargs)
-        self.tree        = tree
-        self.name        = name
-        self.num_genes   = num_genes
-        self.seqlength   = seqlength
-        self.datatype    = optioncheck(datatype, ['protein', 'dna'])
-        self.param_dir   = tempfile.mkdtemp(prefix='alfsim_param_',
-                                            dir=self.tmpdir)
+        self.tree = tree
+        self.name = name
+        self.num_genes = num_genes
+        self.seqlength = seqlength
+        self.datatype = optioncheck(datatype, ['protein', 'dna'])
+        self.param_dir = tempfile.mkdtemp(prefix='alfsim_param_',
+                                          dir=self.tmpdir)
         self.working_dir = tempfile.mkdtemp(prefix='alfsim_working_',
                                             dir=self.tmpdir)
-        self.max_tries   = max_tries
-        self._retries    = 0 # if the thing fails, try again
+        self.max_tries = max_tries
+        self._retries = 0  # if the thing fails, try again
 
-        if datatype == 'dna':               # Length correction as ALF assumes
-            seqlength = (seqlength / 3) + 1 # we mean amino acid sequences
+        if datatype == 'dna':  # Length correction as ALF assumes
+            seqlength = (seqlength / 3) + 1  # we mean amino acid sequences
 
         self.params = Params(simulation_name=name,
                              working_directory=self.working_dir,
                              outfile_path=self.param_dir)
         self.params.custom_tree('{0}/{1}.nwk'.format(self.param_dir, self.name))
         self.params.root_genome(number_of_genes=num_genes,
-            min_length=seqlength, theta=gene_length_theta,
-            kappa=gene_length_kappa)
+                                min_length=seqlength, theta=gene_length_theta,
+                                kappa=gene_length_kappa)
 
     def __str__(self):
         return '\n'.join([
@@ -609,18 +614,18 @@ class ALF(ExternalSoftware):
             'Datatype: {0}\n'.format(self.datatype),
             '----------------------------------------\n',
             str(self.params),
-            ])
+        ])
 
     def clean(self):
         shutil.rmtree(self.param_dir)
         shutil.rmtree(self.working_dir)
 
     def fix_alignment(
-        self,
-        alignment_file,
-        replacement_dict,
-        length=None,
-        ):
+            self,
+            alignment_file,
+            replacement_dict,
+            length=None,
+    ):
         """ Alf uses its own names for taxa even when we provide a custom tree
         with our own taxon labels, so this function reapplies our names. At the
         same time we check that the alignments are the correct length """
@@ -638,19 +643,19 @@ class ALF(ExternalSoftware):
     def check_output_exists(self, tries=5):
         try:
             filecheck(filecheck('{0}/{1}/RealTree.nwk'.format(
-                                self.working_dir, self.name)))
+                self.working_dir, self.name)))
             return True
         except FileError:
             if tries > 0:
                 time.sleep(1)
-                self.check_output_exists(tries-1)
+                self.check_output_exists(tries - 1)
             return False
 
     def read(self, verbosity=0, length_is_strict=False):
 
         if self.check_output_exists():
             alf_tree_file = ('{0}/{1}/RealTree.nwk'.format(
-                             self.working_dir, self.name))
+                self.working_dir, self.name))
 
         else:
             if self._retries < self.maxtries:
@@ -662,16 +667,16 @@ class ALF(ExternalSoftware):
 
         alf_tree = open(alf_tree_file).read()
         replacement_dict = dict(zip(re.findall(r'(\w+)(?=:)', alf_tree),
-                                re.findall(r'(\w+)(?=:)', self.tree.newick)))
+                                    re.findall(r'(\w+)(?=:)', self.tree.newick)))
         if verbosity > 0:
             print('replacement_dict =', replacement_dict)
         if self.datatype == 'dna':  # !!! ALF doesn't always write DNA
-                                    # alignments
+            # alignments
             alignments = glob('{0}/{1}/MSA/MSA_*_dna.fa'.format(
-                              self.working_dir, self.name))
+                self.working_dir, self.name))
         else:
             alignments = glob('{0}/{1}/MSA/MSA_*_aa.fa'.format(
-                              self.working_dir, self.name))
+                self.working_dir, self.name))
         if verbosity > 1:
             print(alignments)
 
@@ -686,12 +691,12 @@ class ALF(ExternalSoftware):
         return recs
 
     def run(
-        self,
-        verbosity=0,
-        cleanup=True,
-        length_is_strict=False,
-        dry_run=False
-        ):
+            self,
+            verbosity=0,
+            cleanup=True,
+            length_is_strict=False,
+            dry_run=False
+    ):
 
         params = self.write()
         if verbosity > 0:
@@ -724,15 +729,14 @@ class ALF(ExternalSoftware):
 # RUNNERS
 
 def simulate_from_tree(
-    tree,
-    length,
-    datatype='protein',
-    tmpdir=TMPDIR,
-    model='WAG',
-    split_lengths=None,
-    gene_names=None,
-    ):
-
+        tree,
+        length,
+        datatype='protein',
+        tmpdir=TMPDIR,
+        model='WAG',
+        split_lengths=None,
+        gene_names=None,
+):
     directoryquit(tmpdir)
     optioncheck(datatype, ['dna', 'protein'])
 
@@ -740,14 +744,14 @@ def simulate_from_tree(
         optioncheck(model, ['CPAM', 'ECM', 'ECMu'])
     else:
         optioncheck(model, [
-                'CPAM',
-                'ECM',
-                'ECMu',
-                'GCB',
-                'JTT',
-                'LG',
-                'WAG',
-                ])
+            'CPAM',
+            'ECM',
+            'ECMu',
+            'GCB',
+            'JTT',
+            'LG',
+            'WAG',
+        ])
 
     try:
         gamma = phymlIO.extract_gamma_parameter(tree)
@@ -767,17 +771,16 @@ def simulate_from_tree(
 
 
 def lsf_simulate_from_record(
-    record,
-    ntimes,
-    length=None,
-    tmpdir=TMPDIR,
-    model='WAG',
-    allow_nonsense=True,
-    split_lengths=None,
-    gene_names=None,
-    mask_gaps=True
-    ):
-
+        record,
+        ntimes,
+        length=None,
+        tmpdir=TMPDIR,
+        model='WAG',
+        allow_nonsense=True,
+        split_lengths=None,
+        gene_names=None,
+        mask_gaps=True
+):
     if not record.tree:
         raise Exception('Simulation template must have an associated tree')
 
@@ -788,14 +791,14 @@ def lsf_simulate_from_record(
         optioncheck(model, ['CPAM', 'ECM', 'ECMu', 'GTR'])
     else:
         optioncheck(model, [
-                'CPAM',
-                'ECM',
-                'ECMu',
-                'GCB',
-                'JTT',
-                'LG',
-                'WAG',
-                ])
+            'CPAM',
+            'ECM',
+            'ECMu',
+            'GCB',
+            'JTT',
+            'LG',
+            'WAG',
+        ])
 
     length = (length if length is not None else record.seqlength)
     gamma = phymlIO.extract_gamma_parameter(record.tree)
@@ -849,16 +852,15 @@ def lsf_simulate_from_record(
 
 
 def simulate_from_record(
-    record,
-    length=None,
-    tmpdir=TMPDIR,
-    model='WAG',
-    allow_nonsense=True,
-    split_lengths=None,
-    gene_names=None,
-    mask_gaps=True
-    ):
-
+        record,
+        length=None,
+        tmpdir=TMPDIR,
+        model='WAG',
+        allow_nonsense=True,
+        split_lengths=None,
+        gene_names=None,
+        mask_gaps=True
+):
     if not record.tree:
         raise Exception('Simulation template must have an associated tree')
 
@@ -869,14 +871,14 @@ def simulate_from_record(
         optioncheck(model, ['CPAM', 'ECM', 'ECMu', 'GTR'])
     else:
         optioncheck(model, [
-                'CPAM',
-                'ECM',
-                'ECMu',
-                'GCB',
-                'JTT',
-                'LG',
-                'WAG',
-                ])
+            'CPAM',
+            'ECM',
+            'ECMu',
+            'GCB',
+            'JTT',
+            'LG',
+            'WAG',
+        ])
 
     length = (length if length is not None else record.seqlength)
     gamma = phymlIO.extract_gamma_parameter(record.tree)
@@ -918,15 +920,16 @@ def simulate_from_record(
 
     return sim_record
 
+
 def simulate_from_record_GTR(
-    record,
-    output_dir,
-    name='tempsim',
-    tmpdir=TMPDIR,
-    allow_nonsense=True,
-    split_lengths=None,
-    gene_names=None,
-    ):
+        record,
+        output_dir,
+        name='tempsim',
+        tmpdir=TMPDIR,
+        allow_nonsense=True,
+        split_lengths=None,
+        gene_names=None,
+):
     """ For use with trees estimated by Phyml -m GTR """
 
     length = record.seqlength
@@ -935,7 +938,7 @@ def simulate_from_record_GTR(
     GTR_parameters = phymlIO.extract_GTR_parameters(tree)
     gamma = phymlIO.extract_gamma_parameter(tree)
 
-    sim = ALF(tree, 'dna', tmpdir, length, name)
+    sim = ALF(tree, 'dna', tmpdir, length, name=name)
 
     sim.params.indels()
     sim.params.rate_variation(gamma)
@@ -951,7 +954,7 @@ def simulate_from_record_GTR(
         Gfreq=GTR_parameters['Gfreq'],
         Tfreq=GTR_parameters['Tfreq'],
         allow_nonsense=allow_nonsense,
-        )
+    )
 
     record = sim.run()
 

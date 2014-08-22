@@ -14,12 +14,13 @@ from ..utils import fileIO
 from ..utils.printing import print_and_return
 
 PATTERNS_PER_THREAD_DNA = 500
-PATTERNS_PER_THREAD_AA  = 200
+PATTERNS_PER_THREAD_AA = 200
+
 
 def rstring(length, numOnly=False, letOnly=False):
     """ Generate a random alphanumeric string of defined length.  """
 
-    numbers = '01234567890123456789' # double up (bc. up- and lo-case letters)
+    numbers = '01234567890123456789'  # double up (bc. up- and lo-case letters)
     letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
     if numOnly:
         alphabet = numbers
@@ -30,8 +31,8 @@ def rstring(length, numOnly=False, letOnly=False):
 
     return ''.join(random.choice(alphabet) for _ in range(length))
 
-class Raxml(TreeSoftware):
 
+class Raxml(TreeSoftware):
     """ __init__ takes a Seq sequence record as
     first (only) positional argument, and supplied_binary= and
     tmpdir= as keyword arguments """
@@ -42,22 +43,23 @@ class Raxml(TreeSoftware):
 
     def get_num_threads(self):
         import multiprocessing
+
         n_patterns = self.record.n_site_patterns()
         if self.record.datatype == 'dna':
             return min((n_patterns // PATTERNS_PER_THREAD_DNA + 1),
                        multiprocessing.cpu_count())
         return min((n_patterns // PATTERNS_PER_THREAD_AA + 1),
-                    multiprocessing.cpu_count())
+                   multiprocessing.cpu_count())
 
     def read(self, name_suffix):
-        tree_filename   = ('{0}/RAxML_bestTree.{1}'
-                           .format(self.tmpdir, name_suffix))
-        info_filename   = ('{0}/RAxML_info.{1}'
-                           .format(self.tmpdir, name_suffix))
-        pars_filename   = ('{0}/RAxML_parsimonyTree.{1}'
-                           .format(self.tmpdir, name_suffix))
-        log_filename    = ('{0}/RAxML_log.{1}'
-                           .format(self.tmpdir, name_suffix))
+        tree_filename = ('{0}/RAxML_bestTree.{1}'
+                         .format(self.tmpdir, name_suffix))
+        info_filename = ('{0}/RAxML_info.{1}'
+                         .format(self.tmpdir, name_suffix))
+        pars_filename = ('{0}/RAxML_parsimonyTree.{1}'
+                         .format(self.tmpdir, name_suffix))
+        log_filename = ('{0}/RAxML_log.{1}'
+                        .format(self.tmpdir, name_suffix))
         result_filename = ('{0}/RAxML_result.{1}'
                            .format(self.tmpdir, name_suffix))
         for filename in [tree_filename, info_filename, pars_filename,
@@ -71,8 +73,8 @@ class Raxml(TreeSoftware):
             datatype=None, ml_freqs=False, verbosity=0, qfile_string=None,
             **kwargs):
         name = (self.record.name[:10] + rstring(4)
-                    if self.record.name
-                    else rstring(14))
+                if self.record.name
+                else rstring(14))
         seed = seed or rstring(6, numOnly=True)
         threads = threads or self.get_num_threads()
         datatype = datatype or self.record.datatype
@@ -100,7 +102,7 @@ class Raxml(TreeSoftware):
         # DRY RUN - just get command string
         if kwargs.get('dry_run', False):
             cmd = self.call(verbose=(True if verbosity > 1 else False),
-                dry_run=True)
+                            dry_run=True)
             return cmd
 
         # RUN RAXML
@@ -119,7 +121,7 @@ class Raxml(TreeSoftware):
         self.clean()
         os.chdir(curr_dir)
         tree_object = Tree(newick=tree, score=score, program='raxml',
-            name=self.record.name, output=info, **kwargs)
+                           name=self.record.name, output=info, **kwargs)
         if kwargs.get('set_as_record_tree', True):
             self.record.tree = tree_object
         if verbosity > 1:
@@ -156,4 +158,4 @@ class Raxml(TreeSoftware):
             self.add_flag(flag, defaults[flag])
 
 
-# def run_raxml(input, threads, )
+            # def run_raxml(input, threads, )

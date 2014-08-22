@@ -11,9 +11,9 @@ import time
 from bsub import bsub
 
 # treeCl
-from external import ExternalSoftware, TreeSoftware, LSFJobHandler
-from ..constants import PHYML_MEMORY_MULTIPLIER, PHYML_MEMORY_SPARE,\
-                        PHYML_MEMORY_MIN, PHYML_MEMORY_STANDARD
+from external import ExternalSoftware, TreeSoftware
+from ..constants import PHYML_MEMORY_MULTIPLIER, PHYML_MEMORY_SPARE, \
+    PHYML_MEMORY_MIN, PHYML_MEMORY_STANDARD
 from ..datastructs.tree import Tree
 from ..errors import filecheck, optioncheck
 from ..utils import fileIO
@@ -70,7 +70,7 @@ class LSFPhyml(ExternalSoftware):
         """ 18, 4, 65235, 20, grace=1.0) = 2284.8621368408203 ~= 2285 """
         branches = 2 * taxa - 3
         minmem = 4 * (4 * branches * categories * sites * states +
-                      2 * branches * categories  * states ** 2 +
+                      2 * branches * categories * states ** 2 +
                       2 * branches * sites * states +
                       6 * branches * sites -
                       2 * categories * sites * states * taxa -
@@ -105,9 +105,9 @@ class LSFPhyml(ExternalSoftware):
         os.chdir(self.tmpdir)
 
         job_launcher = bsub('treeCl_static_phyml_task',
-                           R='rusage[mem={}]'.format(minmem),
-                           M=minmem,
-                           verbose=verbose)
+                            R='rusage[mem={}]'.format(minmem),
+                            M=minmem,
+                            verbose=verbose)
 
         # overwrite kwargs pertaining to output log files
         if not self.debug:
@@ -164,11 +164,11 @@ class LSFPhyml(ExternalSoftware):
         deleted = set()
         for job_id in self.job_ids:
             output_file = os.path.join(self.tmpdir,
-                                    'treeCl_phyml_task.{}.out'.format(job_id))
+                                       'treeCl_phyml_task.{}.out'.format(job_id))
             errors_file = os.path.join(self.tmpdir,
-                                    'treeCl_phyml_task.{}.err'.format(job_id))
+                                       'treeCl_phyml_task.{}.err'.format(job_id))
             if (fileIO.delete_if_exists(output_file) and
-                fileIO.delete_if_exists(errors_file)):
+                    fileIO.delete_if_exists(errors_file)):
                 deleted.add(job_id)
         self.job_ids.discard(deleted)
 
@@ -184,8 +184,8 @@ class LSFPhyml(ExternalSoftware):
     def call(self):
         pass
 
-class Phyml(TreeSoftware):
 
+class Phyml(TreeSoftware):
     """ __init__ takes a Seq sequence record as
     first positional argument, tmpdir as second, and supplied_binary=
     as keyword argument """
@@ -203,7 +203,7 @@ class Phyml(TreeSoftware):
         except IOError, e:
             if tries > 0:
                 time.sleep(1)
-                return self.read(filename, tries-1)
+                return self.read(filename, tries - 1)
             print('There was an IOError: {0}'.format(e))
             print('Couldn\'t read PhyML output')
             self.clean()
@@ -237,7 +237,7 @@ class Phyml(TreeSoftware):
         # DRY RUN - just get command string
         if kwargs.get('dry_run', False):
             cmd = self.call(verbose=(True if verbosity > 1 else False),
-                dry_run=True)
+                            dry_run=True)
             return cmd
 
         # RUN PHYML
@@ -308,6 +308,7 @@ class Phyml(TreeSoftware):
             for flag in defaults:
                 self.add_flag(flag, defaults[flag])
 
+
 def runPhyml(rec, tmpdir, analysis, verbosity=0, tree=None, **kwargs):
     optioncheck(analysis, ANALYSES)
     phyml = Phyml(rec, tmpdir)
@@ -324,6 +325,7 @@ def runPhyml(rec, tmpdir, analysis, verbosity=0, tree=None, **kwargs):
             phyml.clean()
             if verbosity > 2:
                 print('Cleaned up')
+
 
 def runLSFPhyml(records, tmpdir, analysis, verbosity, strategy,
                 minmem=PHYML_MEMORY_STANDARD, debug=False, **kwargs):
@@ -348,7 +350,7 @@ def runLSFPhyml(records, tmpdir, analysis, verbosity, strategy,
 def phyml_memcalc(taxa, categories, sites, states):
     branches = 2 * taxa - 3
     return 4 * (4 * branches * categories * sites * states +
-                2 * branches * categories  * states ** 2 +
+                2 * branches * categories * states ** 2 +
                 2 * branches * sites * states +
                 6 * branches * sites -
                 2 * categories * sites * states * taxa -

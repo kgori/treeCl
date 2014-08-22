@@ -2,12 +2,13 @@ from __future__ import print_function
 
 # standard library
 from copy import copy
-import re
-from subprocess import Popen, PIPE, STDOUT
+from subprocess import Popen, PIPE
+
 try:
     from subprocess import DEVNULL
 except ImportError:
     import os
+
     DEVNULL = open(os.devnull, 'wb')
 
 # third party
@@ -15,8 +16,7 @@ import numpy as np
 
 # treeCl
 from external import ExternalSoftware
-from ..errors import filecheck, FileError
-from ..utils import fileIO
+
 
 def guess_seqtype(rec, threshold=0.8):
     """ Looks at proportion of As, Cs, Gs and Ts across all
@@ -26,12 +26,12 @@ def guess_seqtype(rec, threshold=0.8):
     newrec = copy(rec)
     newrec.change_case('upper')
     all_seqs = ''.join(newrec.sequences)
-    nuc_freqs = sum(all_seqs.count(x) for x in ['A','C', 'G', 'T'])
+    nuc_freqs = sum(all_seqs.count(x) for x in ['A', 'C', 'G', 'T'])
     nuc_freqs /= float(len(all_seqs))
     return 'dna' if nuc_freqs > threshold else 'protein'
 
-class DV(ExternalSoftware):
 
+class DV(ExternalSoftware):
     default_binary = 'darwin'
 
     def __init__(self, record, verbosity=0):
@@ -258,12 +258,13 @@ quit;
     def parse(self, output):
         lines = output.rstrip().split('\n')
         end = lines.index('> WriteData(dv, terminal);')
-        lines = lines[end+1:]
+        lines = lines[end + 1:]
         return np.array([line.split() for line in lines], dtype=float)
 
     def run(self):
         s = self.execute()
         return self.parse(s)
+
 
 def runDV(record, verbosity=0):
     dw = DV(record, verbosity)

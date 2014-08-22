@@ -1,7 +1,9 @@
 # import fileIO
-from printing import print_and_return
 from progressbar import ProgressBar, Percentage, Timer, ETA, Bar
 import numpy as np
+
+from printing import print_and_return
+
 
 def flatten_list(list_):
     newlist = list()
@@ -9,6 +11,7 @@ def flatten_list(list_):
     for sublist in list_:
         x(sublist)
     return newlist
+
 
 def symmetrise(matrix, tri='upper'):
     """
@@ -24,8 +27,10 @@ def symmetrise(matrix, tri='upper'):
     matrix[tri_fn(size)[::-1]] = matrix[tri_fn(size)]
     return matrix
 
+
 def regex_search_extract(search_attempt):
     return (search_attempt.group() if search_attempt else None)
+
 
 def setup_progressbar(msg, size):
     if not msg.endswith(': '):

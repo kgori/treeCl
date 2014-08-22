@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-#coding: utf-8
+# coding: utf-8
 from __future__ import print_function
 
 # standard library
@@ -15,10 +15,11 @@ import pandas as pd
 
 # treeCl
 from treeCl import Collection, Clustering, DistanceMatrix, Partition, \
-                   Plotter, Scorer
+    Plotter, Scorer
 from treeCl.constants import logo, SORT_KEY
 from treeCl.errors import directorycheck, directorymake, filecheck
 from treeCl.utils import fileIO, symmetrise
+
 
 def print_distance_matrix_update(args):
     """ User update function: distance matrix calculation """
@@ -33,6 +34,7 @@ def print_distance_matrix_update(args):
         print('Analysing pairwise tree distances (metric={})'
               .format(args.m[0]))
 
+
 def print_clustering_update(args):
     """ User update function: clustering """
     if len(args.c) > 1:
@@ -40,9 +42,11 @@ def print_clustering_update(args):
     else:
         print('Clustering (method={})'.format(args.c[0]))
 
+
 def print_scoring_update():
     """ User update function: scoring """
     print('Scoring clusters')
+
 
 def approx_ic(lnl, k, n, penalty='aic'):
     """
@@ -51,13 +55,14 @@ def approx_ic(lnl, k, n, penalty='aic'):
     n = number of data
     """
     if penalty == 'aic':
-        penalty_term = 2.0*k
+        penalty_term = 2.0 * k
     elif penalty == 'aicc':
-        penalty_term = 2.0*k*n/(n-k-1)
+        penalty_term = 2.0 * k * n / (n - k - 1)
     elif penalty == 'bic':
-        penalty_term = k*np.log(n)
+        penalty_term = k * np.log(n)
 
-    return -2.0*lnl + penalty_term
+    return -2.0 * lnl + penalty_term
+
 
 def write_memberships(outfile, method, metric, partitions, scorer):
     with open(outfile, 'w') as file_:
@@ -70,16 +75,19 @@ def write_memberships(outfile, method, metric, partitions, scorer):
                 file_.write('{0}\t{1}\n'.format(cluster, names_string))
             file_.write('\n')
 
+
 def write_trees(outfile, trees):
     with open(outfile, 'w') as file_:
         for tree in trees:
             file_.write('{0}\t{1}\n'.format(tree.name, tree.newick))
+
 
 def write_trees_dir(outdir, trees):
     directorymake(outdir)
     for tree in trees:
         filename = os.path.join(args.trees_out, '{}.nwk'.format(tree.name))
         tree.write_to_file(filename, metadata=True)
+
 
 def write_cluster_trees(outfile, method, metric, partitions, scorer):
     with open(outfile, 'w') as file_:
@@ -91,6 +99,7 @@ def write_cluster_trees(outfile, method, metric, partitions, scorer):
                 file_.write(tree.newick + '\n')
             file_.write('\n')
 
+
 def write_tree_details(outfile, method, metric, partitions, scorer):
     with open(outfile, 'w') as file_:
         partitions_list = partitions[(method, metric)]
@@ -99,8 +108,9 @@ def write_tree_details(outfile, method, metric, partitions, scorer):
             for ix in inds:
                 tree = scorer.cache[ix]
                 if hasattr(tree, 'output') and tree.output is not None:
-                    file_.write(tree.output +'\n')
+                    file_.write(tree.output + '\n')
             file_.write('\n')
+
 
 def write_tsv(outfile, analysis_strategy,
               partitions, scorer, collection):
@@ -123,6 +133,7 @@ def write_tsv(outfile, analysis_strategy,
                 file_.write('\t'.join(values) + '\n')
         file_.write('\n')
 
+
 def write_tsv_with_aic(outfile, metric, method, analysis_strategy,
                        partitions_list, scorer, collection):
     headers = ['METRIC', 'METHOD', 'ANALYSIS', 'N_LOCI', 'N_SPECIES',
@@ -136,8 +147,8 @@ def write_tsv_with_aic(outfile, metric, method, analysis_strategy,
             n_clusters = len(partition)
             likelihood = scorer.score(partition)
             n_params = 1 + (2 * n_species - 3)
-            aic = approx_ic(likelihood, n_params , n_columns, 'aic')
-            aicc = approx_ic(likelihood, n_params , n_columns, 'aicc')
+            aic = approx_ic(likelihood, n_params, n_columns, 'aic')
+            aicc = approx_ic(likelihood, n_params, n_columns, 'aicc')
             bic = approx_ic(likelihood, n_params, n_columns, 'bic')
             values = [metric, method, analysis_strategy,
                       str(n_loci),
@@ -151,6 +162,7 @@ def write_tsv_with_aic(outfile, metric, method, analysis_strategy,
             file_.write('\t'.join(values) + '\n')
         file_.write('\n')
 
+
 def write_results(outfile, results):
     with open(outfile, 'w') as file_:
         for key in sorted(results):
@@ -158,14 +170,18 @@ def write_results(outfile, results):
             file_.write('{0}\t{1}\n'.format(key, numbers))
         file_.write('\n')
 
+
 def write_distance_matrix(outfile, dm):
     np.savetxt(outfile, dm)
+
 
 def write_coordinates(outfile, dm):
     pass
 
+
 def write_figures(outfile, plotter):
     pass
+
 
 def load_trees(directory, collection, tmpdir):
     files = sorted(os.listdir(directory), key=SORT_KEY)
@@ -177,24 +193,28 @@ def load_trees(directory, collection, tmpdir):
             raise Exception('Can\'t match alignment {} to tree {}'
                             ' in {}'.format(rec, treefile, directory))
 
+
 def load_distances(arg):
     if len(arg) == 1:
         arg = arg[0].split()
 
     d = {}
-    for key, file_ in zip(*[iter(arg)]*2):
+    for key, file_ in zip(*[iter(arg)] * 2):
         filecheck(file_)
-        d[key] = load_distance_matrix(file_)
+        load_distance_matrix(file_)
     return d
+
 
 def load_true_partition(true_list):
     partition_vector = []
     for i in range(len(true_list)):
-        partition_vector.extend([i]*true_list[i])
+        partition_vector.extend([i] * true_list[i])
     return Partition(tuple(partition_vector))
+
 
 def load_distance_matrix(infile):
     return np.loadtxt(infile).view(DistanceMatrix)
+
 
 def get_partition_from_tsv(infile, method, distance_metric, n_clusters):
     df = pd.read_csv(infile, sep='\t', skip_footer=True)
@@ -205,12 +225,12 @@ def get_partition_from_tsv(infile, method, distance_metric, n_clusters):
     partition = cell.values[0]
     # parse string into Partition form
     return Partition(tuple(int(x)
-                    for x in partition.strip('()').replace(' ','').split(',')))
+                           for x in partition.strip('()').replace(' ', '').split(',')))
+
 
 def cluster(clustering, method, nclasses, noise=False):
-
     if method == 'spectral':
-        decomp = clustering.spectral_decomp(prune = -1, local_scale='median')
+        decomp = clustering.spectral_decomp(prune=-1, local_scale='median')
         return clustering.spectral_cluster(nclasses, decomp)
 
     elif method == 'mds':
@@ -218,13 +238,14 @@ def cluster(clustering, method, nclasses, noise=False):
         return clustering.MDS_cluster(nclasses, decomp)
 
     elif (method == 'single' or
-          method == 'complete' or
-          method == 'average' or
-          method == 'ward'):
+                  method == 'complete' or
+                  method == 'average' or
+                  method == 'ward'):
         return clustering.hierarchical(nclasses, method, noise)
 
     elif method == 'kmedoids':
         return clustering.kmedoids(nclasses, noise)
+
 
 def get_command_line(args):
     d = vars(args)
@@ -235,9 +256,10 @@ def get_command_line(args):
             prefix = ('-' if len(k) == 1 else '--')
             if isinstance(v, (list, tuple)):
                 v = ' '.join(v)
-            arg = (prefix+'{} {}'.format(k, v) if v is not True else prefix+k)
+            arg = (prefix + '{} {}'.format(k, v) if v is not True else prefix + k)
             cmdline.append(arg)
     return ' '.join(cmdline)
+
 
 def write_command_line(args, lower, upper, path, clustering, metric):
     new_args = copy(args)
@@ -259,8 +281,10 @@ def write_command_line(args, lower, upper, path, clustering, metric):
     with open(os.path.join(path, 'command.txt'), 'w') as cmdfile:
         cmdfile.write(cmdline)
 
+
 def parse_args():
     import argparse
+
     fchoices = ['fasta', 'phylip']
     dchoices = ['protein', 'dna']
     cchoices = ['spectral', 'mds', 'single', 'complete', 'average', 'ward',
@@ -295,11 +319,11 @@ def parse_args():
         'w': '[w]rite bootstraps to an output subdirectory [true/false]',
         'z': 'Compression [z]ip format (if input files are compressed)',
         'trees_in': ('Directory containing precomputed trees matching the input '
-                  'alignments. The first part of the filename (before the '
-                  '".") needs to match the equivalent part of the alignment '
-                  'filename for the tree to be recognised.'),
+                     'alignments. The first part of the filename (before the '
+                     '".") needs to match the equivalent part of the alignment '
+                     'filename for the tree to be recognised.'),
         'trees_out': ('Directory to write trees to. These can be loaded'
-                        'with --trees_in'),
+                      'with --trees_in'),
         'distances_in': ('Distance matrix to use in space-delimited format - '
                          'see numpy.savetxt example in '
                          'http://wiki.scipy.org/Cookbook/InputOutput. '
@@ -375,6 +399,7 @@ def parse_args():
 
     return parser.parse_args()
 
+
 def validate_args(args):
     directorycheck(args.i)
     directorycheck(args.t)
@@ -386,10 +411,10 @@ def validate_args(args):
     if args.b:
         args.b = sb.call(
             'type bsub',
-             stderr=sb.PIPE,
-             stdout=sb.PIPE,
-             shell=True
-        )==0
+            stderr=sb.PIPE,
+            stdout=sb.PIPE,
+            shell=True
+        ) == 0
 
 
 if __name__ == "__main__":
@@ -402,6 +427,7 @@ if __name__ == "__main__":
     print('Using temporary directory {}'.format(tmpdir))
     if args.exit:
         import sys
+
         sys.exit()
 
     #================================================================#
@@ -482,8 +508,8 @@ if __name__ == "__main__":
     print_distance_matrix_update(args)
     if args.distances_in:
         distance_matrices = load_distances(args.distances_in)
-        distance_matrices = {k: v for (k,v) in distance_matrices.items()
-                                  if k in args.m}
+        distance_matrices = {k: v for (k, v) in distance_matrices.items()
+                             if k in args.m}
 
     else:
         distance_matrices = {}
@@ -506,6 +532,7 @@ if __name__ == "__main__":
 
     if args.no_cluster:
         import sys
+
         sys.exit()
 
     # CLUSTERING
@@ -570,12 +597,12 @@ if __name__ == "__main__":
     #================================================================#
 
     outfiles = {
-        'memberships':      '{}/memberships.txt'.format(args.o),
-        'trees':            '{}/trees.nwk'.format(args.o),
-        'cluster_trees':    '{}/cluster_trees.nwk'.format(args.o),
-        'tree_details':     '{}/cluster_tree_details.txt'.format(args.o),
-        'summary':          '{}/summary.txt'.format(args.o),
-        'tsv':              '{}/result.tsv'.format(args.o),
+        'memberships': '{}/memberships.txt'.format(args.o),
+        'trees': '{}/trees.nwk'.format(args.o),
+        'cluster_trees': '{}/cluster_trees.nwk'.format(args.o),
+        'tree_details': '{}/cluster_tree_details.txt'.format(args.o),
+        'summary': '{}/summary.txt'.format(args.o),
+        'tsv': '{}/result.tsv'.format(args.o),
     }
 
     print('Writing results (destination={})'.format(args.o))
@@ -628,9 +655,9 @@ if __name__ == "__main__":
         results = None
         if args.a:
             print('Preparing to analyse {0} parametric bootstraps '
-                   'over cluster range=[{1}-{2}]'.format(args.s,
-                                                         args.l + 1,
-                                                         args.u))
+                  'over cluster range=[{1}-{2}]'.format(args.s,
+                                                        args.l + 1,
+                                                        args.u))
             results = defaultdict(list)
         if args.w:
             print('Parametric bootstraps will be written to '
@@ -647,7 +674,7 @@ if __name__ == "__main__":
                                                    lsf=args.b,
                                                    ntimes=args.s)
 
-                if args.a: # do the full analysis for the bootstraps
+                if args.a:  # do the full analysis for the bootstraps
                     for i, sim_recs in enumerate(sims, start=1):
                         print('\tAnalysing: {0}->{1} clusters'
                               '\trep {2}/{3}'.format(k, k + 1, i, args.s))
@@ -665,7 +692,7 @@ if __name__ == "__main__":
                                                  args.c,
                                                  n,
                                                  (True if args.m == 'rf'
-                                                       else False))
+                                                  else False))
                                          for n in [k, k + 1]]
                         param_sc = Scorer(param_coll.records,
                                           args.g,
@@ -675,26 +702,26 @@ if __name__ == "__main__":
                         param_sc.add_partition_list(param_parts_l)
                         kp1_score = param_sc.score(param_parts_l[1])
                         k_score = param_sc.score(param_parts_l[0])
-                        results[k+1].append(kp1_score - k_score)
+                        results[k + 1].append(kp1_score - k_score)
 
-                if args.w: # write the bootstrap reps
+                if args.w:  # write the bootstrap reps
                     for i, sim_recs in enumerate(sims, start=1):
                         print('\tWriting simulation from {0} cluster{1}:'
-                               '\trep {2}/{3}'.format(k,
-                                                      ('s' if k > 1 else ''),
-                                                      i,
-                                                      args.s))
+                              '\trep {2}/{3}'.format(k,
+                                                     ('s' if k > 1 else ''),
+                                                     i,
+                                                     args.s))
                         basepath = os.path.join(args.o, 'bootstraps',
-                                            '{}_{}'.format(clust, dist_met),
-                                            '{}_clusters'.format(k), str(i))
+                                                '{}_{}'.format(clust, dist_met),
+                                                '{}_clusters'.format(k), str(i))
                         d = directorymake(basepath)
                         for rec in sim_recs:
                             recpath = os.path.join(d, '{1}_rep{2:0>{3}}.phy.gz'.format(d,
-                                rec.name, i, len(str(args.s))))
+                                                                                       rec.name, i, len(str(args.s))))
                             rec.write_phylip(recpath)
 
-                        write_command_line(args, k, k+1, basepath,
-                                                     clust, dist_met)
+                        write_command_line(args, k, k + 1, basepath,
+                                           clust, dist_met)
 
                 if results:
                     write_results(outfiles['bootstrap_results'], results)
@@ -705,18 +732,18 @@ if __name__ == "__main__":
     if args.r > 0:
         print()
         results = None
-        if args.a: # do the full analysis for the bootstraps
+        if args.a:  # do the full analysis for the bootstraps
             print('Preparing to analyse {0} permuted data sets '
                   'over cluster range=[{1}-{2}]'.format(args.r,
-                                                         args.l + 1,
-                                                         args.u))
+                                                        args.l + 1,
+                                                        args.u))
             results = defaultdict(list)
         if args.w:
             print('Permuted data sets will be written to '
                   '{}/permutations)'.format(args.o))
         for rep in range(1, args.r + 1):
             permuted_coll = collection.permuted_copy()
-            if args.a: # do the full analysis for the bootstraps
+            if args.a:  # do the full analysis for the bootstraps
                 print('\tAnalysing:\trep {0}/{1}'.format(rep, args.r))
                 permuted_coll.calc_phyml_trees(analysis=args.g,
                                                lsf=args.b,
@@ -728,7 +755,7 @@ if __name__ == "__main__":
                                             args.c,
                                             n,
                                             (True if args.m == 'rf'
-                                                  else False))
+                                             else False))
                                     for n in range(args.l, args.u + 1)]
                 permuted_sc = Scorer(permuted_coll.records,
                                      args.g,
@@ -740,15 +767,15 @@ if __name__ == "__main__":
                     k_idx = k - args.l
                     kp1_score = permuted_sc.score(permuted_parts_l[k_idx + 1])
                     k_score = permuted_sc.score(permuted_parts_l[k_idx])
-                    results[k+1].append(kp1_score - k_score)
+                    results[k + 1].append(kp1_score - k_score)
 
-            if args.w: # write the bootstrap reps
+            if args.w:  # write the bootstrap reps
                 print('\tWriting: \trep {0}/{1}'.format(rep, args.r))
                 d = directorymake('{0}/permutations/{1}'
                                   .format(args.o, rep))
                 for rec in permuted_coll.records:
                     rec.write_phylip('{0}/{1}_rep{2:0>{3}}.phy.gz'.format(d,
-                        rec.name, rep, len(str(args.r))))
+                                                                          rec.name, rep, len(str(args.r))))
 
                 write_command_line(args, args.l, args.u, d, args.c, args.m)
 

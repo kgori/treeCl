@@ -2,7 +2,7 @@
 from __future__ import print_function
 
 # standard library
-from subprocess import Popen, PIPE, STDOUT
+from subprocess import Popen, PIPE
 
 # third party
 import numpy as np
@@ -12,8 +12,8 @@ from external import ExternalSoftware
 from ..errors import filecheck, FileError, directorymake
 from ..utils import fileIO
 
-class Darwin(ExternalSoftware):
 
+class Darwin(ExternalSoftware):
     """ Run commands through Darwin language"""
 
     default_binary = 'darwin'
@@ -36,9 +36,10 @@ class Darwin(ExternalSoftware):
 
     def execute(self, verbosity):
         try:
-            from subprocess import DEVNULL # py3k
+            from subprocess import DEVNULL  # py3k
         except ImportError:
             import os
+
             DEVNULL = open(os.devnull, 'wb')
         comfile = filecheck('{0}/darcom.drw'.format(self.tmpdir))
         p = Popen(self.binary, stdout=PIPE, stdin=PIPE, stderr=DEVNULL)
@@ -71,10 +72,11 @@ class Darwin(ExternalSoftware):
         self.clean()
         return result
 
+
 def numpiser(s, dtype=None):
-    elements =[line.strip().split() for line in s.strip().split('\n')]
+    elements = [line.strip().split() for line in s.strip().split('\n')]
     arr = np.array(elements, dtype=dtype)
-    r,c = arr.shape
+    r, c = arr.shape
     if r == 1 or c == 1:
         arr = arr.reshape(max(r, c), )
     return arr

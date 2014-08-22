@@ -5,8 +5,8 @@ from tree import Tree
 from ..constants import TMPDIR
 from ..software_interfaces.gtp import GTP
 
-class TrClTree(Tree):
 
+class TrClTree(Tree):
     def geodist(self, other, tmpdir=None, normalise=False):
         tmpdir = tmpdir or TMPDIR
         gtp = GTP(tmpdir=tmpdir)

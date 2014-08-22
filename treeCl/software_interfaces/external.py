@@ -5,7 +5,6 @@ from ..utils import fileIO
 
 
 class ExternalSoftware(object):
-
     """ Class for running external software. Wrappers for programs inherit from
     this class, and should implement their own read(), run() and write() methods
     """
@@ -21,7 +20,7 @@ class ExternalSoftware(object):
 
         # TRY TO FIND SUPPLIED BINARY
         path_to_supplied_binary = fileIO.locate_file(supplied_binary,
-                self.default_env, self.local_dir)
+                                                     self.default_env, self.local_dir)
 
         if fileIO.can_locate(path_to_supplied_binary):
             self.binary = path_to_supplied_binary
@@ -29,7 +28,7 @@ class ExternalSoftware(object):
         # FALL BACK TO DEFAULT BINARY
         else:
             default_binary = fileIO.locate_file(self.default_binary,
-                    self.default_env, self.local_dir)
+                                                self.default_env, self.local_dir)
             self.binary = default_binary
 
         if self.binary is None:
@@ -42,11 +41,11 @@ class ExternalSoftware(object):
         return self
 
     def __exit__(
-        self,
-        type,
-        value,
-        tb,
-        ):
+            self,
+            type,
+            value,
+            tb,
+    ):
 
         self.clean()
 
@@ -65,7 +64,7 @@ class ExternalSoftware(object):
 
     def call(self, verbose=False, dry_run=False):
         cmd = ' '.join([self.binary] + ['{0} {1}'.format(k, v) for (k, v) in
-                       self.flags.items()])
+                                        self.flags.items()])
         if verbose:
             print(cmd)
         if dry_run:
@@ -89,7 +88,6 @@ class ExternalSoftware(object):
 
 
 class TreeSoftware(ExternalSoftware):
-
     def __init__(self, record, tmpdir, supplied_binary=''):
         super(TreeSoftware, self).__init__(tmpdir, supplied_binary)
         self.record = record
@@ -108,7 +106,6 @@ class LSFJobHandlerException(Exception):
 
 
 class LSFJobHandler(object):
-
     def __init__(self, job_handler, command_string, tmpdir):
         if (job_handler is None or command_string is None or tmpdir is None):
             raise LSFJobHandlerException('"None" argument given')

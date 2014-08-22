@@ -12,8 +12,10 @@ import numpy as np
 from scipy.cluster.hierarchy import fcluster, dendrogram
 from scipy.spatial.distance import squareform
 from fastcluster import linkage
+
 try:
     from Bio.Cluster import kmedoids
+
     Biopython_Unavailable = False
 except ImportError:
     print("Biopython unavailable - kmedoids clustering disabled")
@@ -35,7 +37,6 @@ from distance_matrix import DistanceMatrix
 
 
 class Clustering(object):
-
     """ Apply clustering methods to distance matrix
 
     = Hierarchical clustering - single-linkage - complete-linkage - average-
@@ -75,11 +76,11 @@ class Clustering(object):
         return Partition(p[0][0])
 
     def hierarchical(
-        self,
-        nclusters,
-        linkage_method,
-        noise=False,
-        ):
+            self,
+            nclusters,
+            linkage_method,
+            noise=False,
+    ):
 
         if noise:
             matrix = self.distance_matrix.add_noise()
@@ -101,13 +102,13 @@ class Clustering(object):
         return Partition(T)
 
     def spectral_decomp(
-        self,
-        prune='estimate',
-        local_scale=None,
-        noise=False,
-        verbosity=0,
-        logic='or',
-        **kwargs):
+            self,
+            prune='estimate',
+            local_scale=None,
+            noise=False,
+            verbosity=0,
+            logic='or',
+            **kwargs):
         """ Use prune to remove links between distant points:
 
         prune='estimate' searches for the smallest value that retains a fully
@@ -120,30 +121,30 @@ class Clustering(object):
         else:
             matrix = self.distance_matrix
 
-        kp, mask, est_scale = matrix.binsearch_mask(logic=logic) # prune anyway,
-                                                    # get local scale estimate
+        kp, mask, est_scale = matrix.binsearch_mask(logic=logic)  # prune anyway,
+        # get local scale estimate
 
-        ks = kp # ks and kp log the scaling and pruning parameters
+        ks = kp  # ks and kp log the scaling and pruning parameters
         est_ks = ks
 
         # ADJUST MASK
-        if prune == -1: # change mask to all
-            kp   = len(matrix) - 1
+        if prune == -1:  # change mask to all
+            kp = len(matrix) - 1
             mask = np.ones(matrix.shape, dtype=bool)
         elif isinstance(prune, int) and prune > 0:
-            kp   = prune
+            kp = prune
             mask = matrix.kmask(prune, logic=logic)
 
         # ADJUST SCALE
-        if local_scale == 'estimate': # deprecated option
+        if local_scale == 'estimate':  # deprecated option
             local_scale = None
         if local_scale is not None:
             if local_scale == 'median':
-                ks    = 'median'
-                dist  = np.median(matrix, axis=1)
+                ks = 'median'
+                dist = np.median(matrix, axis=1)
                 scale = np.outer(dist, dist)
             elif isinstance(local_scale, int):
-                ks    = local_scale
+                ks = local_scale
                 scale = matrix.kscale(local_scale)
         else:
             scale = est_scale
@@ -187,7 +188,7 @@ class Clustering(object):
     def spectral_cluster(self, nclusters, decomp, verbosity=0):
 
         if nclusters == 1:
-            return Partition([1]*len(self.distance_matrix))
+            return Partition([1] * len(self.distance_matrix))
 
         (coords, cve) = decomp.coords_by_dimension(nclusters)
         if verbosity > 0:
@@ -208,12 +209,11 @@ class Clustering(object):
         return dbc.eigen()
 
     def MDS_cluster(
-        self,
-        nclusters,
-        decomp,
-        cutoff=None,
-        verbosity=0,
-        ):
+            self,
+            nclusters,
+            decomp,
+            verbosity=0,
+    ):
 
         L = np.diag(np.sqrt(np.abs(decomp.vals[:nclusters])))
         E = decomp.vecs[:, :nclusters]
@@ -251,12 +251,14 @@ class Clustering(object):
             leaf_font_size=8,
             leaf_rotation=90,
             leaf_label_func=lambda leaf: names[leaf] + '_' \
-                + str(partition[leaf]),
+                                         + str(partition[leaf]),
             count_sort=True,
-            )
+        )
         plt.suptitle('Dendrogram', fontsize=16)
         plt.title('Distance metric: {0}    Linkage method: {1}    Number of classes: {2}'.format(compound_key[0],
-                  compound_key[1], compound_key[2]), fontsize=12)
+                                                                                                 compound_key[1],
+                                                                                                 compound_key[2]),
+                  fontsize=12)
         plt.axhline(threshold, color='grey', ls='dashed')
         plt.xlabel('Gene')
         plt.ylabel('Distance')
@@ -276,15 +278,15 @@ class Clustering(object):
         return p
 
     def spectral_rotate(
-        self,
-        decomp=None,
-        KMeans=True,
-        max_groups=None,
-        min_groups=2,
-        verbose=True,
-        tolerance=0.0025,
-        **kwargs
-        ):
+            self,
+            decomp=None,
+            KMeans=True,
+            max_groups=None,
+            min_groups=2,
+            verbose=True,
+            tolerance=0.0025,
+            **kwargs
+    ):
 
         if decomp is None:
             decomp = self.spectral_decomp(**kwargs)
@@ -295,7 +297,7 @@ class Clustering(object):
         M = decomp.matrix
         if not max_groups:
             max_groups = max(int(np.sqrt(M.shape[0]) + np.power(M.shape[0], 1.0
-                             / 3)), min_groups)
+                                                                / 3)), min_groups)
         (groups, clusters, quality_scores, rotated_vectors) = \
             self.cluster_rotate(decomp.vecs, max_groups=max_groups,
                                 min_groups=min_groups, tolerance=tolerance)
@@ -317,18 +319,18 @@ class Clustering(object):
 
         if KMeans:
             KMeans_clusters = [self.kmeans(groups[i], rotated_vectors[i])
-                                for i in range(len(groups))]
+                               for i in range(len(groups))]
             return groups, KMeans_clusters, quality_scores, index
 
         return groups, clusters, quality_scores, index
 
     def cluster_rotate(
-        self,
-        eigenvectors,
-        max_groups,
-        min_groups=2,
-        tolerance=0.0025,
-        ):
+            self,
+            eigenvectors,
+            max_groups,
+            min_groups=2,
+            tolerance=0.0025,
+    ):
 
         groups = range(min_groups, max_groups + 1)
         current_vector = eigenvectors[:, :groups[0]]
@@ -341,7 +343,7 @@ class Clustering(object):
         for g in range(n):
             if g > 0:
                 current_vector = np.concatenate((rotated_vectors[g - 1],
-                        eigenvectors[:, groups[g] - 1:groups[g]]), axis=1)
+                                                 eigenvectors[:, groups[g] - 1:groups[g]]), axis=1)
 
             (clusters[g], quality_scores[g], rotated_vectors[g]) = \
                 evrot.main(current_vector)
@@ -363,10 +365,7 @@ class Clustering(object):
         return index
 
 
-
-
 class Partition(object):
-
     """ Class to store clustering information """
 
     # score = 0
@@ -412,7 +411,7 @@ class Partition(object):
         l2 = [None] * list_length
 
         for (name, index_list) in enumerate(sorted(d.values(), key=min),
-                start=1):
+                                            start=1):
             for index in index_list:
                 l2[index] = name
 
@@ -464,7 +463,7 @@ class Partition(object):
                     continue  # because 0 * log(0) = 0 (lim x->0: xlog(x)->0)
                 else:
                     mut_inf += intersect / total * np.log2(total * intersect
-                            / (len(m1[i]) * len(m2[j])))
+                                                           / (len(m1[i]) * len(m2[j])))
 
         return (entropy_1, entropy_2, mut_inf)
 
@@ -488,7 +487,7 @@ class Partition(object):
         for (position, value) in enumerate(pvec):
             result[value].append(position)
         result = [tuple(x) for x in sorted(result.values(), key=len,
-                  reverse=True)]
+                                           reverse=True)]
         return (self.flatten(result) if flatten else result)
 
     @classmethod
@@ -503,7 +502,7 @@ class Partition(object):
         partition_2 = other.partition_vector
 
         (entropy_1, entropy_2, mut_inf) = self.entropies(partition_1,
-                partition_2)
+                                                         partition_2)
 
         return 2 * mut_inf / (entropy_1 + entropy_2)
 
@@ -516,7 +515,7 @@ class Partition(object):
         partition_2 = other.partition_vector
 
         (entropy_1, entropy_2, mut_inf) = self.entropies(partition_1,
-                partition_2)
+                                                         partition_2)
 
         return entropy_1 + entropy_2 - 2 * mut_inf
 
@@ -538,4 +537,4 @@ def get_partition(clusters):
             print(k, i)
             pvec[i] = k
     print(pvec)
-    return(Partition(tuple(pvec)))
+    return (Partition(tuple(pvec)))

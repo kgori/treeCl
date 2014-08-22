@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 
-class Silhouette(object):
 
+class Silhouette(object):
     def __init__(self, dm, p):
         self.distances = dm
         self.set_partition(p)
@@ -18,8 +18,8 @@ class Silhouette(object):
     def __get_indices_for_groups_by_index(self, ix, jx):
         if len(ix) == len(jx) == 1 and ix == jx:
             return [list(ix)], [list(jx)]
-        row_indices    = [[i for j in jx if i!=j] for i in ix]
-        column_indices = [[j for j in jx if j!=i] for i in ix]
+        row_indices = [[i for j in jx if i != j] for i in ix]
+        column_indices = [[j for j in jx if j != i] for i in ix]
         return row_indices, column_indices
 
     def get_mean_dissimilarities_for_group(self, group):
@@ -63,7 +63,8 @@ class Silhouette(object):
     def silhouette(self, partition):
         self.set_partition(partition)
         self.run()
-        return(self.neighbours, self.scores)
+        return (self.neighbours, self.scores)
+
 
 def add_silhouettes_to_dataframe(path_to_distances, path_to_table, **kwargs):
     table = pd.read_csv(path_to_table, **kwargs)

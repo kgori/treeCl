@@ -19,11 +19,10 @@ __all__ = [
     'directoryquit',
     'optioncheck',
     'rangecheck',
-    ]
+]
 
 
 class FileError(Exception):
-
     """ Reporting when file errors occur """
 
     def __init__(self, filename=''):
@@ -36,7 +35,6 @@ class FileError(Exception):
 
 
 class DirectoryError(FileError):
-
     """ Reporting when directory errors occur """
 
     def __str__(self):
@@ -46,7 +44,6 @@ class DirectoryError(FileError):
 
 
 class OptionError(Exception):
-
     """ Reports on disallowed options passed to functions """
 
     def __init__(self, option, choices):
@@ -55,30 +52,28 @@ class OptionError(Exception):
 
     def __str__(self):
         return '\'{0}\' is not a valid option. Valid options are {1}'.format(self.value,
-                self.choices)
+                                                                             self.choices)
 
 
 class RangeError(Exception):
-
     """ Raise exception when number is outside a valid range """
 
     def __init__(
-        self,
-        n,
-        lower,
-        upper,
-        ):
+            self,
+            n,
+            lower,
+            upper,
+    ):
         self.value = n
         self.lower = lower
         self.upper = upper
 
     def __str__(self):
-
         return '\'{0}\' is outside the valid range {1} - {2}'.format(self.value,
-                self.lower, self.upper)
+                                                                     self.lower, self.upper)
+
 
 class TreeBuildingError(Exception):
-
     """ Raise exception when tree-building program fails """
 
     def __init__(self, error, program):
@@ -87,12 +82,14 @@ class TreeBuildingError(Exception):
 
     def __str__(self):
         return '{0} failed: Error message:\n{1}'.format(self.program,
-            self.error)
+                                                        self.error)
+
 
 def filecheck(filename):
     if not os.path.isfile(filename):
         raise FileError(filename)
     return filename
+
 
 def filequit(filename):
     try:
@@ -101,10 +98,12 @@ def filequit(filename):
         print(e)
         sys.exit()
 
+
 def directorycheck(directory):
     if not os.path.isdir(directory):
         raise DirectoryError(directory)
     return directory
+
 
 def directoryquit(directory):
     try:
@@ -113,6 +112,7 @@ def directoryquit(directory):
     except DirectoryError, e:
         print(e)
         sys.exit()
+
 
 def directorymake(directory, verbosity=0):
     try:
@@ -125,15 +125,18 @@ def directorymake(directory, verbosity=0):
         os.makedirs(directory)
     return directorycheck(directory)
 
+
 def optioncheck(option, choices):
     if option not in choices:
         raise OptionError(option, choices)
     return option
 
+
 def rangecheck(n, lower, upper):
     if n < lower or n > upper:
         raise RangeError(n, lower, upper)
     return n
+
 
 def isnumbercheck(n):
     if not isinstance(n, numbers.Number):

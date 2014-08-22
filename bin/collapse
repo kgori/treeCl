@@ -1,16 +1,18 @@
 #!/usr/bin/env python
 from __future__ import print_function
-import dendropy as dpy
 import os
 import sys
 
+import dendropy as dpy
+
+
 def collapse(tree, threshold, keep_length=True):
     t = dpy.Tree().clone_from(tree)
-    f=lambda x: (True if (x.is_internal() and x.label) else False)
+    f = lambda x: (True if (x.is_internal() and x.label) else False)
     to_collapse = []
     for node in t.postorder_node_iter(filter_fn=f):
         try:
-            support=float(node.label)
+            support = float(node.label)
             if support < threshold:
                 to_collapse.append(node.edge)
         except:
@@ -21,6 +23,7 @@ def collapse(tree, threshold, keep_length=True):
                 child.edge.length += edge.length
         edge.collapse()
     return t
+
 
 def _get_support_treelist(treelist, threshold):
     """ Takes a treelist with support values and edge lengths
@@ -46,6 +49,7 @@ def _get_support_treelist(treelist, threshold):
     _ = support_treelist.consensus(min_freq=threshold)
     return support_treelist
 
+
 def support_decorated_consensus(treelist, threshold):
     support_treelist = _get_support_treelist(treelist, threshold)
     consensus = treelist.consensus(min_freq=threshold)
@@ -61,9 +65,11 @@ def support_decorated_consensus(treelist, threshold):
         node.label = str(support)
     return consensus
 
+
 def parse_args():
     """ Parses command line arguments """
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument('trees_file', type=str)
     parser.add_argument('--threshold', type=float)
@@ -73,6 +79,7 @@ def parse_args():
     parser.add_argument('--lengths', action='store_true')
     parser.add_argument('--outfile', type=str)
     return parser.parse_args()
+
 
 def read_tree_file(args):
     filename = args.tree
@@ -84,6 +91,7 @@ def read_tree_file(args):
         file_format = ({'nexus', 'newick'} - {args.format}).pop()
         t = dpy.Tree.get_from_path(filename, file_format)
     return t
+
 
 def test():
     n = ('((A:1,(B:0.5,C:0.5)80:0.5)30:1,'
@@ -104,11 +112,13 @@ def test():
     three.print_plot(plot_metric='length')
     three.write(fh, 'newick', suppress_rooting=True)
 
+
 def get_file_handle(args):
     if args.outfile == 'stdout' or args.outfile is None:
         return sys.stdout
     else:
         return open(args.outfile, 'w')
+
 
 def main():
     args = parse_args()

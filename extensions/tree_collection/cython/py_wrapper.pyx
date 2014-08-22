@@ -1,20 +1,14 @@
 #cython: c_string_encoding=ascii  # for cython>=0.19
 from  libcpp.string  cimport string as libcpp_string
-from  libcpp.set     cimport set as libcpp_set
-from  libcpp.vector  cimport vector as libcpp_vector
-from  libcpp.pair    cimport pair as libcpp_pair
-from  libcpp.map     cimport map  as libcpp_map
 # from  smart_ptr cimport shared_ptr
 # from  AutowrapRefHolder cimport AutowrapRefHolder
 from  libcpp cimport bool
-from  libc.string cimport const_char
-from cython.operator cimport dereference as deref, preincrement as inc, address as address
 from wrapper cimport compute as _compute_wrapper
 from wrapper cimport fit as _fit_wrapper
 # cdef extern from "autowrap_tools.hpp":
 #     char * _cast_const_away(char *)
 
-def compute(bytes matrices , bytes mapping , bytes labels , bytes tree ,  iter=5 ,  keep_topology=False ,  quiet=True ):
+def compute(bytes matrices, bytes mapping, bytes labels, bytes tree, iter=5, keep_topology=False, quiet=True):
     """ This is a wrapper to the MinSquareTreeCollection::compute function
 
     :param matrices: Matrix of distances (upper triangle) and variances (lower triangle)
@@ -43,16 +37,18 @@ def compute(bytes matrices , bytes mapping , bytes labels , bytes tree ,  iter=5
     assert isinstance(keep_topology, (int, long)), 'arg keep_topology wrong type'
     assert isinstance(quiet, (int, long)), 'arg quiet wrong type'
 
-    _r = _compute_wrapper((<libcpp_string>matrices), (<libcpp_string>mapping), (<libcpp_string>labels), (<libcpp_string>tree), (<int>iter), (<bool>keep_topology), (<bool>quiet))
+    _r = _compute_wrapper((<libcpp_string> matrices), (<libcpp_string> mapping), (<libcpp_string> labels),
+                          (<libcpp_string> tree), (<int> iter), (<bool> keep_topology), (<bool> quiet))
     cdef list py_result = [_r.first, _r.second]
     return py_result
 
-def fit(bytes matrices , bytes mapping , bytes labels , bytes tree ):
+def fit(bytes matrices, bytes mapping, bytes labels, bytes tree):
     assert isinstance(matrices, bytes), 'arg matrices wrong type'
     assert isinstance(mapping, bytes), 'arg mapping wrong type'
     assert isinstance(labels, bytes), 'arg labels wrong type'
     assert isinstance(tree, bytes), 'arg tree wrong type'
 
-    cdef double _r = _fit_wrapper((<libcpp_string>matrices), (<libcpp_string>mapping), (<libcpp_string>labels), (<libcpp_string>tree))
-    py_result = <double>_r
+    cdef double _r = _fit_wrapper((<libcpp_string> matrices), (<libcpp_string> mapping), (<libcpp_string> labels),
+                                  (<libcpp_string> tree))
+    py_result = <double> _r
     return py_result

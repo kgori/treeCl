@@ -18,7 +18,6 @@ from utils import fileIO, print_and_return
 
 
 class Simulator(object):
-
     """
     Simulate alignments from several trees.
     Args:
@@ -32,43 +31,43 @@ class Simulator(object):
                     """
 
     def __init__(
-        self,
-        class_list,
-        permutations_list,
-        nspecies,
-        tmpdir,
-        datatype='protein',
-        master_tree_generator_method='yule',
-        master_tree=None,
-        class_tree_permuter='nni',
-        gene_length_kappa=1.7719,
-        gene_length_theta=279.9,
-        gene_length_min=10,
-        gamma_rate_param=None,
-        outdir='./',
-        autocorrelated_relaxed_clock=False,
-        uncorrelated_relaxed_clock=False,
-        scale_rates=False,
-        verbosity=0,
-        ):
+            self,
+            class_list,
+            permutations_list,
+            nspecies,
+            tmpdir,
+            datatype='protein',
+            master_tree_generator_method='yule',
+            master_tree=None,
+            class_tree_permuter='nni',
+            gene_length_kappa=1.7719,
+            gene_length_theta=279.9,
+            gene_length_min=10,
+            gamma_rate_param=None,
+            outdir='./',
+            autocorrelated_relaxed_clock=False,
+            uncorrelated_relaxed_clock=False,
+            scale_rates=False,
+            verbosity=0,
+    ):
         # default
         errors.optioncheck(master_tree_generator_method, ['yule', 'coal',
-                           'rtree', 'custom'])
+                                                          'rtree', 'custom'])
         errors.optioncheck(class_tree_permuter, ['nni', 'spr', 'lgt', 'genetree'
-                           ])
+        ])
         if master_tree is None and master_tree_generator_method == 'custom':
             raise Exception('No custom tree was specified')
         self.num_classes = len(class_list)
         self.num_genes = sum(class_list)
         self.class_list = class_list
-        self.verbosity=verbosity
+        self.verbosity = verbosity
         self.autocorrelated_relaxed_clock = autocorrelated_relaxed_clock
         self.uncorrelated_relaxed_clock = uncorrelated_relaxed_clock
         self.scale_rates = scale_rates
         self.gene_trees = list()
         if master_tree is None:
             tree = self.generate_master_tree(master_tree_generator_method,
-                    nspecies)
+                                             nspecies)
             self.master_tree = tree
             self.num_species = nspecies
         else:
@@ -90,8 +89,8 @@ class Simulator(object):
         self.datatype = datatype
         self.tmpdir = errors.directorymake(tmpdir)
         self.outdir = outdir
-        self.generate_class_trees() # sets self.class_trees dict
-        self.make_alf_dirs() # sets self.alf_dirs dict
+        self.generate_class_trees()  # sets self.class_trees dict
+        self.make_alf_dirs()  # sets self.alf_dirs dict
         self.write_alf_params()
         self.get_true_partition()
 
@@ -106,23 +105,23 @@ class Simulator(object):
     def generate_master_tree(self, method, nspecies):
         if method == 'yule':
             tree = TrClTree.new_yule(nspecies)
-            tree.name='{}_master_tree'.format(method)
+            tree.name = '{}_master_tree'.format(method)
             return tree
         elif method == 'coal':
             tree = TrClTree.new_coal(nspecies)
-            tree.name='{}_master_tree'.format(method)
+            tree.name = '{}_master_tree'.format(method)
             return tree
         elif method == 'rtree':
             tree = TrClTree.new_rtree(nspecies)
-            tree.name='{}_master_tree'.format(method)
+            tree.name = '{}_master_tree'.format(method)
             return tree
 
     def set_gene_lengths(
-        self,
-        kappa,
-        theta,
-        min_,
-        ):
+            self,
+            kappa,
+            theta,
+            min_,
+    ):
         self.gene_length_kappa = kappa
         self.gene_length_theta = theta
         self.gene_length_min = min_
@@ -131,26 +130,26 @@ class Simulator(object):
         class_trees = {}
         if self.permuter == 'genetree':
             for k in range(self.num_classes):
-                class_trees[k+1] = self.master_tree.sample_gene_tree(
-                                        scale_to=self.permutations_list[k])
+                class_trees[k + 1] = self.master_tree.sample_gene_tree(
+                    scale_to=self.permutations_list[k])
 
         else:
             # Base trees for each class
             for k in range(self.num_classes):
                 if self.permuter == 'nni':
                     t = self.master_tree.rnni(times=self.permutations_list[k])
-                    t.name = 'class{}'.format(k+1)
-                    class_trees[k+1] = t
+                    t.name = 'class{}'.format(k + 1)
+                    class_trees[k + 1] = t
                 elif self.permuter == 'spr':
                     t = self.master_tree.rspr(times=self.permutations_list[k],
-                            disallow_sibling_sprs=True, keep_entire_edge=True)
-                    t.name = 'class{}'.format(k+1)
-                    class_trees[k+1] = t
+                                              disallow_sibling_sprs=True, keep_entire_edge=True)
+                    t.name = 'class{}'.format(k + 1)
+                    class_trees[k + 1] = t
                 elif self.permuter == 'lgt':
                     t = self.master_tree.rlgt(times=self.permutations_list[k],
-                            disallow_sibling_lgts=True)
-                    t.name = 'class{}'.format(k+1)
-                    class_trees[k+1] = t
+                                              disallow_sibling_lgts=True)
+                    t.name = 'class{}'.format(k + 1)
+                    class_trees[k + 1] = t
 
             # Expand base class trees into individual trees
             gene_trees = list()
@@ -160,7 +159,7 @@ class Simulator(object):
 
                 # populate the trees list
                 for _ in range(num_genes):
-                    class_tree = class_trees[k+1]
+                    class_tree = class_trees[k + 1]
                     tree = TrClTree(class_tree.newick)
                     tree.name = class_tree.name
                     trees.append(tree)
@@ -204,8 +203,8 @@ class Simulator(object):
         alf_dirs = {}
         for k in range(self.num_classes):
             dirname = fileIO.join_path(self.tmpdir, 'class{0:0>1}'.format(
-                k+1))
-            alf_dirs[k+1] = errors.directorymake(dirname)
+                k + 1))
+            alf_dirs[k + 1] = errors.directorymake(dirname)
         self.alf_dirs = alf_dirs
 
     def write_alf_params(self):
@@ -225,16 +224,16 @@ class Simulator(object):
             gene_length_kappa = self.gene_length_kappa
             gene_length_theta = self.gene_length_theta
             alf_obj = ALF(tree=tree,
-                datatype=datatype, num_genes=num_genes,
-                seqlength=seqlength, gene_length_kappa=gene_length_kappa,
-                gene_length_theta=gene_length_theta, name=name, tmpdir=alfdir )
+                          datatype=datatype, num_genes=num_genes,
+                          seqlength=seqlength, gene_length_kappa=gene_length_kappa,
+                          gene_length_theta=gene_length_theta, name=name, tmpdir=alfdir)
             if isinstance(self.gamma_rate_param, numbers.Number):
                 alf_obj.params.rate_variation(self.gamma_rate_param)
-            if datatype=='protein':
+            if datatype == 'protein':
                 alf_obj.params.one_word_model('WAG')
             else:
                 alf_obj.params.jc_model()
-            alf_params[i]=alf_obj
+            alf_params[i] = alf_obj
 
         self.alf_params = alf_params
 
@@ -248,23 +247,23 @@ class Simulator(object):
 
         alf_params = {}
         for k in range(self.num_classes):
-            alfdir = self.alf_dirs[k+1]
-            tree = self.class_trees[k+1]
+            alfdir = self.alf_dirs[k + 1]
+            tree = self.class_trees[k + 1]
             datatype = self.datatype
-            name = 'class{0}'.format(k+1)
+            name = 'class{0}'.format(k + 1)
             num_genes = self.class_list[k]
             seqlength = self.gene_length_min
             gene_length_kappa = self.gene_length_kappa
             gene_length_theta = self.gene_length_theta
             alf_obj = ALF(tree=tree,
-                datatype=datatype, num_genes=num_genes,
-                seqlength=seqlength, gene_length_kappa=gene_length_kappa,
-                gene_length_theta=gene_length_theta, name=name, tmpdir=alfdir)
-            if datatype=='protein':
+                          datatype=datatype, num_genes=num_genes,
+                          seqlength=seqlength, gene_length_kappa=gene_length_kappa,
+                          gene_length_theta=gene_length_theta, name=name, tmpdir=alfdir)
+            if datatype == 'protein':
                 alf_obj.params.one_word_model('WAG')
             else:
                 alf_obj.params.jc_model()
-            alf_params[k+1]=alf_obj
+            alf_params[k + 1] = alf_obj
 
         self.alf_params = alf_params
 
@@ -280,7 +279,7 @@ class Simulator(object):
         for i, tree in enumerate(self.gene_trees, start=1):
             if self.verbosity > 0:
                 print_and_return('Simulating {} ({:.1f}%)'.format(tree.name,
-                                    100 * i / total_jobs),
+                                                                  100 * i / total_jobs),
                                  sys.stderr)
             simulated_record = self.alf_params[i].run()[0]
             simulated_record.name = tree.name
@@ -293,10 +292,11 @@ class Simulator(object):
         """ DEPRECATED """
         all_records = []
         for k in range(self.num_classes):
-            simulated_records = self.alf_params[k+1].run()
+            simulated_records = self.alf_params[k + 1].run()
             names = ['class{0}_{1:0>{2}}'.format(k + 1, i,
-                len(str(self.class_list[k]))) for i in range(1,
-                len(simulated_records) + 1)]
+                                                 len(str(self.class_list[k]))) for i in range(1,
+                                                                                              len(
+                                                                                                  simulated_records) + 1)]
             for (rec, name) in zip(simulated_records, names):
                 rec.name = name
             all_records.extend(simulated_records)
@@ -315,16 +315,15 @@ class Simulator(object):
                 filename = fileIO.join_path(self.outdir, rec.name) + '.phy'
                 rec.write_phylip(filename, interleaved=True)
             for i in range(self.num_classes):
-
-                tree = self.class_trees[i+1]
-                name = 'base_tree_class{0:0>{1}}.nwk'.format(i+1,
-                    len(str(self.num_classes)))
+                tree = self.class_trees[i + 1]
+                name = 'base_tree_class{0:0>{1}}.nwk'.format(i + 1,
+                                                             len(str(self.num_classes)))
                 filename = fileIO.join_path(self.outdir, 'base_class_trees',
                                             name)
                 tree.write_to_file(filename)
             for i, tree in enumerate(self.gene_trees, start=1):
                 filename = fileIO.join_path(self.outdir, 'gene_trees',
-                                            tree.name+'.nwk')
+                                            tree.name + '.nwk')
                 tree.write_to_file(filename)
             self.master_tree.write_to_file(fileIO.join_path(self.outdir,
                                                             'master_tree.nwk'))
@@ -335,7 +334,7 @@ class Simulator(object):
     def get_true_partition(self):
         l = []
         for k in range(len(self.class_list)):
-            l.extend([k+1]*self.class_list[k])
+            l.extend([k + 1] * self.class_list[k])
         self.true_partition = Partition(l)
         return self.true_partition
 
@@ -343,6 +342,7 @@ class Simulator(object):
 if __name__ == '__main__':
 
     import argparse
+
     prog = fileIO.basename(__file__)
     parser = argparse.ArgumentParser(description='{0}'.format(prog))
     parser.add_argument('classes', type=int, nargs='+')
@@ -353,7 +353,7 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--tree', type=str)
     parser.add_argument('--permuter', type=str, default='lgt')
     parser.add_argument('-l', '--gamma_params', type=float, nargs=2,
-        default=(1.7719, 279.9))
+                        default=(1.7719, 279.9))
     parser.add_argument('-m', '--min_length', type=str, default=10)
     parser.add_argument('--tmp', type=str, default='/tmp')
     parser.add_argument('-o', '--output', type=str)

@@ -16,10 +16,10 @@ from clustering import Clustering, Partition
 from distance_matrix import DistanceMatrix
 from errors import optioncheck
 
-class Plotter(object):
 
+class Plotter(object):
     def __init__(self, collection=None, records=None, dm=None,
-        metric='geo', **kwargs):
+                 metric='geo', **kwargs):
 
         """ Initialisation:
         A fully-formed Collection object can be given, or a list of records.
@@ -54,8 +54,8 @@ class Plotter(object):
     def calc_dm(self, method='geo'):
 
         return (self.collection.distance_matrix(method)
-                    if self.collection
-                    else None)
+                if self.collection
+                else None)
 
     def get_decomp(self, method='MDS', **kwargs):
         optioncheck(method, ['MDS', 'spectral'])
@@ -77,7 +77,7 @@ class Plotter(object):
             return self.decomp_to_coords(decomp, dimensions, normalise=True)
 
     def decomp_to_coords(self, decomp, dimensions, normalise=False):
-        optioncheck(dimensions, [2,3])
+        optioncheck(dimensions, [2, 3])
 
         coords = decomp.coords_by_dimension(dimensions)[0]
         return coords.normalise_rows() if normalise else coords
@@ -101,7 +101,7 @@ class Plotter(object):
         if partition:
             sorting = partition.get_membership(flatten=True)
             p = self.dm.get_permutation_matrix(range(len(sorting)),
-                    sorting)
+                                               sorting)
             self.dm = np.dot(p.T, np.dot(self.dm, p)).view(DistanceMatrix)
         cax = ax.imshow(
             self.dm,
@@ -111,52 +111,52 @@ class Plotter(object):
             vmin=0,
             vmax=datamax,
             cmap=cmap,
-            )
+        )
         cbar = fig.colorbar(cax, ticks=ticks_at, format='%1.2g')
         cbar.set_label('Distance')
         return fig
 
     def embedding(self, method='MDS', dimensions=3, partition=None,
-            add_sphere=False,
-            xlab='PCo1', ylab='PCo2', zlab='PCo3',
-            title='Trees embedded in dimension-reduced space',
-            outfile=False, **kwargs
-        ):
+                  add_sphere=False,
+                  xlab='PCo1', ylab='PCo2', zlab='PCo3',
+                  title='Trees embedded in dimension-reduced space',
+                  outfile=False, **kwargs
+    ):
 
         """ Gets coordinates, then calls embedding_plotter to do the plot """
 
         coords = self.get_coords(method, dimensions, normalise=False, **kwargs)
         return self.embedding_plotter(coords, dimensions, partition, add_sphere,
-            xlab, ylab, zlab, title, outfile)
+                                      xlab, ylab, zlab, title, outfile)
 
     def embedding_plotter(
             self, coordinates, dimensions, partition=None, add_sphere=False,
             xlab='PCo1', ylab='PCo2', zlab='PCo3',
             title='Trees embedded in dimension-reduced space',
             outfile=False,
-        ):
+    ):
         """ Points are coloured according to cluster membership specified
         by Partition object (or all black if no Partition specified) """
 
-        optioncheck(dimensions, [2,3])
+        optioncheck(dimensions, [2, 3])
         partition = (partition or
                      Partition(tuple([0] * len(coordinates))))
 
         colours = zip(*zip(range(len(partition)), itertools.cycle('bgrcmyk')))[1]
         print(colours)
-        colour_mapping = np.array([colours[i-1]
+        colour_mapping = np.array([colours[i - 1]
                                    for i in partition.partition_vector])
         fig = plt.figure()
 
         if dimensions == 3:
             ax = fig.add_subplot(111, projection='3d',
-                    xlabel=xlab, ylabel=ylab, zlabel=zlab, title=title)
+                                 xlabel=xlab, ylabel=ylab, zlabel=zlab, title=title)
             if add_sphere:
                 ax = self.sphere(ax)
 
         else:
             ax = fig.add_subplot(111,
-                    xlabel=xlab, ylabel=ylab, title=title)
+                                 xlabel=xlab, ylabel=ylab, title=title)
 
         ax.scatter(*coordinates.T, color=colour_mapping)
         # ax.set_aspect(1)
@@ -166,6 +166,7 @@ class Plotter(object):
             fig.savefig('{0}.pdf'.format(outfile))
 
         return fig
+
 
 if __name__ == '__main__':
     # TESTS
@@ -178,11 +179,11 @@ if __name__ == '__main__':
 
     print('Loading data...', end='')
     c = Collection(
-            input_dir=test_data,
-            file_format='phylip',
-            datatype='protein',
-            compression='gz',
-            )
+        input_dir=test_data,
+        file_format='phylip',
+        datatype='protein',
+        compression='gz',
+    )
     print(' success')
     print('Building trees... ', end='')
     c.calc_NJ_trees()
@@ -213,14 +214,14 @@ if __name__ == '__main__':
     print('yes')
 
     print('Testing plotting')
-    p = Partition(tuple([1]*15+[2]*15+[3]*15+[4]*15))
+    p = Partition(tuple([1] * 15 + [2] * 15 + [3] * 15 + [4] * 15))
     p_rand = Partition(tuple([1, 3, 1, 4, 2, 3, 3, 3, 2, 2, 1, 3, 3, 4, 1, 4, 1,
-        1, 2, 4, 1, 2, 2, 2, 2, 2, 3, 4, 2, 2, 1, 4, 3, 1, 4, 4, 3, 1, 3, 1, 3,
-        2, 4, 4, 1, 4, 1, 2, 3, 4, 2, 4, 3, 2, 1, 3, 4, 4, 1, 3]))
-    fig1 = plotter_from_collection.embedding('MDS', 2, p) # 2d MDS embedding
-    fig2 = plotter_from_collection.embedding('MDS', 3, p) # 3d MDS embedding
-    fig3 = plotter_from_collection.embedding('spectral', 2, p_rand) # 2d spectral
-    fig4 = plotter_from_collection.embedding('spectral', 3, p_rand) # 3d spectral
-    fig5 = plotter_just_dm.heatmap(p) # distance matrix as
+                              1, 2, 4, 1, 2, 2, 2, 2, 2, 3, 4, 2, 2, 1, 4, 3, 1, 4, 4, 3, 1, 3, 1, 3,
+                              2, 4, 4, 1, 4, 1, 2, 3, 4, 2, 4, 3, 2, 1, 3, 4, 4, 1, 3]))
+    fig1 = plotter_from_collection.embedding('MDS', 2, p)  # 2d MDS embedding
+    fig2 = plotter_from_collection.embedding('MDS', 3, p)  # 3d MDS embedding
+    fig3 = plotter_from_collection.embedding('spectral', 2, p_rand)  # 2d spectral
+    fig4 = plotter_from_collection.embedding('spectral', 3, p_rand)  # 3d spectral
+    fig5 = plotter_just_dm.heatmap(p)  # distance matrix as
     fig6 = plotter_just_dm.heatmap(p_rand)
     plt.show()

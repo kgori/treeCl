@@ -13,21 +13,20 @@ from dendropy import TaxonSet
 from datastructs.trcl_seq import TrClSeq
 from datastructs.trcl_tree import TrClTree
 from distance_matrix import DistanceMatrix
-from software_interfaces.alf import lsf_simulate_from_record,\
+from software_interfaces.alf import lsf_simulate_from_record, \
     simulate_from_record
 from software_interfaces.DVscript import runDV
 from software_interfaces.phyml import runPhyml, runLSFPhyml
 from software_interfaces.treecollection import runTC
 from utils import flatten_list
 from utils.lazyprop import lazyprop
-from errors import  OptionError, optioncheck, directorymake,\
+from errors import OptionError, optioncheck, directorymake, \
     directorycheck, isnumbercheck
 from utils import fileIO
 from constants import TMPDIR, SORT_KEY, ANALYSES, PHYML_MEMORY_MIN
 
 
 class NoRecordsError(Exception):
-
     def __init__(self, file_format, input_dir, compression):
         self.file_format = file_format
         self.input_dir = input_dir
@@ -35,14 +34,13 @@ class NoRecordsError(Exception):
 
     def __str__(self):
         msg = ('No records were found in {0} matching\n'
-            '\tfile_format = {1}\n'
-            '\tcompression = {2}'.format(self.input_dir,
-                self.file_format, self.compression))
+               '\tfile_format = {1}\n'
+               '\tcompression = {2}'.format(self.input_dir,
+                                            self.file_format, self.compression))
         return msg
 
 
 class Collection(object):
-
     """ Call:
 
     c = Collection(inut_dir, file_format, datatype, tmpdir ...)
@@ -53,17 +51,17 @@ class Collection(object):
     p = Partition(k) """
 
     def __init__(
-        self,
-        records=None,
-        input_dir=None,
-        trees_dir=None,
-        file_format='fasta',
-        datatype=None,
-        tmpdir=TMPDIR,
-        calc_distances=False,
-        compression=None,
-        debug=False,
-        ):
+            self,
+            records=None,
+            input_dir=None,
+            trees_dir=None,
+            file_format='fasta',
+            datatype=None,
+            tmpdir=TMPDIR,
+            calc_distances=False,
+            compression=None,
+            debug=False,
+    ):
 
         self.tmpdir = directorymake(tmpdir)
         self._records = None
@@ -86,7 +84,7 @@ class Collection(object):
 
         else:
             raise Exception('Provide a list of records, '
-                  'or the path to a set of alignments')
+                            'or the path to a set of alignments')
 
         self.taxon_set = TaxonSet()
         if trees_dir:
@@ -198,7 +196,7 @@ class Collection(object):
     def calc_TC_trees_new(self, verbosity=0):
         for rec in self.records:
             rec.tree_collection(taxon_set=self.taxon_set,
-                                quiet=(True if verbosity==0 else False))
+                                quiet=(True if verbosity == 0 else False))
 
     def calc_phyml_trees(self, analysis='nj', lsf=False, strategy='dynamic',
                          minmem=256, bootstraps=None, add_originals=False,
@@ -249,7 +247,7 @@ class Collection(object):
     def distance_matrix(self, metric, **kwargs):
         """ Generate a distance matrix from a fully-populated Collection """
         return DistanceMatrix(self.trees, metric, tmpdir=self.tmpdir,
-            **kwargs)
+                              **kwargs)
 
     def permuted_copy(self):
         """ Return a copy of the collection with all alignment columns permuted
@@ -264,6 +262,7 @@ class Collection(object):
 
 class Concatenation(object):
     """docstring for Concatenation"""
+
     def __init__(self, collection, indices):
         super(Concatenation, self).__init__()
         if any((x > len(collection)) for x in indices):
@@ -311,21 +310,31 @@ class Concatenation(object):
     def datatypes(self):
         return [self.collection.records[i].datatype for i in self.indices]
 
-    def qfile(self, dna_model='GTRGAMMA', protein_model='PROTGAMMAWAG',
-              ml_freqs=False):
+    def qfile(self, dna_model='DNA', protein_model='LG', sep_codon_pos=False,
+              ml_freqs=False, eq_freqs=False):
         from_ = 1
         to_ = 0
         qs = list()
         if ml_freqs:
             dna_model += 'X'
             protein_model += 'X'
+        if eq_freqs and not ml_freqs:
+            protein_model += 'F'
 
         models = dict(dna=dna_model, protein=protein_model)
         for length, name, datatype in zip(self.lengths, self.names,
                                           self.datatypes):
             to_ += length
-            qs.append('{}, {} = {}-{}'.format(models[datatype], name, from_,
-                                              to_))
+            if datatype == 'dna' and sep_codon_pos:
+                qs.append('{}, {} = {}-{}/3'.format(models[datatype], name, from_,
+                                                    to_))
+                qs.append('{}, {} = {}-{}/3'.format(models[datatype], name, from_+1,
+                                                    to_))
+                qs.append('{}, {} = {}-{}/3'.format(models[datatype], name, from_+2,
+                                                    to_))
+            else:
+                qs.append('{}, {} = {}-{}'.format(models[datatype], name, from_,
+                                                  to_))
             from_ += length
         return '\n'.join(qs)
 
@@ -335,22 +344,21 @@ class Concatenation(object):
 
 
 class Scorer(object):
-
     """ Takes an index list, generates a concatenated SequenceRecord, calculates
     a tree and score """
 
     def __init__(
-        self,
-        collection,
-        analysis,
-        lsf=False,
-        max_guidetrees=10,
-        tmpdir=None,
-        datatype=None,
-        verbosity=0,
-        populate_cache=True,
-        debug=False,
-        ):
+            self,
+            collection,
+            analysis,
+            lsf=False,
+            max_guidetrees=10,
+            tmpdir=None,
+            datatype=None,
+            verbosity=0,
+            populate_cache=True,
+            debug=False,
+    ):
 
         optioncheck(analysis, ANALYSES + ['tc', 'TreeCollection'])
         if analysis == 'tc':
@@ -367,7 +375,7 @@ class Scorer(object):
         directorymake(self.tmpdir)
         self.cache = {}
         self.history = []
-        self.debug=debug
+        self.debug = debug
         if populate_cache:
             self.populate_cache()
 
@@ -394,16 +402,15 @@ class Scorer(object):
         if self.lsf and not self.analysis == 'TreeCollection':
             supermatrices = [self.concatenate(index_tuple).sequence_record
                              for index_tuple in index_tuple_list]
-            trees = runLSFPhyml(supermatrices,
-                                self.tmpdir,
-                                analysis=self.analysis,
-                                verbosity=self.verbosity,
-                                strategy='dynamic',
-                                minmem=PHYML_MEMORY_MIN,
-                                debug=self.debug,
-                                taxon_set=self.collection.taxon_set)
-            for tree in trees:
-                tree = TrClTree.cast(tree)
+
+            trees = [TrClTree.cast(tree) for tree in runLSFPhyml(supermatrices,
+                                                                 self.tmpdir,
+                                                                 analysis=self.analysis,
+                                                                 verbosity=self.verbosity,
+                                                                 strategy='dynamic',
+                                                                 minmem=PHYML_MEMORY_MIN,
+                                                                 debug=self.debug,
+                                                                 taxon_set=self.collection.taxon_set)]
             for index_tuple, tree in zip(index_tuple_list, trees):
                 self.cache[index_tuple] = tree
         else:
@@ -427,8 +434,8 @@ class Scorer(object):
             guidetrees = [self.records[n].tree for n in
                           index_tuple][:self.max_guidetrees]
             tree = sequence_record.tree_collection(
-                                    taxon_set=self.collection.taxon_set,
-                                    guide_tree=guidetrees[0])
+                taxon_set=self.collection.taxon_set,
+                guide_tree=guidetrees[0])
 
         else:
             tree = TrClTree.cast(runPhyml(sequence_record,
@@ -484,7 +491,7 @@ class Scorer(object):
                 analysis = rec.tree.program
             if analysis == self.analysis:
                 tree = rec.tree
-                self.cache[key]=tree
+                self.cache[key] = tree
             else:
                 to_calc.append(key)
         self._add_index_tuple_list(to_calc)
@@ -518,7 +525,7 @@ class Scorer(object):
                 'JTT',
                 'GCB',
                 'LG',
-                ])
+            ])
         else:
             model = model or 'GTR'
             try:
@@ -530,37 +537,37 @@ class Scorer(object):
         member_records = self.members(index_tuple)
         concat = self.concatenate(index_tuple).sequence_record
         (lengths, names) = zip(*[(rec.seqlength, rec.name) for rec in
-                               member_records])
+                                 member_records])
         full_length = sum(lengths)
         concat.tree = self.add(index_tuple)
 
         if lsf and ntimes > 1:
             simulated_records = lsf_simulate_from_record(
-                                    concat,
-                                    ntimes,
-                                    length=full_length,
-                                    tmpdir=self.tmpdir,
-                                    model=model,
-                                    split_lengths=lengths,
-                                    gene_names=names,
-                                )
+                concat,
+                ntimes,
+                length=full_length,
+                tmpdir=self.tmpdir,
+                model=model,
+                split_lengths=lengths,
+                gene_names=names,
+            )
 
         else:
             simulated_records = simulate_from_record(
-                                    concat,
-                                    length=full_length,
-                                    tmpdir=self.tmpdir,
-                                    model=model,
-                                    split_lengths=lengths,
-                                    gene_names=names,
-                                )
+                concat,
+                length=full_length,
+                tmpdir=self.tmpdir,
+                model=model,
+                split_lengths=lengths,
+                gene_names=names,
+            )
 
         return simulated_records
 
     def simulate_from_result(self,
-            partition_object, lsf=False,
-            ntimes=1, **kwargs
-        ):
+                             partition_object, lsf=False,
+                             ntimes=1, **kwargs
+    ):
         """ Simulates a set of records using parameters estimated when
         calculating concatenated trees from the Partition object """
         inds = partition_object.get_membership()
@@ -569,7 +576,7 @@ class Scorer(object):
             multiple_results = [self.simulate(ind, lsf=lsf, ntimes=ntimes)
                                 for ind in inds]
             return [flatten_list(result)
-                       for result in zip(*multiple_results)]
+                    for result in zip(*multiple_results)]
 
         else:
             return [flatten_list([self.simulate(ind, **kwargs)
@@ -589,7 +596,7 @@ class Scorer(object):
     def load_cache(self, filename):
         d = {}
         with open(filename, 'r') as infile:
-            for line in file:
+            for line in infile:
                 k, s = line.rstrip().split('\t')
                 t = TrClTree.gen_from_text(s, self.collection.taxon_set)
                 d[k] = t
