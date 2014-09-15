@@ -14,7 +14,7 @@ from bsub import bsub
 from external import ExternalSoftware, TreeSoftware
 from ..constants import PHYML_MEMORY_MULTIPLIER, PHYML_MEMORY_SPARE, \
     PHYML_MEMORY_MIN, PHYML_MEMORY_STANDARD
-from ..datastructs.tree import Tree
+from ..tree import Tree
 from ..errors import filecheck, optioncheck
 from ..utils import fileIO
 from ..utils.printing import print_and_return

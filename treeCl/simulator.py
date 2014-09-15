@@ -11,7 +11,7 @@ import numpy as np
 
 # treeCl
 from clustering import Partition
-from datastructs.trcl_tree import TrClTree
+from tree import Tree
 import errors
 from software_interfaces.alf import ALF
 from utils import fileIO, print_and_return
@@ -104,15 +104,15 @@ class Simulator(object):
 
     def generate_master_tree(self, method, nspecies):
         if method == 'yule':
-            tree = TrClTree.new_yule(nspecies)
+            tree = Tree.new_yule(nspecies)
             tree.name = '{}_master_tree'.format(method)
             return tree
         elif method == 'coal':
-            tree = TrClTree.new_coal(nspecies)
+            tree = Tree.new_coal(nspecies)
             tree.name = '{}_master_tree'.format(method)
             return tree
         elif method == 'rtree':
-            tree = TrClTree.new_rtree(nspecies)
+            tree = Tree.new_rtree(nspecies)
             tree.name = '{}_master_tree'.format(method)
             return tree
 
@@ -160,7 +160,7 @@ class Simulator(object):
                 # populate the trees list
                 for _ in range(num_genes):
                     class_tree = class_trees[k + 1]
-                    tree = TrClTree(class_tree.newick)
+                    tree = Tree(class_tree.newick)
                     tree.name = class_tree.name
                     trees.append(tree)
 

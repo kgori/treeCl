@@ -3,10 +3,10 @@ from __future__ import print_function
 
 # third party
 import numpy as np
+import os
 from sklearn import manifold, decomposition
 
 # treeCl
-from software_interfaces.gtp import geodist
 from errors import optioncheck
 from constants import TMPDIR
 

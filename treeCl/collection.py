@@ -11,7 +11,7 @@ from dendropy import TaxonSet
 
 # treeCl
 from datastructs.trcl_seq import TrClSeq
-from datastructs.trcl_tree import TrClTree
+from tree import Tree
 from distance_matrix import DistanceMatrix
 from software_interfaces.alf import lsf_simulate_from_record, \
     simulate_from_record

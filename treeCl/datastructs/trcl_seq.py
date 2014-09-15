@@ -10,7 +10,7 @@ import numpy as np
 
 # treeCl
 from seq import Seq
-from trcl_tree import Tree, TrClTree
+from ..tree import Tree
 from ..constants import TMPDIR
 from ..errors import directorycheck
 from ..software_interfaces.DVscript import runDV
@@ -38,7 +38,7 @@ class TrClSeq(Seq):
         self.TCfiles = {}
         self.dv = dv or []
         if tree and isinstance(tree, Tree):
-            self.tree = TrClTree.cast(tree)
+            self.tree = tree
         else:
             self.tree = None
 
@@ -89,7 +89,7 @@ class TrClSeq(Seq):
             directorycheck(tmpdir)
 
         p = Phyml(self, tmpdir)
-        self.tree = TrClTree.cast(p.run('nj', verbosity))
+        self.tree = p.run('nj', verbosity)
         return self.tree
 
     def bionj_plus(self, tmpdir, verbosity=0):
@@ -101,7 +101,7 @@ class TrClSeq(Seq):
             directorycheck(tmpdir)
 
         p = Phyml(self, tmpdir)
-        self.tree = TrClTree.cast(p.run('lr', verbosity))
+        self.tree = p.run('lr', verbosity)
         return self.tree
 
     def bootstrap_sample(self, suffix=''):
@@ -137,7 +137,7 @@ class TrClSeq(Seq):
             directorycheck(tmpdir)
 
         p = Phyml(self, tmpdir)
-        self.tree = TrClTree.cast(p.run('ml', verbosity))
+        self.tree = p.run('ml', verbosity)
         return self.tree
 
     def likelihood(self, tree, tmpdir, dry_run=False, set_as_record_tree=False,
@@ -174,7 +174,7 @@ class TrClSeq(Seq):
         if self.dv <= []:
             self.dv_matrix()
         tc = TreeCollection(self, tmpdir)
-        self.tree = TrClTree.cast(tc.run())
+        self.tree = tc.run()
 
     def _get_tree_collection_strings(self):
         """ Function to get input strings for tree_collection
@@ -264,11 +264,11 @@ class TrClSeq(Seq):
                                                      niters, keep_topology,
                                                      quiet)
         if taxon_set is not None:
-            result = TrClTree(output_tree, score, program='tree_collection',
+            result = Tree(output_tree, score, program='tree_collection',
                               name=self.name, output='',
                               taxon_set=taxon_set)
         else:
-            result = TrClTree(output_tree, score, program='tree_collection',
+            result = Tree(output_tree, score, program='tree_collection',
                               name=self.name, output='')
 
         if set_as_record_tree:

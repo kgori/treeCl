@@ -4,7 +4,7 @@ from __future__ import print_function
 # treeCl
 from external import TreeSoftware
 from phyml import Phyml
-from ..datastructs.tree import Tree
+from ..tree import Tree
 from ..errors import TreeBuildingError
 from ..utils import fileIO
 from ..utils.printing import print_and_return

@@ -10,9 +10,11 @@ import dendropy
 import numpy as np
 
 # treeCl
-from ..errors import FileError, filecheck, optioncheck
-from ..utils import fileIO, regex_search_extract
-from ..utils.lazyprop import lazyprop
+from errors import FileError, filecheck, optioncheck
+from utils import fileIO, regex_search_extract
+from utils.lazyprop import lazyprop
+from treeCl.constants import TMPDIR
+from treeCl.software_interfaces.gtp import GTP
 
 
 def cast(dendropy_tree):
@@ -399,6 +401,16 @@ class Tree(dendropy.Tree):
         """ Returns the taxon set of the tree (same as the label- or
         leaf-set) """
         return set([n.taxon.label for n in self.leaf_nodes()])
+
+    def sample_labels(self, n):
+        """ Returns a set of n labels sampled from the labels of the tree
+        :param n: Number of labels to sample
+        :return: set of randomly sampled labels
+        """
+        if n >= len(self):
+            return self.labels
+        sample = random.sample(self.labels, n)
+        return set(sample)
 
     @property
     def newick(self):
@@ -968,6 +980,17 @@ class Tree(dendropy.Tree):
         t2_copy.scale(normalisation)
         return t1_copy, t2_copy
 
+    def geodist(self, other, tmpdir=None, normalise=False):
+        tmpdir = tmpdir or TMPDIR
+        gtp = GTP(tmpdir=tmpdir)
+        if self ^ other:
+            t1, t2 = self.__class__.pruned_pair(self, other)
+        else:
+            t1, t2 = self, other
+        if normalise:
+            t1, t2 = self.__class__.normalised_pair(t1, t2)
+        return gtp.pairwise(t1, t2)
+
 
 class RandomTree(object):
     def __init__(self):
@@ -1002,6 +1025,7 @@ class RandomTree(object):
         for _ in range(n - 3):
             e = rt.select()
             rt.add(e)
+            rt.tree.reindex_taxa()
         return rt.tree
 
 

@@ -7,7 +7,7 @@ import random
 
 # treeCl
 from external import TreeSoftware
-from ..datastructs.tree import Tree
+from ..tree import Tree
 from ..datastructs.seq import qfile
 from ..errors import filecheck
 from ..utils import fileIO
