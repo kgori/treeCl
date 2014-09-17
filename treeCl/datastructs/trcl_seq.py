@@ -2,8 +2,10 @@
 from __future__ import print_function
 
 # standard library
+import os
 import random
 import re
+import tempfile
 
 # third party
 import numpy as np
@@ -11,12 +13,11 @@ import numpy as np
 # treeCl
 from seq import Seq
 from ..tree import Tree
-from ..likelihood import create_instance
+from ..software_interfaces.pll import create_instance, PLLException, pll_to_dict, set_params_from_dict
 from ..constants import TMPDIR
 from ..errors import directorycheck
 from ..software_interfaces.DVscript import runDV
-from ..software_interfaces.phyml import Phyml, runPhyml
-from ..software_interfaces.treecollection import TreeCollection
+from ..software_interfaces.phyml import Phyml
 from ..utils.lazyprop import lazyprop
 
 
@@ -34,15 +35,6 @@ class TrClSeq(Seq):
     def __init__(self, infile=None, file_format='fasta', name=None, datatype=None, headers=None, sequences=None,
                  dv=None, tree=None, tmpdir=None):
 
-        if not sequences: sequences = []
-        if not headers: headers = []
-        self.TCfiles = {}
-        self.dv = dv or []
-        if tree and isinstance(tree, Tree):
-            self.tree = tree
-        else:
-            self.tree = None
-
         super(TrClSeq, self).__init__(
             infile,
             file_format,
@@ -52,6 +44,13 @@ class TrClSeq(Seq):
             sequences,
             tmpdir,
         )
+
+        self.TCfiles = {}
+        self.dv = dv or []
+        if tree and isinstance(tree, Tree):
+            self.tree = tree
+        else:
+            self.tree = None
 
     def __add__(self, other):
         """ Allows Records to be added together, concatenating sequences """
@@ -141,8 +140,8 @@ class TrClSeq(Seq):
         self.tree = p.run('ml', verbosity)
         return self.tree
 
-
-    def get_pll_instance(self):
+    def pll_get_instance(self, *args):
+        delete = False
         try:
             with open(self.infile) as test:
                 pass
@@ -151,40 +150,94 @@ class TrClSeq(Seq):
             tmpdir = tempfile.mkdtemp()
             _, alignment = tempfile.mkstemp(dir=tmpdir)
             self.write_phylip(alignment, interleaved=True)
+            delete = True
 
         try:
-            instance =
+            instance = create_instance(alignment, *args)
+            return instance
+        finally:
+            if delete:
+                os.remove(alignment)
+                os.rmdir(tmpdir)
 
+    def pll_optimise(self, partitions, model, nthreads=1, opt_subst=True, seed=None):
+        """
+        Runs the full raxml search algorithm. Model parameters are set using a combination of partitions and model.
+        Optimisation of substitution model parameters is enabled with opt_subst=True.
+        :param partitions: Links substitution models to alignment sites. Format is the same as the file RAxML uses
+         with the -q flag (e.g. DNA, gene1codon1 = 1-500/3 - see RAxML manual)
+        :param model: Dictionary to set model parameters--rates, frequencies and gamma alpha parameters--for each
+         partition.
+        :param opt_subst: bool: optimise substitution model parameters (T/F).
+        :return: Dictionary of optimisation results.
+        """
 
+        instance = None
+        seed = seed or random.randint(1, 99999)
+        tree = self.tree.newick if self.tree else True
+        try:
+            instance = self.pll_get_instance(partitions, tree, nthreads, seed)
+            set_params_from_dict(instance, model)
+            instance.optimise(opt_subst)
+            return pll_to_dict(instance)
+        except ValueError as exc:
+            raise exc
+        except Exception as exc:
+            raise PLLException(exc.message)
+        finally:
+            if instance:
+                del instance
 
+    def pll_optimise_model(self, partitions, model, nthreads=1, seed=None):
+        instance = None
+        seed = seed or random.randint(1, 99999)
+        tree = self.tree.newick if self.tree else True
+        try:
+            instance = self.pll_get_instance(partitions, tree, nthreads, seed)
+            set_params_from_dict(instance, model)
+            instance.optimise_model()
+            return pll_to_dict(instance)
+        except ValueError as exc:
+            raise exc
+        except Exception as exc:
+            raise PLLException(exc.message)
+        finally:
+            if instance:
+                del instance
 
+    def pll_optimise_branches(self, partitions, model, nthreads=1, n_iter=50, seed=None):
+        instance = None
+        seed = seed or random.randint(1, 99999)
+        tree = self.tree.newick if self.tree else True
+        try:
+            instance = self.pll_get_instance(partitions, tree, nthreads, seed)
+            set_params_from_dict(instance, model)
+            instance.optimise_branch_lengths(n_iter)
+            return pll_to_dict(instance)
+        except ValueError as exc:
+            raise exc
+        except Exception as exc:
+            raise PLLException(exc.message)
+        finally:
+            if instance:
+                del instance
 
+    def pll_get_parsimony_tree(self, seed=None):
+        instance = None
+        seed = seed or random.randint(1, 99999)
+        model = 'DNA' if self.guess_datatype() == 'dna' else 'LG'
+        partition = '{}, x = 1-{}'.format(model, self.seqlength)
+        try:
+            instance = self.pll_get_instance(partition, True, 1, seed)
+            return Tree(instance.get_tree())
+        except ValueError as exc:
+            raise exc
+        except Exception as exc:
+            raise PLLException(exc.message)
 
-
-
-
-    def likelihood(self, tree, tmpdir, dry_run=False, set_as_record_tree=False,
-                   fit_rates=True):
-        if self.tmpdir is not None:
-            tmpdir = self.tmpdir
-        else:
-            directorycheck(tmpdir)
-
-        if fit_rates:
-            analysis = 'r'
-
-        else:
-            analysis = 'lk'
-
-        result = runPhyml(self, tmpdir, analysis, tree=tree, dry_run=dry_run,
-                          set_as_record_tree=set_as_record_tree)
-
-        if dry_run:
-            return result
-
-        else:
-            return result.score
-
+        finally:
+            if instance:
+                del instance
 
     def _get_tree_collection_strings(self):
         """ Function to get input strings for tree_collection
@@ -275,11 +328,11 @@ class TrClSeq(Seq):
                                                      quiet)
         if taxon_set is not None:
             result = Tree(output_tree, score, program='tree_collection',
-                              name=self.name, output='',
-                              taxon_set=taxon_set)
+                          name=self.name, output='',
+                          taxon_set=taxon_set)
         else:
             result = Tree(output_tree, score, program='tree_collection',
-                              name=self.name, output='')
+                          name=self.name, output='')
 
         if set_as_record_tree:
             self.tree = result

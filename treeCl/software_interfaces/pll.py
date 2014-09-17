@@ -2,22 +2,25 @@ __author__ = 'kgori'
 
 import pllpy
 
+class PLLException(Exception):
+    pass
+
 
 def create_instance(alignment, partitions, tree, threads=1, rns=int("0xCA55E77E", 16)):
     try:
-        with open(alignment) as test:
+        with open(alignment):
             pass
     except IOError as exc:
         raise exc
 
     if tree in ['random', 'parsimony']:
         if tree == 'random':
-            pll = pllpy.pll(alignment, partitions, False, threads, rns)
+            instance = pllpy.pll(alignment, partitions, False, threads, rns)
         else:
-            pll = pllpy.pll(alignment, partitions, True, threads, rns)
+            instance = pllpy.pll(alignment, partitions, True, threads, rns)
     else:
-        pll = pllpy.pll(alignment, partitions, tree, threads, rns)
-    return pll
+        instance = pllpy.pll(alignment, partitions, tree, threads, rns)
+    return instance
 
 
 def set_partition_model_parameters(instance, partition, alpha, freqs, rates, empirical_freqs, equal_freqs):
@@ -58,7 +61,7 @@ def set_params_from_dict(instance, model):
     :return:
     """
     p_info = model['partitions']
-    for i in range(pll.get_number_of_partitions()):
+    for i in range(instance.get_number_of_partitions()):
         alpha = p_info[i].get('alpha')
         freqs = p_info[i].get('frequencies')
         rates = p_info[i].get('rates')
@@ -88,5 +91,4 @@ def pll_to_dict(instance):
         data['model'] = instance.get_model_name(i)
         data['name'] = instance.get_partition_name(i)
         model['partitions'][i] = data
-
     return model
