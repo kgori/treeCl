@@ -3,61 +3,13 @@ from __future__ import print_function
 
 # third party
 import numpy as np
-import os
-from sklearn import manifold, decomposition
+import sklearn
 
 # treeCl
-from errors import optioncheck
-from constants import TMPDIR
+import errors
+from tree_distances import eucdist_matrix, geodist_matrix, rfdist_matrix, wrfdist_matrix
 
-
-def get_dendropy_distances(trees, fn, dec_places=None, **kwargs):
-    num_trees = len(trees)
-    matrix = np.zeros((num_trees, num_trees))
-    for i in range(num_trees):
-        dist_fn = getattr(trees[i], fn)
-        for j in range(i + 1, num_trees):
-            distance = dist_fn(trees[j], **kwargs)
-            matrix[i, j] = matrix[j, i] = distance
-    if dec_places is not None:
-        matrix.round(dec_places, out=matrix)
-    return matrix
-
-
-def get_geo_distances(trees, dec_places=None, tmpdir=None, lsf=False):
-    matrix = geodist(trees, tmpdir, lsf=lsf)
-
-    if dec_places is not None:
-        matrix.round(dec_places, out=matrix)
-    return matrix
-
-
-def get_distance_matrix(trees, metric, tmpdir, dec_places, **kwargs):
-    """ Generates pairwise distance matrix between trees Uses one of the
-    following distance metrics: Robinson-Foulds distance - topology only (='rf')
-    Robinson-Foulds distance - branch lengths (='wrf') Euclidean distance -
-    Felsenstein's branch lengths distance (='euc') Geodesic distance - branch
-    lengths (='geo') """
-
-    lsf = kwargs.pop('lsf', False)
-    if metric == 'geo':
-        return get_geo_distances(trees, dec_places, tmpdir=tmpdir, lsf=lsf)
-
-    if metric == 'rf':
-        # n = len(trees[0])
-        matrix = get_dendropy_distances(trees, 'rfdist', dec_places, **kwargs)
-
-    elif metric == 'wrf':
-
-        matrix = get_dendropy_distances(trees, 'wrfdist', dec_places, **kwargs)
-    elif metric == 'euc':
-
-        matrix = get_dendropy_distances(trees, 'eucdist', dec_places, **kwargs)
-    else:
-
-        print('Unrecognised distance metric')
-        return
-    return matrix
+dist_mtx_fns = dict(euc=eucdist_matrix, geo=geodist_matrix, rf=rfdist_matrix, wrf=wrfdist_matrix)
 
 
 def isconnected(mask):
@@ -112,23 +64,20 @@ class Decomp(object):
 
 
 class DistanceMatrix(np.ndarray):
+    # noinspection PyNoneFunctionAssignment
     def __new__(
             cls,
             trees,
             metric,
-            tmpdir=TMPDIR,
             dtype=float,
             add_noise=False,
             normalise=False,
-            dec_places=None,
-            lsf=False,
     ):
-        optioncheck(metric, ['euc', 'geo', 'rf', 'wrf'])
-        input_array = get_distance_matrix(trees, metric, tmpdir,
-                                          normalise=normalise, dec_places=dec_places, lsf=lsf)
+        errors.optioncheck(metric, ['euc', 'geo', 'rf', 'wrf'])
+        fn = dist_mtx_fns[metric]
+        input_array = fn(trees, normalise)
         obj = np.asarray(input_array, dtype).view(cls)
         obj.metric = metric
-        obj.tmpdir = tmpdir
         if add_noise:
             obj = obj.add_noise()
         return obj
@@ -143,6 +92,7 @@ class DistanceMatrix(np.ndarray):
 
         # print(context)
 
+        # noinspection PyArgumentList
         return np.ndarray.__array_wrap__(self, out_arr, context)
 
     def __eq__(self, other):
@@ -316,7 +266,7 @@ class DistanceMatrix(np.ndarray):
         :param kwargs: unit_length (bool), affinity_matrix (np.array), sigma (float), initial_coords (np.array)
         :return: coordinate matrix (np.array)
         """
-        optioncheck(method, ['cmds', 'kpca', 'mmds', 'nmmds', 'spectral'])
+        errors.optioncheck(method, ['cmds', 'kpca', 'mmds', 'nmmds', 'spectral'])
         if method == 'cmds':
             return self._embedding_classical_mds(dimensions)
         elif method == 'kpca':
@@ -363,9 +313,9 @@ class DistanceMatrix(np.ndarray):
         :param dimensions: (int)
         :return: coordinate matrix (np.array)
         """
-        mds = manifold.MDS(n_components=dimensions,
-                           dissimilarity='precomputed',
-                           metric=True)
+        mds = sklearn.manifold.MDS(n_components=dimensions,
+                                   dissimilarity='precomputed',
+                                   metric=True)
         mds.fit(self)
         return mds.embedding_
 
@@ -375,9 +325,9 @@ class DistanceMatrix(np.ndarray):
         :param dimensions: (int)
         :return: coordinate matrix (np.array)
         """
-        mds = manifold.MDS(n_components=dimensions,
-                           dissimilarity='precomputed',
-                           metric=False)
+        mds = sklearn.manifold.MDS(n_components=dimensions,
+                                   dissimilarity='precomputed',
+                                   metric=False)
         if initial_coords is not None:
             mds.fit(self, init=initial_coords)
         else:
@@ -395,8 +345,8 @@ class DistanceMatrix(np.ndarray):
             aff = self.rbf(sigma)
         else:
             aff = affinity_matrix
-        kpca = decomposition.KernelPCA(kernel='precomputed',
-                                       n_components=dimensions)
+        kpca = sklearn.decomposition.KernelPCA(kernel='precomputed',
+                                               n_components=dimensions)
         return kpca.fit_transform(aff)
 
     def normalise_rows(self):

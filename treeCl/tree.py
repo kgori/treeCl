@@ -2,6 +2,7 @@
 from __future__ import print_function
 
 # standard library
+import itertools
 import random
 import re
 
@@ -13,14 +14,53 @@ import numpy as np
 from errors import FileError, filecheck, optioncheck
 from utils import fileIO, regex_search_extract
 from utils.lazyprop import lazyprop
-from treeCl.constants import TMPDIR
-from treeCl.software_interfaces.gtp import GTP
+
+
+def set_java_classpath():
+    """ Automatically add our gtp.jar to the environment's CLASSPATH
+    """
+    import os
+
+    current_classpath = os.getenv('CLASSPATH')
+    jarfile_location = os.path.join(os.path.dirname(__file__), 'software_interfaces', 'gtp.jar')
+    if current_classpath is not None:
+        if 'gtp.jar' in current_classpath:
+            return
+        else:
+            os.environ['CLASSPATH'] = ':'.join([current_classpath, jarfile_location])
+    else:
+        os.environ['CLASSPATH'] = jarfile_location
+
+
+def setup_java_classes():
+    """
+    Sets up access to java classes in gtp.jar using jnius
+    :return: tuple: (PhyloTree, GTP)
+    """
+    set_java_classpath()
+    import jnius
+
+    phylotree = jnius.autoclass('distanceAlg1.PhyloTree')
+    gtp = jnius.autoclass('polyAlg.PolyMain')
+    return phylotree, gtp
+
+
+PhyloTree, GTP = setup_java_classes()
 
 
 def cast(dendropy_tree):
     """ Cast dendropy.Tree instance as Tree instance """
     return Tree(dendropy_tree.as_newick_string() + ';')
 
+def _infinite_labels_generator(labels, start=2, shuffle=True):
+    l = len(labels)
+    loop1 = random.sample(labels, l) if shuffle else labels
+    return itertools.chain.from_iterable([loop1, ('{}{}'.format(x, y) for x, y in
+                                                 itertools.izip(itertools.cycle(labels),
+                                                                itertools.chain.from_iterable(
+                                                                    itertools.repeat(i, len(loop1)) for i
+                                                                    in
+                                                                    itertools.count(start, 1))))])
 
 def edge_length_check(length, edge):
     """ Raises error if length is not in interval [0, edge.length] """
@@ -40,7 +80,7 @@ def rootcheck(edge, msg='This is the root edge'):
         raise TreeError(msg)
 
 
-def logN_correlated_rate(parent_rate, branch_length, autocorrel_param, size=1):
+def logn_correlated_rate(parent_rate, branch_length, autocorrel_param, size=1):
     """
     The log of the descendent rate, ln(Rd), is ~ N(mu, bl*ac), where
     the variance = bl*ac = branch_length * autocorrel_param, and mu is set
@@ -106,6 +146,7 @@ class SPR(object):
         n = edge.head_node
         self.tree.prune_subtree(n, delete_outdegree_one=False)
         n.edge_length = length
+        self.tree._dirty = True
         return n
 
     def regraft(self, edge, node, length=None):
@@ -122,6 +163,7 @@ class SPR(object):
         t.remove_child(h)
         new.add_child(h, edge_length=length)
         new.add_child(node)
+        self.tree._dirty = True
         self.tree.update_splits(delete_outdegree_one=True)
 
     def spr(self, prune_edge, length1, regraft_edge, length2):
@@ -129,6 +171,7 @@ class SPR(object):
                 not in prune_edge.head_node.preorder_iter())
         node = self.prune(prune_edge, length1)
         self.regraft(regraft_edge, node, length2)
+        self.tree._dirty = True
 
     def rspr(self, disallow_sibling_sprs=False,
              keep_entire_edge=False, rescale=False):
@@ -168,6 +211,7 @@ class SPR(object):
         self.spr(prune_edge, l1, regraft_edge, l2)
         if rescale:
             self.tree.scale(starting_length / self.tree.length())
+            self.tree._dirty = True
 
 
 class LGT(object):
@@ -205,6 +249,7 @@ class LGT(object):
                 time = self.get_time(excl)
                 print('time = {0}'.format(time))
                 self.tree.update_splits()
+                self.tree._dirty = True
 
             else:
                 time = self.get_time(excl)
@@ -237,6 +282,7 @@ class LGT(object):
         new.add_child(lo)
         self.tree.update_splits(delete_outdegree_one=False)
         self.tree.calc_node_ages()
+        self.tree._dirty = True
 
 
 class NNI(object):
@@ -271,7 +317,7 @@ class NNI(object):
         else:
             original_seed = None
         head_children = h.child_nodes()
-        tail_children = list(set(t.child_nodes()) - set([h]))  # See N1
+        tail_children = list(set(t.child_nodes()) - {h})  # See N1
         if original_seed:
             self.tree.reseed_at(original_seed)
 
@@ -318,18 +364,20 @@ class NNI(object):
         tail.add_child(head_subtree)
         self.tree.reseed_at(original_seed)
         self.tree.update_splits()
+        self.tree._dirty = True
 
     def reroot_tree(self):
-        if self.reroot:
+        if self.reroot and self.rooting_info is not None:
             self.tree.reroot_at_edge(*self.rooting_info)
             self.tree.update_splits()
+            self.tree._dirty = True
         return self.tree
 
     def rnni(self):
         e = random.choice(self.tree.get_inner_edges())
         children = self.get_children(e)
-        (h, t) = (random.choice(children['head']), random.choice(children['tail'
-        ]))
+        h = random.choice(children['head'])
+        t = random.choice(children['tail'])
         self.nni(e, h, t)
 
 
@@ -359,7 +407,8 @@ class Tree(dendropy.Tree):
         self.output = output
         self.program = program
         self.name = name
-
+        self._javatree = None
+        self._dirty = False
 
     def __repr__(self):
         return '{0}{1}'.format(self.__class__.__name__,
@@ -426,8 +475,22 @@ class Tree(dendropy.Tree):
         """
         n = self.as_newick_string()
         if n:
-            return (n if n.endswith(';') else n + ';')
+            return n if n.endswith(';') else n + ';'
         return n
+
+    @property
+    def javatree(self):
+        """
+        Gets the java PhyloTree object corresponding to this tree.
+        Should be canonically the same - we set a _dirty flag if the Python version of the
+        tree has changed since construction. If the flag is set then we reconstruct
+        the java PhyloTree
+        :return: PhyloTree instance
+        """
+        if not self._javatree or self._dirty:
+            self._javatree = PhyloTree(self.newick, self.rooted)
+            self._dirty = False
+        return self._javatree
 
     @newick.setter
     def newick(self, newick_string):
@@ -440,7 +503,7 @@ class Tree(dendropy.Tree):
     def rooted(self):
         """ Predicate testing for rootedness by checking for a bifurcation
         at the root. """
-        return (len(self.seed_node.child_nodes()) == 2 if self.newick else None)
+        return len(self.seed_node.child_nodes()) == 2 if self.newick else None
 
     @classmethod
     def bifurcate_base(cls, newick):
@@ -463,10 +526,9 @@ class Tree(dendropy.Tree):
         t2 = t2.copy()
         t1.prune_taxa_with_labels(symdiff)
         t2.prune_taxa_with_labels(symdiff)
-        # t1.prune_to_subset(intersection, inplace=True)
-        # t2.prune_to_subset(intersection, inplace=True)
         t1.seed_node.edge_length = 0.0
         t2.seed_node.edge_length = 0.0
+
         # To avoid taxon set nightmares do this:
         tax = dendropy.TaxonSet()
         t1 = cls(t1.as_string('newick'), taxon_set=tax)
@@ -483,7 +545,7 @@ class Tree(dendropy.Tree):
 
     def copy(self):
         """ Returns an independent copy of self """
-        return self.__class__().clone_from(self)
+        return self.__class__(self.newick)
 
     def get_inner_edges(self):
         """ Returns a list of the internal edges of the tree. """
@@ -509,7 +571,7 @@ class Tree(dendropy.Tree):
             for excl in excluded_edges:
                 try:
                     edge_list.remove(excl)
-                except:
+                except ValueError:
                     print('Excluded_edges list includes some things')
                     print('that aren\'t in the tree')
                     print('like this one:', excl)
@@ -526,6 +588,7 @@ class Tree(dendropy.Tree):
             if edge.is_internal():
                 if edge.length <= threshold:
                     edge.collapse()
+                    self._dirty = True
         if update_splits:
             self.update_splits()
 
@@ -574,6 +637,7 @@ class Tree(dendropy.Tree):
             t = self
         t.retain_taxa_with_labels(subset)
         t.update_splits()
+        t._dirty = True
         return t
 
     def randomise_branch_lengths(
@@ -597,6 +661,7 @@ class Tree(dendropy.Tree):
                 n.edge.length = max(0, distribution_func(*i))
             else:
                 n.edge.length = max(0, distribution_func(*l))
+        t._dirty = True
         return t
 
     def randomise_labels(
@@ -614,6 +679,7 @@ class Tree(dendropy.Tree):
         random.shuffle(list(names))
         for l in t.leaf_iter():
             l.taxon_label = names.pop()
+        t._dirty = True
         return t
 
     def reversible_deroot(self):
@@ -649,6 +715,7 @@ class Tree(dendropy.Tree):
         reroot_edge = (set(self.seed_node.incident_edges())
                        & set(lengths.keys())).pop()
         self.update_splits()
+        self._dirty = True
         return (reroot_edge, reroot_edge.length - lengths[reroot_edge],
                 lengths[reroot_edge])
 
@@ -672,7 +739,7 @@ class Tree(dendropy.Tree):
                 parent_rate = node.parent_node.rate
                 bl = node.edge_length
                 if distribution == 'lognormal':
-                    node.rate = logN_correlated_rate(parent_rate, bl,
+                    node.rate = logn_correlated_rate(parent_rate, bl,
                                                      autocorrel)
                 else:
                     node.rate = np.random.exponential(parent_rate)
@@ -691,7 +758,7 @@ class Tree(dendropy.Tree):
                 else:
                     node.rate = np.random.exponential(root_rate)
 
-    def rlgt(self, inplace=False, time=None, times=1,
+    def rlgt(self, time=None, times=1,
              disallow_sibling_lgts=False):
         """ Uses class LGT to perform random lateral gene transfer on
         ultrametric tree """
@@ -701,7 +768,6 @@ class Tree(dendropy.Tree):
             lgt.rlgt(time, disallow_sibling_lgts)
         return lgt.tree
 
-
     def rnni(self, times=1):
         """ Applies a NNI operation on a randomly chosen edge. """
 
@@ -710,7 +776,6 @@ class Tree(dendropy.Tree):
             nni.rnni()
         nni.reroot_tree()
         return nni.tree
-
 
     def rspr(self, times=1, **kwargs):
         """ Random SPR, with prune and regraft edges chosen randomly, and
@@ -731,6 +796,7 @@ class Tree(dendropy.Tree):
         else:
             t = self
         t.scale_edges(factor)
+        t._dirty = True
         return t
 
     def strip(self, inplace=False):
@@ -741,6 +807,7 @@ class Tree(dendropy.Tree):
             t = self
         for e in t.preorder_edge_iter():
             e.length = None
+        t._dirty = True
         return t
 
     @classmethod
@@ -768,8 +835,8 @@ class Tree(dendropy.Tree):
             try:
                 score = float(score)
             except:
-                raise Exception('Found score value of {} in tree file {}'
-                                .format(score, infile))
+                raise Exception('Found score value of {} in input'
+                                .format(score))
 
         if not tree:
             tree = s
@@ -785,7 +852,6 @@ class Tree(dendropy.Tree):
             tree = cls(newick=tree, name=name, program=program, score=score)
 
         return tree
-
 
     def write_to_file(
             self,
@@ -848,15 +914,15 @@ class Tree(dendropy.Tree):
         TODO: refactor into phymlIO module """
         # newick score output program name
 
-        exit = False
+        exit_ = False
         for f in (tree_file, stats_file):
             try:
                 filecheck(f)
             except FileError, e:
                 print(e)
-                exit = True
+                exit_ = True
 
-        if exit:
+        if exit_:
             print('Results were not loaded')
             raise FileError()
 
@@ -869,74 +935,6 @@ class Tree(dendropy.Tree):
 
         return cls(newick=newick, score=score, output=stats, program=program,
                    name=name)
-
-    # ## DISTANCE CALCULATIONS
-    # __unify_taxon_sets() might not be necessary - can't seem to reproduce
-    # the bug that made me introduce it
-
-    def __unify_taxon_sets(self, other):
-        print('In __unify_taxon_sets')
-        if other.taxon_set is not self.taxon_set:
-            return self.__class__(other.newick, taxon_set=self.taxon_set)
-        else:
-            return other
-
-    def rfdist_(self, other):
-        cp = self.__unify_taxon_sets(other)
-        return self.symmetric_difference(cp)
-
-    def rfdist(self, other, normalise=False):
-        if self ^ other:
-            t1, t2 = self.__class__.pruned_pair(self, other)
-        else:
-            t1, t2 = self, other
-        if len(t1) < 4:
-            msg = ('The intersection of the trees is too small to calculate'
-                   ' the RF distance')
-            raise TreeError(msg)
-        try:
-            distance = t1.symmetric_difference(t2)
-            if normalise:
-                rfmax = float(2 * (len(t1) - 3))
-                distance /= rfmax
-            return distance
-        except:
-            print('ERROR!')
-            return self.rfdist_(other)
-
-    def eucdist_(self, other):
-        cp = self.__unify_taxon_sets(other)
-        return self.euclidean_distance(cp)
-
-    def eucdist(self, other, normalise=False):
-        if self ^ other:
-            t1, t2 = self.__class__.pruned_pair(self, other)
-        else:
-            t1, t2 = self, other
-        if normalise:
-            t1, t2 = self.__class__.normalised_pair(t1, t2)
-        try:
-            return t1.euclidean_distance(t2)
-        except:
-            print('ERROR!')
-            return self.eucdist_(other)
-
-    def wrfdist_(self, other):
-        cp = self.__unify_taxon_sets(other)
-        return self.robinson_foulds_distance(cp)
-
-    def wrfdist(self, other, normalise=False):
-        if self ^ other:
-            t1, t2 = self.__class__.pruned_pair(self, other)
-        else:
-            t1, t2 = self, other
-        if normalise:
-            t1, t2 = self.__class__.normalised_pair(t1, t2)
-        try:
-            return t1.robinson_foulds_distance(t2)
-        except:
-            print('ERROR!')
-            return self.wrfdist_(other)
 
     @classmethod
     def new_iterative_rtree(cls, nspecies):
@@ -970,36 +968,19 @@ class Tree(dendropy.Tree):
         tg = TreeGen(template=self)
         return tg.gene_tree(**kwargs)['gene_tree']
 
-    @classmethod
-    def normalised_pair(cls, t1, t2, inplace=False):
-        if not inplace:
-            t1_copy = t1.copy()
-            t2_copy = t2.copy()
-        normalisation = 1 / (t1.length() + t2.length())
-        t1_copy.scale(normalisation)
-        t2_copy.scale(normalisation)
-        return t1_copy, t2_copy
-
-    def geodist(self, other, tmpdir=None, normalise=False):
-        tmpdir = tmpdir or TMPDIR
-        gtp = GTP(tmpdir=tmpdir)
-        if self ^ other:
-            t1, t2 = self.__class__.pruned_pair(self, other)
-        else:
-            t1, t2 = self, other
-        if normalise:
-            t1, t2 = self.__class__.normalised_pair(t1, t2)
-        return gtp.pairwise(t1, t2)
-
 
 class RandomTree(object):
-    def __init__(self):
-        self.tree = Tree('(l1:1,l2:1,l3:1):0')
-        self.number = 3
+    def __init__(self, names=None):
+        if names is None:
+            self.label_generator = itertools.chain(_infinite_labels_generator(['l'], start=1))
+            next(self.label_generator)
+        else:
+            self.label_generator = itertools.chain(_infinite_labels_generator(names, start=2))
+
+        self.tree = Tree('({}:1,{}:1,{}:1):0'.format(self.next_label(), self.next_label(), self.next_label()))
 
     def next_label(self):
-        self.number += 1
-        return 'l{0}'.format(self.number)
+        return next(self.label_generator)
 
     def new_taxon_object(self):
         lab = self.next_label()
@@ -1012,7 +993,7 @@ class RandomTree(object):
         tail.remove_child(head)
         new_taxon = self.new_taxon_object()
         new_inner = tail.new_child(edge_length=1.0)
-        new_leaf = new_inner.new_child(taxon=new_taxon, edge_length=1.0)
+        new_inner.new_child(taxon=new_taxon, edge_length=1.0)
         new_inner.add_child(head, edge_length=1.0)
 
     def select(self):
@@ -1020,12 +1001,11 @@ class RandomTree(object):
         return e
 
     @classmethod
-    def new(cls, n):
-        rt = cls()
+    def new(cls, n, names=None):
+        rt = cls(names)
         for _ in range(n - 3):
             e = rt.select()
             rt.add(e)
-            rt.tree.reindex_taxa()
         return rt.tree
 
 
@@ -1050,11 +1030,17 @@ class TreeGen(object):
         from Cannon Fodder """
 
         self.nspecies = nspecies
+        if names is not None:
+            g = _infinite_labels_generator(names, shuffle=False)
+            self.names = list(itertools.islice(g, nspecies))
         if cf:
-            self.names = random.sample(cfnames, nspecies)
+            g = _infinite_labels_generator(cfnames)
+            self.names = list(itertools.islice(g, nspecies))
         else:
-            self.names = names or ['Sp{0}'.format(i) for i in range(1, nspecies
-                                                                    + 1)]
+            g = itertools.chain(_infinite_labels_generator(['Sp'], start=1))
+            next(g)
+            self.names = list(itertools.islice(g, nspecies))
+
         if template and not isinstance(template, Tree):
             raise TypeError('template should be \'Tree\' object. Got',
                             type(template))
@@ -1086,8 +1072,9 @@ class TreeGen(object):
         for leaf in tree.leaf_iter():
             leaf.num_genes = 1
 
-        tree_height = tree.seed_node.distance_from_root() \
-                      + tree.seed_node.distance_from_tip()
+        dfr = tree.seed_node.distance_from_root()
+        dft = tree.seed_node.distance_from_tip()
+        tree_height = dfr + dft
 
         if scale_to:
             population_size = tree_height / scale_to
@@ -1099,10 +1086,9 @@ class TreeGen(object):
 
         if trim_names:
             for leaf in gene_tree.leaf_iter():
-                leaf.taxon.label = leaf.taxon.label.replace('\'', '').split('_'
-                )[0]
+                leaf.taxon.label = leaf.taxon.label.replace('\'', '').split('_')[0]
 
-        return {'gene_tree': tree.__class__.cast(gene_tree),
+        return {'gene_tree': tree.__class__(gene_tree.as_newick_string().strip(';') + ';'),
                 'species_tree': tree}
 
     def rtree(self):

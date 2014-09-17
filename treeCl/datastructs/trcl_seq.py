@@ -11,6 +11,7 @@ import numpy as np
 # treeCl
 from seq import Seq
 from ..tree import Tree
+from ..likelihood import create_instance
 from ..constants import TMPDIR
 from ..errors import directorycheck
 from ..software_interfaces.DVscript import runDV
@@ -123,7 +124,7 @@ class TrClSeq(Seq):
         nsites = self._pivot(self.sequences)
         return len(set(nsites))
 
-    def dv_matrix(self, verbosity=0):
+    def get_dv_matrix(self, verbosity=0):
         """ Uses darwin (via treeCl.externals.DVWrapper) to calculate pairwise
         distances and variances"""
         runDV(self, verbosity)
@@ -139,6 +140,28 @@ class TrClSeq(Seq):
         p = Phyml(self, tmpdir)
         self.tree = p.run('ml', verbosity)
         return self.tree
+
+
+    def get_pll_instance(self):
+        try:
+            with open(self.infile) as test:
+                pass
+            alignment = self.infile
+        except (IOError, TypeError):
+            tmpdir = tempfile.mkdtemp()
+            _, alignment = tempfile.mkstemp(dir=tmpdir)
+            self.write_phylip(alignment, interleaved=True)
+
+        try:
+            instance =
+
+
+
+
+
+
+
+
 
     def likelihood(self, tree, tmpdir, dry_run=False, set_as_record_tree=False,
                    fit_rates=True):
@@ -162,19 +185,6 @@ class TrClSeq(Seq):
         else:
             return result.score
 
-    def tree_collection_deprecated(self, tmpdir):
-        """ DEPRECATED:   Uses TreeCollection (via
-        treeCl.software_interfaces.treecollection) to build a least squares
-        tree for the current record """
-        if self.tmpdir is not None:
-            tmpdir = self.tmpdir
-        else:
-            directorycheck(tmpdir)
-
-        if self.dv <= []:
-            self.dv_matrix()
-        tc = TreeCollection(self, tmpdir)
-        self.tree = tc.run()
 
     def _get_tree_collection_strings(self):
         """ Function to get input strings for tree_collection

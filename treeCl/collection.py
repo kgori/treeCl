@@ -7,7 +7,7 @@ import itertools
 import timeit
 
 # third party
-from dendropy import TaxonSet
+import dendropy as dpy
 
 # treeCl
 from datastructs.trcl_seq import TrClSeq
@@ -86,9 +86,8 @@ class Collection(object):
             raise Exception('Provide a list of records, '
                             'or the path to a set of alignments')
 
-        self.taxon_set = TaxonSet()
         if trees_dir:
-            self.read_trees(trees_dir, self.taxon_set)
+            self.read_trees(trees_dir)
 
         if not self.records:
             raise NoRecordsError(file_format, input_dir, compression)
@@ -131,7 +130,19 @@ class Collection(object):
     @property
     def trees(self):
         """ Returns a list of trees in SORT_KEY order """
-        return [self._records[i].tree for i in range(len(self._records))]
+        try:
+            return dpy.TreeList([self._records[i].tree for i in range(len(self._records))])
+        except ValueError:
+            return dpy.TreeList([])
+
+    @trees.setter
+    def trees(self, trees):
+        trees = dpy.TreeList(trees)
+        sorting_lambda = lambda x: SORT_KEY(x.name)
+        trees.sort(key=sorting_lambda)
+        for rec, tree in zip(self.records, trees):
+            assert rec.name == tree.name
+            rec.tree = tree
 
     def num_species(self):
         """ Returns the number of species found over all records
@@ -165,19 +176,13 @@ class Collection(object):
                         tmpdir=self.tmpdir)
                 for f in files]
 
-    def read_trees(self, input_dir, taxon_set=None):
+    def read_trees(self, input_dir):
         """ Read a directory full of tree files, matching them up to the
         already loaded alignments """
 
         extensions = ['nwk', 'tree']
         files = fileIO.glob_by_extensions(input_dir, extensions)
-        files.sort(key=SORT_KEY)
-
-        trees = [TrClTree.read_from_file(file_, taxon_set) for file_ in files]
-
-        for record, tree in zip(self.records, trees):
-            assert record.name == tree.name
-            record.tree = tree
+        self.trees = [Tree.read_from_file(file_) for file_ in files]
 
     def calc_distances(self, verbosity=0):
         """ Calculates within-alignment pairwise distances for every
@@ -189,19 +194,17 @@ class Collection(object):
         """ Calculates distances trees using TreeCollection """
         self.analysis = 'TreeCollection'
         for rec in self.records:
-            runTC(rec, self.tmpdir, verbosity=verbosity,
-                  taxon_set=self.taxon_set)
-            rec.tree = TrClTree.cast(rec.tree)
+            runTC(rec, self.tmpdir, verbosity=verbosity)
 
     def calc_TC_trees_new(self, verbosity=0):
         for rec in self.records:
-            rec.tree_collection(taxon_set=self.taxon_set,
-                                quiet=(True if verbosity == 0 else False))
+            rec.tree_collection(quiet=(True if verbosity == 0 else False))
 
     def calc_phyml_trees(self, analysis='nj', lsf=False, strategy='dynamic',
                          minmem=256, bootstraps=None, add_originals=False,
                          verbosity=0):
-        """ Calculates trees for each record using phyml """
+        """ Calculates trees for each record using phyml
+        TODO: something looks off about the bootstraps option"""
         optioncheck(analysis, ANALYSES)
         if bootstraps is not None:
             bootstraps = int(isnumbercheck(bootstraps))
@@ -220,26 +223,28 @@ class Collection(object):
                                 verbosity=verbosity,
                                 strategy=strategy,
                                 minmem=minmem,
-                                taxon_set=self.taxon_set,
                                 debug=self.debug)
-            for rec, tree in zip(records, trees):
-                rec.tree = TrClTree.cast(tree)
+
 
         else:
-            for rec in records:
-                runPhyml(rec, self.tmpdir, analysis=analysis,
-                         verbosity=verbosity, taxon_set=self.taxon_set)
-                rec.tree = TrClTree.cast(rec.tree)
+            trees = [runPhyml(rec, self.tmpdir, analysis=analysis,
+                              verbosity=verbosity)
+                     for rec in records]
+
         if verbosity == 1:
             print()
 
         if bootstraps is not None:
-            return [r.tree for r in records]
+            return dpy.TreeList([r.tree for r in records])
+
+        else:
+            self.trees = trees
+            return self.trees
 
     def get_phyml_command_strings(self, analysis, tmpdir, verbosity=0):
         """ Gets command lines required for running phyml on every record """
         cmds = [runPhyml(rec, tmpdir, analysis=analysis,
-                         verbosity=verbosity, taxon_set=self.taxon_set,
+                         verbosity=verbosity,
                          dry_run=True)
                 for rec in self.records]
         return cmds
@@ -403,14 +408,14 @@ class Scorer(object):
             supermatrices = [self.concatenate(index_tuple).sequence_record
                              for index_tuple in index_tuple_list]
 
-            trees = [TrClTree.cast(tree) for tree in runLSFPhyml(supermatrices,
-                                                                 self.tmpdir,
-                                                                 analysis=self.analysis,
-                                                                 verbosity=self.verbosity,
-                                                                 strategy='dynamic',
-                                                                 minmem=PHYML_MEMORY_MIN,
-                                                                 debug=self.debug,
-                                                                 taxon_set=self.collection.taxon_set)]
+            trees = runLSFPhyml(supermatrices,
+                                self.tmpdir,
+                                analysis=self.analysis,
+                                verbosity=self.verbosity,
+                                strategy='dynamic',
+                                minmem=PHYML_MEMORY_MIN,
+                                debug=self.debug,
+                                )
             for index_tuple, tree in zip(index_tuple_list, trees):
                 self.cache[index_tuple] = tree
         else:
@@ -434,15 +439,13 @@ class Scorer(object):
             guidetrees = [self.records[n].tree for n in
                           index_tuple][:self.max_guidetrees]
             tree = sequence_record.tree_collection(
-                taxon_set=self.collection.taxon_set,
                 guide_tree=guidetrees[0])
 
         else:
-            tree = TrClTree.cast(runPhyml(sequence_record,
-                                          self.tmpdir,
-                                          analysis=self.analysis,
-                                          verbosity=self.verbosity,
-                                          taxon_set=self.collection.taxon_set))
+            tree = runPhyml(sequence_record,
+                            self.tmpdir,
+                            analysis=self.analysis,
+                            verbosity=self.verbosity,)
             if self.verbosity == 1:
                 print()
 
@@ -598,7 +601,6 @@ class Scorer(object):
         with open(filename, 'r') as infile:
             for line in infile:
                 k, s = line.rstrip().split('\t')
-                t = TrClTree.gen_from_text(s, self.collection.taxon_set)
+                t = Tree.gen_from_text(s)
                 d[k] = t
         self.cache = d
-

@@ -32,6 +32,7 @@ class Seq(object):
         self.seqlength = 0
         self.is_aligned = False
         if infile:
+            self.infile = infile
             if file_format == 'fasta':
                 self.read_fasta_file(infile, name=name)
             elif file_format == 'phylip':
