@@ -22,7 +22,10 @@ def set_java_classpath():
     import os
 
     current_classpath = os.getenv('CLASSPATH')
-    jarfile_location = os.path.join(os.path.dirname(__file__), 'software_interfaces', 'gtp.jar')
+    jarfile_location = os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                                    'interfacing',
+                                                    'gtp.jar'))
+    assert fileIO.can_locate(jarfile_location)
     if current_classpath is not None:
         if 'gtp.jar' in current_classpath:
             return

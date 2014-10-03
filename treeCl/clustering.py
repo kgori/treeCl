@@ -7,19 +7,18 @@ import os
 import uuid
 
 # third party
-import matplotlib.pyplot as plt
 import numpy as np
-from scipy.cluster.hierarchy import fcluster, dendrogram
+from scipy.cluster.hierarchy import fcluster
 from scipy.spatial.distance import squareform
 from fastcluster import linkage
 
 try:
     from Bio.Cluster import kmedoids
-
     Biopython_Unavailable = False
 except ImportError:
     print("Biopython unavailable - kmedoids clustering disabled")
     Biopython_Unavailable = True
+
 try:
     from sklearn.cluster import KMeans
     from sklearn.mixture import GMM
@@ -27,12 +26,7 @@ except ImportError:
     print("sklearn unavailable: KMeans disabled")
 
 # treeCl
-try:
-    import evrot  # evrot not currently in use
-except ImportError:
-    # print('evrot is not currently in use')
-    pass
-from utils import fileIO
+from utils import fileIO, flatten_list
 from distance_matrix import DistanceMatrix
 
 
@@ -98,8 +92,8 @@ class Clustering(object):
         else:
             br_bottom = linkmat[linkmat_size - nclusters][2]
         threshold = 0.5 * (br_top + br_bottom)
-        T = fcluster(linkmat, threshold, criterion='distance')
-        return Partition(T)
+        t = fcluster(linkmat, threshold, criterion='distance')
+        return Partition(t)
 
     def spectral_decomp(
             self,
@@ -122,8 +116,8 @@ class Clustering(object):
             matrix = self.distance_matrix
 
         kp, mask, est_scale = matrix.binsearch_mask(logic=logic)  # prune anyway,
-        # get local scale estimate
 
+        # get local scale estimate
         ks = kp  # ks and kp log the scaling and pruning parameters
         est_ks = ks
 
@@ -195,10 +189,10 @@ class Clustering(object):
             print('{0} dimensions explain {1:.2f}% of '
                   'the variance'.format(nclusters, cve * 100))
         coords = coords.normalise_rows()  # scale all rows to unit length
-        P = self.kmeans(nclusters, coords)
-        return P
+        p = self.kmeans(nclusters, coords)
+        return p
 
-    def MDS_decomp(self, noise=False):
+    def mds_decomp(self, noise=False):
 
         if noise:
             matrix = self.distance_matrix.add_noise()
@@ -208,171 +202,69 @@ class Clustering(object):
         dbc = matrix.double_centre()
         return dbc.eigen()
 
-    def MDS_cluster(
+    def mds_cluster(
             self,
             nclusters,
             decomp,
             verbosity=0,
     ):
 
-        L = np.diag(np.sqrt(np.abs(decomp.vals[:nclusters])))
-        E = decomp.vecs[:, :nclusters]
+        l = np.diag(np.sqrt(np.abs(decomp.vals[:nclusters])))
+        e = decomp.vecs[:, :nclusters]
         cve = decomp.cve
-        coords = E.dot(L)
+        coords = e.dot(l)
         if verbosity > 0:
             print('{0} dimensions explain {1:.2f}% of '
                   'the variance'.format(coords.shape[1], cve * 100))
-        P = self.kmeans(nclusters, coords)
-        return P
+        p = self.kmeans(nclusters, coords)
+        return p
 
-    def kmeans(self, nclusters, coords, noise=False):
+    @staticmethod
+    def kmeans(nclusters, coords, noise=False):
         if noise:
             coords.add_noise()
         est = KMeans(n_clusters=nclusters, n_init=50, max_iter=500)
         est.fit(coords)
         return Partition(est.labels_)
 
-    def gmm(self, nclusters, coords, noise=False, n_init=50, n_iter=500):
+    @staticmethod
+    def gmm(nclusters, coords, noise=False, n_init=50, n_iter=500):
         if noise:
             coords.add_noise()
         est = GMM(n_components=nclusters, n_init=n_init, n_iter=n_iter)
         est.fit(coords)
         return Partition(est.predict(coords))
 
-    def plot_dendrogram(self, compound_key):
-        """ Extracts data from clustering to plot dendrogram """
-
-        partition = self.partitions[compound_key]
-        (linkmat, names, threshold) = self.plotting_info[compound_key]
-        fig = plt.figure(figsize=(11.7, 8.3))
-        dendrogram(
-            linkmat,
-            color_threshold=threshold,
-            leaf_font_size=8,
-            leaf_rotation=90,
-            leaf_label_func=lambda leaf: names[leaf] + '_' \
-                                         + str(partition[leaf]),
-            count_sort=True,
-        )
-        plt.suptitle('Dendrogram', fontsize=16)
-        plt.title('Distance metric: {0}    Linkage method: {1}    Number of classes: {2}'.format(compound_key[0],
-                                                                                                 compound_key[1],
-                                                                                                 compound_key[2]),
-                  fontsize=12)
-        plt.axhline(threshold, color='grey', ls='dashed')
-        plt.xlabel('Gene')
-        plt.ylabel('Distance')
-        return fig
-
-    def translate_evrot_clustering(self, clustering):
-        translation = [None] * len(self.distance_matrix)
-        no_of_empty_clusters = 0
-        for (group_number, group_membership) in enumerate(clustering):
-            if len(group_membership) == 0:
-                no_of_empty_clusters += 1
-            for index in group_membership:
-                translation[index - 1] = group_number
-        if no_of_empty_clusters > 0:
-            print('Found {0} empty clusters'.format(no_of_empty_clusters))
-        p = Partition(tuple(translation))
-        return p
-
-    def spectral_rotate(
-            self,
-            decomp=None,
-            KMeans=True,
-            max_groups=None,
-            min_groups=2,
-            verbose=True,
-            tolerance=0.0025,
-            **kwargs
-    ):
-
-        if decomp is None:
-            decomp = self.spectral_decomp(**kwargs)
-
-        # ######################
-        # CLUSTER_ROTATE STUFF HERE
-
-        M = decomp.matrix
-        if not max_groups:
-            max_groups = max(int(np.sqrt(M.shape[0]) + np.power(M.shape[0], 1.0
-                                                                / 3)), min_groups)
-        (groups, clusters, quality_scores, rotated_vectors) = \
-            self.cluster_rotate(decomp.vecs, max_groups=max_groups,
-                                min_groups=min_groups, tolerance=tolerance)
-
-        corrected_groups = [None] * len(groups)
-        for i, cluster in enumerate(clusters):
-            p = self.translate_evrot_clustering(cluster)
-            clusters[i] = p
-            corrected_groups[i] = max(p.partition_vector)
-
-        # ######################
-
-        index = self.best_evrot_clustering(quality_scores)
-        optimum_nclusters = corrected_groups[index]
-
-        if verbose:
-            print('Discovered {0} clusters'.format(optimum_nclusters))
-            print('Quality scores: {0}'.format(quality_scores))
-
-        if KMeans:
-            KMeans_clusters = [self.kmeans(groups[i], rotated_vectors[i])
-                               for i in range(len(groups))]
-            return groups, KMeans_clusters, quality_scores, index
-
-        return groups, clusters, quality_scores, index
-
-    def cluster_rotate(
-            self,
-            eigenvectors,
-            max_groups,
-            min_groups=2,
-            tolerance=0.0025,
-    ):
-
-        groups = range(min_groups, max_groups + 1)
-        current_vector = eigenvectors[:, :groups[0]]
-        n = max_groups - min_groups + 1
-
-        quality_scores = [None] * n
-        clusters = [None] * n
-        rotated_vectors = [None] * n
-
-        for g in range(n):
-            if g > 0:
-                current_vector = np.concatenate((rotated_vectors[g - 1],
-                                                 eigenvectors[:, groups[g] - 1:groups[g]]), axis=1)
-
-            (clusters[g], quality_scores[g], rotated_vectors[g]) = \
-                evrot.main(current_vector)
-
-        return (groups, clusters, quality_scores, rotated_vectors)
-
-    def best_evrot_clustering(self, quality_scores, tolerance=0.0025):
-
-        # Find the highest index of quality scores where the
-        # score is within 0.0025 of the maximum:
-        # this is our chosen number of groups
-
-        max_score = max(quality_scores)
-        index = quality_scores.index(max_score)
-        start = index + 1
-        for (i, score) in enumerate(quality_scores[index + 1:], start=start):
-            if abs(score - max_score) < tolerance:
-                index = i
-        return index
+    # def plot_dendrogram(self, compound_key):
+    #     """ Extracts data from clustering to plot dendrogram """
+    #
+    #     partition = self.partitions[compound_key]
+    #     (linkmat, names, threshold) = self.plotting_info[compound_key]
+    #     fig = plt.figure(figsize=(11.7, 8.3))
+    #     dendrogram(
+    #         linkmat,
+    #         color_threshold=threshold,
+    #         leaf_font_size=8,
+    #         leaf_rotation=90,
+    #         leaf_label_func=lambda leaf: names[leaf] + '_' + str(partition[leaf]),
+    #         count_sort=True,
+    #     )
+    #     plt.suptitle('Dendrogram', fontsize=16)
+    #     plt.title('Distance metric: {0}    Linkage method: {1}    Number of classes: {2}'.format(compound_key[0],
+    #                                                                                              compound_key[1],
+    #                                                                                              compound_key[2]),
+    #               fontsize=12)
+    #     plt.axhline(threshold, color='grey', ls='dashed')
+    #     plt.xlabel('Gene')
+    #     plt.ylabel('Distance')
+    #     return fig
 
 
 class Partition(object):
     """ Class to store clustering information """
 
-    # score = 0
-    # concats = []
-    # partition_vector = None
-
     def __init__(self, partition_vector):
+        self._partition_vector = None
         self.partition_vector = partition_vector
 
     def __str__(self):
@@ -396,8 +288,8 @@ class Partition(object):
     def partition_vector(self, vec):
         self._partition_vector = self.order(vec)
 
-    @classmethod
-    def order(self, l):
+    @staticmethod
+    def order(l):
         """ The clustering returned by the hcluster module gives group
         membership without regard for numerical order This function preserves
         the group membership, but sorts the labelling into numerical order """
@@ -465,20 +357,7 @@ class Partition(object):
                     mut_inf += intersect / total * np.log2(total * intersect
                                                            / (len(m1[i]) * len(m2[j])))
 
-        return (entropy_1, entropy_2, mut_inf)
-
-    def flatten(self, list_of_lists):
-        """ This is faster than the one-liner version:-
-
-        def(flatten): return list(itertools.chain(*list_of_lists))
-
-        """
-
-        res = []
-        x = res.extend
-        for sublist in list_of_lists:
-            x(sublist)
-        return res
+        return entropy_1, entropy_2, mut_inf
 
     def get_membership(self, partition_vector=None, flatten=False):
 
@@ -488,7 +367,7 @@ class Partition(object):
             result[value].append(position)
         result = [tuple(x) for x in sorted(result.values(), key=len,
                                            reverse=True)]
-        return (self.flatten(result) if flatten else result)
+        return flatten_list(result) if flatten else result
 
     @classmethod
     def read(cls, filename):
@@ -522,19 +401,3 @@ class Partition(object):
     def write(self, filename):
         with open(filename, 'w') as writer:
             writer.write(','.join(str(x) for x in self.partition_vector) + '\n')
-
-
-def get_partition(clusters):
-    global seq
-    seq = clusters if isinstance(clusters, dict) else range(len(clusters))
-    length = sum((len(clusters[i]) for i in seq))
-    global pvec
-    pvec = [0] * length
-    print('seq: {0}'.format(seq))
-    print(clusters)
-    for k in seq:
-        for i in clusters[k]:
-            print(k, i)
-            pvec[i] = k
-    print(pvec)
-    return (Partition(tuple(pvec)))

@@ -14,7 +14,6 @@ import numpy as np
 # treeCl
 from collection import Collection, Scorer
 from clustering import Partition
-from software_interfaces.phyml import Phyml
 from constants import EPS, NEGINF, TMPDIR, ANALYSES
 from errors import optioncheck
 
@@ -316,7 +315,7 @@ class Optimiser(object):
             for lab in extra_in_tree:
                 tmp_record.headers.append(lab)
                 tmp_record.sequences.append(''.join(['-'] * tmp_record.seqlength))
-            tmp_record._update()
+            tmp_record.update()
 
         if extra_in_record:
             for lab in extra_in_record:
@@ -325,7 +324,7 @@ class Optimiser(object):
                                       tmp_record.headers[i + 1:])
                 tmp_record.sequences = (tmp_record.sequences[:i] +
                                         tmp_record.sequences[i + 1:])
-            tmp_record._update()
+            tmp_record.update()
 
         return tmp_alignment.likelihood(tree, self.tmpdir, fit_rates=True)
         # alignment_file = tmp_record.write_phylip('{0}/tmp_alignment.phy'.format(

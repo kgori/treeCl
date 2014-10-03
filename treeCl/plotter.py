@@ -7,7 +7,6 @@ import itertools
 # third party
 import matplotlib.pyplot as plt
 from matplotlib import cm as CM
-from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 
 # treeCl
@@ -61,7 +60,7 @@ class Plotter(object):
         optioncheck(method, ['MDS', 'spectral'])
         cl = Clustering(self.dm)
         if method == 'MDS':
-            return cl.MDS_decomp()
+            return cl.mds_decomp()
         if method == 'spectral':
             return cl.spectral_decomp(**kwargs)
 

@@ -4,8 +4,9 @@ import pandas as pd
 
 class Silhouette(object):
     def __init__(self, dm, p):
+        self._partition = None
+        self.partition = p
         self.distances = dm
-        self.set_partition(p)
 
     def get_indices_for_group(self, group):
         return np.where(self.partition == group)[0]
@@ -51,17 +52,22 @@ class Silhouette(object):
             self.scores[ingroup_ix] = self.__silhouette_calc(within,
                                                              between_min)
 
-    def set_partition(self, partition):
+    @property
+    def partition(self):
+        return self._partition
+
+    @partition.setter
+    def partition(self, partition):
         if isinstance(partition, treeCl.Partition):
             self.partition = np.array(partition.partition_vector)
         else:
             self.partition = np.array(partition)
-        self.groups = np.unique(self.partition)
-        self.neighbours = np.zeros(self.partition.shape)
-        self.scores = np.zeros(self.partition.shape)
+        self.groups = np.unique(self._partition)
+        self.neighbours = np.zeros(self._partition.shape)
+        self.scores = np.zeros(self._partition.shape)
 
     def silhouette(self, partition):
-        self.set_partition(partition)
+        self.partition = partition
         self.run()
         return (self.neighbours, self.scores)
 

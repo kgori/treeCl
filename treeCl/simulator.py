@@ -13,7 +13,6 @@ import numpy as np
 from clustering import Partition
 from tree import Tree
 import errors
-from software_interfaces.alf import ALF
 from utils import fileIO, print_and_return
 
 

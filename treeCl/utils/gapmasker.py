@@ -50,5 +50,5 @@ class GapMasker():
         for name in target.headers:
             seqs.append(target.mapping[name])
         target.sequences = seqs
-        target._update()
+        target.update()
         return target

@@ -78,14 +78,9 @@ def pll_to_dict(instance):
     :param json_file: Either a filepath or a file-like stream (e.g. sys.stdout)
     :return: void
     """
-    model = {}
-    model['tree'] = instance.get_tree()
-    model['likelihood'] = instance.get_likelihood()
-    model['partitions'] = {}
+    model = {'tree': instance.get_tree(), 'likelihood': instance.get_likelihood(), 'partitions': {}}
     for i in range(instance.get_number_of_partitions()):
-        data = {}
-        data['alpha'] = instance.get_alpha(i)
-        data['frequencies'] = instance.get_frequencies_vector(i)
+        data = {'alpha': instance.get_alpha(i), 'frequencies': instance.get_frequencies_vector(i)}
         if instance.is_dna(i):
             data['rates'] = instance.get_rates_vector(i)
         data['model'] = instance.get_model_name(i)

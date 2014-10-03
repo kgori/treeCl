@@ -10,6 +10,7 @@ __author__ = 'kgori'
 
 class Kelley(object):
     def __init__(self, dm):
+        self._dm = None
         self.dm = dm
         self.n_obs = dm.shape[0]
 

@@ -85,7 +85,7 @@ def remove_empty(rec):
         if all(char == 'X' for char in sequence):
             rec.headers.remove(header)
             rec.sequences.remove(sequence)
-    rec._update()
+    rec.update()
     return rec
 
 

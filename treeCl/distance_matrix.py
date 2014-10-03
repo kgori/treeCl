@@ -63,6 +63,7 @@ class Decomp(object):
         return coords_matrix, varexp
 
 
+# noinspection PyNoneFunctionAssignment
 class DistanceMatrix(np.ndarray):
     # noinspection PyNoneFunctionAssignment
     def __new__(

@@ -13,11 +13,9 @@ import numpy as np
 # treeCl
 from seq import Seq
 from ..tree import Tree
-from ..software_interfaces.pll import create_instance, PLLException, pll_to_dict, set_params_from_dict
+from ..interfacing import pll create_instance, PLLException, pll_to_dict, set_params_from_dict
 from ..constants import TMPDIR
 from ..errors import directorycheck
-from ..software_interfaces.DVscript import runDV
-from ..software_interfaces.phyml import Phyml
 from ..utils.lazyprop import lazyprop
 
 
@@ -143,7 +141,7 @@ class TrClSeq(Seq):
     def pll_get_instance(self, *args):
         delete = False
         try:
-            with open(self.infile) as test:
+            with open(self.infile):
                 pass
             alignment = self.infile
         except (IOError, TypeError):
@@ -368,7 +366,7 @@ class TrClSeq(Seq):
             l.append(h)
         self.headers = l
         self.sequences = [seq.upper() for seq in self.sequences]
-        self._update()
+        self.update()
 
     def shuffle(self):
         """ Modifies in-place """
@@ -376,7 +374,7 @@ class TrClSeq(Seq):
         columns = self._pivot(self.sequences)
         random.shuffle(columns)
         self.sequences = self._pivot(columns)
-        self._update()
+        self.update()
 
     def sort_by_length(self, in_place=True):
         """ Sorts sequences by descending order of length Uses zip as its own

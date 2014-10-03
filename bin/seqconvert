@@ -28,7 +28,7 @@ def sort(rec, scheme):
 
 def remove_gaps(rec):
     rec.sequences = [sequence.replace('-', '') for sequence in rec.sequences]
-    rec._update()
+    rec.update()
 
 
 def write(rec, outfile, to_format='phylip',

@@ -2,7 +2,6 @@
 from __future__ import print_function
 
 # standard library
-from copy import deepcopy
 import hashlib
 import itertools
 import re
@@ -39,12 +38,12 @@ class Seq(object):
                 self.read_phylip_file(infile, name=name)
         self.datatype = (datatype or self.guess_datatype())
         self.index = -1
-        self._update()
+        self.update()
         self.tmpdir = tmpdir
         if tmpdir is not None:
             directorycheck(tmpdir)
 
-    def _update(self):
+    def update(self):
         """ For updating the length and mapping attributes of the object after
         reading sequences """
 
@@ -226,7 +225,7 @@ class Seq(object):
         for _ in range(num_chunks):
             new_record = type(self)(headers=self.headers)
             new_record.sequences = [next(g) for g in generators]
-            new_record._update()
+            new_record.update()
             new_records.append(new_record)
         return new_records
 
@@ -286,7 +285,7 @@ class Seq(object):
             self.headers = headers
             self.sequences = sequences
             self.datatype = datatype
-            self._update()
+            self.update()
 
     def read_phylip_file(
             self,
@@ -345,7 +344,7 @@ class Seq(object):
             self.name = name
             self.datatype = datatype
             (self.headers, self.sequences) = (headers, sequences)
-            self._update()
+            self.update()
 
 
     def n_site_patterns(self):
@@ -358,7 +357,7 @@ class Seq(object):
             self.sequences = [x.upper() for x in self.sequences]
         else:
             self.sequences = [x.lower() for x in self.sequences]
-        self._update()
+        self.update()
 
 
     @staticmethod
@@ -369,7 +368,7 @@ class Seq(object):
 
     @staticmethod
     def _grouper(n, iterable, fillvalue=''):
-        "grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"
+        """grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"""
         args = [iter(iterable)] * n
         return itertools.izip_longest(fillvalue=fillvalue, *args)
 

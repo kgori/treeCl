@@ -2,28 +2,26 @@
 from __future__ import print_function
 
 # standard lib
+import random
 import sys
 import itertools
+import tempfile
 import timeit
 
 # third party
+import bpp
 import dendropy as dpy
 
 # treeCl
-from datastructs.trcl_seq import TrClSeq
+from interfacing import pll
 from tree import Tree
 from distance_matrix import DistanceMatrix
-from software_interfaces.alf import lsf_simulate_from_record, \
-    simulate_from_record
-from software_interfaces.DVscript import runDV
-from software_interfaces.phyml import runPhyml, runLSFPhyml
-from software_interfaces.treecollection import runTC
-from utils import flatten_list
+from utils import fileIO, flatten_list
 from utils.lazyprop import lazyprop
+from utils.printing import print_and_return
 from errors import OptionError, optioncheck, directorymake, \
     directorycheck, isnumbercheck
-from utils import fileIO
-from constants import TMPDIR, SORT_KEY, ANALYSES, PHYML_MEMORY_MIN
+from constants import SORT_KEY, ANALYSES, PHYML_MEMORY_MIN
 
 
 class NoRecordsError(Exception):
@@ -38,6 +36,88 @@ class NoRecordsError(Exception):
                '\tcompression = {2}'.format(self.input_dir,
                                             self.file_format, self.compression))
         return msg
+
+
+class Alignment(bpp.Alignment):
+    def __init__(self, *args):
+        super(Alignment, self).__init__(*args)
+        self.infile = None
+        self.name = None
+        if len(args) > 0 and isinstance(args[0], basestring) and fileIO.can_locate(args[0]):
+            self.infile = args[0]
+
+    def __add__(self, other):
+        return self.__class__([self, other])
+
+    def __str__(self):
+        contents = self.get_sequences()
+        output_string = 'Alignment: {}\n'.format(self.name)
+
+        return output_string + ''.join(
+            ['>{}\n{}\n... ({}) ...\n{}\n'.format(header, seq[:50], len(seq) - 100, seq[-50:]) for header, seq in
+             contents])
+
+    @property
+    def tree(self):
+        try:
+            return Tree(self.get_tree())
+        except:
+            return Tree(self.get_bionj_tree())
+
+    def read_alignment(self, *args, **kwargs):
+        super(Alignment, self).read_alignment(*args, **kwargs)
+        self.infile = args[0]
+
+    def pll_get_instance(self, *args):
+        tmpdir = tmpfile = None
+        try:
+            with open(self.infile):
+                pass
+            alignment = self.infile
+            instance = pll.create_instance(alignment, *args)
+            return instance
+
+        except (IOError, TypeError):
+            tmpdir = tempfile.mkdtemp()
+            _, tmpfile = tempfile.mkstemp(dir=tmpdir)
+            self.write_alignment(tmpfile, "phylip", interleaved=True)
+            instance = pll.create_instance(tmpfile, *args)
+            return instance
+
+        finally:
+            if tmpfile:
+                os.remove(tmpfile)
+            if tmpdir:
+                os.rmdir(tmpdir)
+
+    def pll_optimise(self, partitions, model=None, nthreads=1, opt_subst=True, seed=None):
+        """
+        Runs the full raxml search algorithm. Model parameters are set using a combination of partitions and model.
+        Optimisation of substitution model parameters is enabled with opt_subst=True.
+        :param partitions: Links substitution models to alignment sites. Format is the same as the file RAxML uses
+         with the -q flag (e.g. DNA, gene1codon1 = 1-500/3 - see RAxML manual)
+        :param model: Dictionary to set model parameters--rates, frequencies and gamma alpha parameters--for each
+         partition.
+        :param opt_subst: bool: optimise substitution model parameters (T/F).
+        :return: Dictionary of optimisation results.
+        """
+
+        instance = None
+        seed = seed or random.randint(1, 99999)
+        tree = self.tree.newick if self.tree else True
+        try:
+            instance = self.pll_get_instance(partitions, tree, nthreads, seed)
+            if model is not None:
+                pll.set_params_from_dict(instance, model)
+            instance.optimise_tree_search(opt_subst)
+            return pll_to_dict(instance)
+        except ValueError as exc:
+            raise exc
+        except Exception as exc:
+            raise pll.PLLException(exc.message)
+        finally:
+            if instance:
+                del instance
 
 
 class Collection(object):
@@ -56,27 +136,19 @@ class Collection(object):
             input_dir=None,
             trees_dir=None,
             file_format='fasta',
-            datatype=None,
-            tmpdir=TMPDIR,
-            calc_distances=False,
             compression=None,
-            debug=False,
     ):
 
-        self.tmpdir = directorymake(tmpdir)
         self._records = None
-        self.debug = debug
+        self._input_files = None
 
         if records:
             self.records = records
-            self.datatype = datatype or records[0].datatype
-            optioncheck(self.datatype, ['dna', 'protein'])
             for rec in records:
                 rec.tmpdir = self.tmpdir
 
         elif input_dir:
             directorycheck(input_dir)
-            self.datatype = optioncheck(datatype, ['dna', 'protein'])
             optioncheck(file_format, ['fasta', 'phylip'])
             self.records = self.read_alignments(input_dir,
                                                 file_format,
@@ -92,9 +164,6 @@ class Collection(object):
         if not self.records:
             raise NoRecordsError(file_format, input_dir, compression)
 
-        if calc_distances:
-            self.calc_distances()
-
 
     def __len__(self):
         if hasattr(self, 'records'):
@@ -106,14 +175,6 @@ class Collection(object):
             return self.records[i]
 
     @property
-    def debug(self):
-        return (self._debug if hasattr(self, '_debug') else False)
-
-    @debug.setter
-    def debug(self, boolean):
-        self._debug = bool(boolean)
-
-    @property
     def records(self):
         """ Returns a list of records in SORT_KEY order """
         return [self._records[i] for i in range(len(self._records))]
@@ -121,34 +182,30 @@ class Collection(object):
     @records.setter
     def records(self, records):
         """ Sets a dictionary of records keyed by SORT_KEY order """
-        for rec in records:
-            rec.sanitise()
         self._records = dict(enumerate(records))
-
-        # self.reverse_lookup = {v:k for (k,v) in self.records}
 
     @property
     def trees(self):
         """ Returns a list of trees in SORT_KEY order """
         try:
-            return dpy.TreeList([self._records[i].tree for i in range(len(self._records))])
+            return dpy.TreeList([Tree(self._records[i].tree) for i in range(len(self._records))])
         except ValueError:
             return dpy.TreeList([])
 
-    @trees.setter
-    def trees(self, trees):
-        trees = dpy.TreeList(trees)
-        sorting_lambda = lambda x: SORT_KEY(x.name)
-        trees.sort(key=sorting_lambda)
-        for rec, tree in zip(self.records, trees):
-            assert rec.name == tree.name
-            rec.tree = tree
+    # @trees.setter
+    # def trees(self, trees):
+    # trees = dpy.TreeList(trees)
+    # sorting_lambda = lambda x: SORT_KEY(x.name)
+    #     trees.sort(key=sorting_lambda)
+    #     for rec, tree in zip(self.records, trees):
+    #         assert rec.get_namespace() == tree.name
+    #         rec.tree = tree
 
     def num_species(self):
         """ Returns the number of species found over all records
         """
         all_headers = reduce(lambda x, y: set(x) | set(y),
-                             (rec.headers for rec in self.records))
+                             (rec.get_names() for rec in self.records))
         return len(all_headers)
 
     def read_alignments(self, input_dir, file_format, compression=None):
@@ -170,11 +227,35 @@ class Collection(object):
 
         files = fileIO.glob_by_extensions(input_dir, extensions)
         files.sort(key=SORT_KEY)
+        self._files = files
+        records = []
 
-        return [TrClSeq(f, file_format=file_format, datatype=self.datatype,
-                        name=fileIO.strip_extensions(f),
-                        tmpdir=self.tmpdir)
-                for f in files]
+        for f in files:
+            if compression is not None:
+                tmpdir = tempfile.mkdtemp()
+                _, tmpfile = tempfile.mkstemp(dir=tmpdir)
+                with fileIO.freader(f, compression) as reader:
+                    with fileIO.fwriter(tmpfile) as writer:
+                        for line in reader:
+                            writer.write(line)
+                try:
+                    record = Alignment(tmpfile, file_format, True)
+                except RuntimeError:
+                    record = Alignment(tmpfile, file_format, False)
+                finally:
+                    os.remove(tmpfile)
+                    os.rmdir(tmpdir)
+            else:
+                try:
+                    record = Alignment(f, file_format, True)
+                except RuntimeError:
+                    record = Alignment(f, file_format, False)
+
+            # record.set_namespace(fileIO.strip_extensions(f))
+            record.fast_compute_distances()
+            records.append(record)
+
+        return records
 
     def read_trees(self, input_dir):
         """ Read a directory full of tree files, matching them up to the
@@ -184,75 +265,30 @@ class Collection(object):
         files = fileIO.glob_by_extensions(input_dir, extensions)
         self.trees = [Tree.read_from_file(file_) for file_ in files]
 
-    def calc_distances(self, verbosity=0):
-        """ Calculates within-alignment pairwise distances for every
-        alignment. Uses Darwin. """
+    def fast_calc_distances(self):
+        """ Calculates within-alignment pairwise distances and variances for every
+        alignment. Uses fast Jukes-Cantor method.
+        :return: void"""
         for rec in self.records:
-            runDV(rec, verbosity=verbosity)
+            print_and_return("Calculating fast distances for {}".format(rec.name))
+            rec.fast_compute_distances()
 
-    def calc_TC_trees(self, verbosity=0):
-        """ Calculates distances trees using TreeCollection """
-        self.analysis = 'TreeCollection'
+    def calc_distances(self):
+        """ Calculates within-alignment pairwise distances and variances for every
+        alignment. Uses slow ML optimisation, and depends on the Alignment record
+        having had appropriate ML parametric models set up in advance.
+        :return: void
+        """
         for rec in self.records:
-            runTC(rec, self.tmpdir, verbosity=verbosity)
+            print_and_return("Calculating distances for {}".format(rec.name))
+            rec.compute_distances()
 
     def calc_TC_trees_new(self, verbosity=0):
-        for rec in self.records:
-            rec.tree_collection(quiet=(True if verbosity == 0 else False))
+        pass
 
-    def calc_phyml_trees(self, analysis='nj', lsf=False, strategy='dynamic',
-                         minmem=256, bootstraps=None, add_originals=False,
-                         verbosity=0):
-        """ Calculates trees for each record using phyml
-        TODO: something looks off about the bootstraps option"""
-        optioncheck(analysis, ANALYSES)
-        if bootstraps is not None:
-            bootstraps = int(isnumbercheck(bootstraps))
-            records = list(itertools.chain(*[[r.bootstrap_sample(str(i))
-                                              for i in range(bootstraps)]
-                                             for r in self]))
-            if add_originals:
-                records.extend(self.records)
-        else:
-            records = self.records
-
-        if lsf:
-            trees = runLSFPhyml(records,
-                                self.tmpdir,
-                                analysis=analysis,
-                                verbosity=verbosity,
-                                strategy=strategy,
-                                minmem=minmem,
-                                debug=self.debug)
-
-
-        else:
-            trees = [runPhyml(rec, self.tmpdir, analysis=analysis,
-                              verbosity=verbosity)
-                     for rec in records]
-
-        if verbosity == 1:
-            print()
-
-        if bootstraps is not None:
-            return dpy.TreeList([r.tree for r in records])
-
-        else:
-            self.trees = trees
-            return self.trees
-
-    def get_phyml_command_strings(self, analysis, tmpdir, verbosity=0):
-        """ Gets command lines required for running phyml on every record """
-        cmds = [runPhyml(rec, tmpdir, analysis=analysis,
-                         verbosity=verbosity,
-                         dry_run=True)
-                for rec in self.records]
-        return cmds
-
-    def distance_matrix(self, metric, **kwargs):
+    def get_tree_distance_matrix(self, metric, **kwargs):
         """ Generate a distance matrix from a fully-populated Collection """
-        return DistanceMatrix(self.trees, metric, tmpdir=self.tmpdir,
-                              **kwargs)
+        return DistanceMatrix(self.trees, metric, **kwargs)
 
     def permuted_copy(self):
         """ Return a copy of the collection with all alignment columns permuted
@@ -288,11 +324,11 @@ class Concatenation(object):
 
     @lazyprop
     def sequence_record(self):
-        seq0 = self.collection.records[self.indices[0]]
+        _seq = self.collection.records[self.indices[0]]
         for i in self.indices[1:]:
-            seq0 += self.collection.records[i]
-        seq0.name = '-'.join(str(x) for x in self.indices)
-        return seq0
+            _seq += self.collection.records[i]
+        _seq.name = '-'.join(str(x) for x in self.indices)
+        return _seq
 
     @lazyprop
     def names(self):
@@ -333,9 +369,9 @@ class Concatenation(object):
             if datatype == 'dna' and sep_codon_pos:
                 qs.append('{}, {} = {}-{}/3'.format(models[datatype], name, from_,
                                                     to_))
-                qs.append('{}, {} = {}-{}/3'.format(models[datatype], name, from_+1,
+                qs.append('{}, {} = {}-{}/3'.format(models[datatype], name, from_ + 1,
                                                     to_))
-                qs.append('{}, {} = {}-{}/3'.format(models[datatype], name, from_+2,
+                qs.append('{}, {} = {}-{}/3'.format(models[datatype], name, from_ + 2,
                                                     to_))
             else:
                 qs.append('{}, {} = {}-{}'.format(models[datatype], name, from_,
@@ -415,7 +451,7 @@ class Scorer(object):
                                 strategy='dynamic',
                                 minmem=PHYML_MEMORY_MIN,
                                 debug=self.debug,
-                                )
+            )
             for index_tuple, tree in zip(index_tuple_list, trees):
                 self.cache[index_tuple] = tree
         else:
@@ -445,7 +481,7 @@ class Scorer(object):
             tree = runPhyml(sequence_record,
                             self.tmpdir,
                             analysis=self.analysis,
-                            verbosity=self.verbosity,)
+                            verbosity=self.verbosity, )
             if self.verbosity == 1:
                 print()
 
