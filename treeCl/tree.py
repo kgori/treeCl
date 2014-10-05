@@ -387,15 +387,9 @@ class NNI(object):
 class Tree(dendropy.Tree):
     """Augmented version of dendropy Tree class"""
 
-    name_regex = re.compile('([A-Za-z0-9\-_]+).([A-Za-z0-9\-_]+)(?=_phyml_)')
-    score_regex = re.compile('(?<=Log-likelihood: ).+')
-
     def __init__(
             self,
             newick=None,
-            score=0,
-            output=None,
-            program=None,
             name=None,
             **kwargs
     ):
@@ -406,9 +400,6 @@ class Tree(dendropy.Tree):
             if self.rooted:
                 self.is_rooted = True
                 self.update_splits()
-        self.score = score
-        self.output = output
-        self.program = program
         self.name = name
         self._javatree = None
         self._dirty = False
@@ -421,15 +412,8 @@ class Tree(dendropy.Tree):
         """ Represents the object's information inside a newick comment, so is
         still interpretable by a (good) newick parser """
 
-        s = '[Tree Object:\n'
-        if self.name:
-            s += 'Name:\t{0}\n'.format(self.name)
-
-        s += ('Program:\t{0}\n'
-              'Score:\t{1}\n'
-              'Rooted:\t{2}\n'
-              'Tree:\t]{3}'.format(self.program,
-                                   self.score, self.rooted, self.newick))
+        s = 'Tree Object: {}\n'.format(self.name)
+        s += self.newick
 
         return s
 
@@ -820,41 +804,41 @@ class Tree(dendropy.Tree):
 
         return cls.gen_from_text(s, taxon_set=taxon_set)
 
-    @classmethod
-    def gen_from_text(cls, s, taxon_set=None):
-        """ Generate new tree object from str method output """
-
-        name_search = re.search(r'(?<=Name:\t)(\w+)+', s)
-        program_search = re.search(r'(?<=Program:\t)(\w+)+', s)
-        score_search = re.search(r'(?<=Score:\t)([0-9.\-\+]+)', s)
-        tree_search = re.search(r'(?<=Tree:\t]).+', s)
-
-        name = regex_search_extract(name_search)
-        program = regex_search_extract(program_search)
-        score = regex_search_extract(score_search)
-        tree = regex_search_extract(tree_search)
-
-        if score:
-            try:
-                score = float(score)
-            except:
-                raise Exception('Found score value of {} in input'
-                                .format(score))
-
-        if not tree:
-            tree = s
-
-        if program == 'None':
-            program = None
-
-        if taxon_set is not None:
-            tree = cls(newick=tree, name=name, program=program, score=score,
-                       taxon_set=taxon_set)
-
-        else:
-            tree = cls(newick=tree, name=name, program=program, score=score)
-
-        return tree
+    # @classmethod
+    # def gen_from_text(cls, s, taxon_set=None):
+    #     """ Generate new tree object from str method output """
+    #
+    #     name_search = re.search(r'(?<=Name:\t)(\w+)+', s)
+    #     program_search = re.search(r'(?<=Program:\t)(\w+)+', s)
+    #     score_search = re.search(r'(?<=Score:\t)([0-9.\-\+]+)', s)
+    #     tree_search = re.search(r'(?<=Tree:\t]).+', s)
+    #
+    #     name = regex_search_extract(name_search)
+    #     program = regex_search_extract(program_search)
+    #     score = regex_search_extract(score_search)
+    #     tree = regex_search_extract(tree_search)
+    #
+    #     if score:
+    #         try:
+    #             score = float(score)
+    #         except:
+    #             raise Exception('Found score value of {} in input'
+    #                             .format(score))
+    #
+    #     if not tree:
+    #         tree = s
+    #
+    #     if program == 'None':
+    #         program = None
+    #
+    #     if taxon_set is not None:
+    #         tree = cls(newick=tree, name=name, program=program, score=score,
+    #                    taxon_set=taxon_set)
+    #
+    #     else:
+    #         tree = cls(newick=tree, name=name, program=program, score=score)
+    #
+    #     return tree
 
     def write_to_file(
             self,
@@ -903,41 +887,41 @@ class Tree(dendropy.Tree):
         r_nodes = {value: key for key, value in nodes.items()}
         return edges, nodes, r_edges, r_nodes
 
-    @classmethod
-    def new_tree_from_phyml_results(
-            cls,
-            tree_file,
-            stats_file,
-            name=None,
-            program='phyml',
-    ):
-        """ Given the usual phyml output files - xxx_phyml_tree.txt and
-        xxx_phyml_stats.txt, instantiates a Tree from the information
-        in the phyml files.
-        TODO: refactor into phymlIO module """
-        # newick score output program name
-
-        exit_ = False
-        for f in (tree_file, stats_file):
-            try:
-                filecheck(f)
-            except FileError, e:
-                print(e)
-                exit_ = True
-
-        if exit_:
-            print('Results were not loaded')
-            raise FileError()
-
-        if not name:
-            name = cls.name_regex.search(tree_file).group(1)
-        newick = open(tree_file).read()
-        stats = open(stats_file).read()
-        score = cls.score_regex.search(stats).group(0)
-        score = float(score) if score else None
-
-        return cls(newick=newick, score=score, output=stats, program=program,
-                   name=name)
+    # @classmethod
+    # def new_tree_from_phyml_results(
+    #         cls,
+    #         tree_file,
+    #         stats_file,
+    #         name=None,
+    #         program='phyml',
+    # ):
+    #     """ Given the usual phyml output files - xxx_phyml_tree.txt and
+    #     xxx_phyml_stats.txt, instantiates a Tree from the information
+    #     in the phyml files.
+    #     TODO: refactor into phymlIO module """
+    #     # newick score output program name
+    #
+    #     exit_ = False
+    #     for f in (tree_file, stats_file):
+    #         try:
+    #             filecheck(f)
+    #         except FileError, e:
+    #             print(e)
+    #             exit_ = True
+    #
+    #     if exit_:
+    #         print('Results were not loaded')
+    #         raise FileError()
+    #
+    #     if not name:
+    #         name = cls.name_regex.search(tree_file).group(1)
+    #     newick = open(tree_file).read()
+    #     stats = open(stats_file).read()
+    #     score = cls.score_regex.search(stats).group(0)
+    #     score = float(score) if score else None
+    #
+    #     return cls(newick=newick, score=score, output=stats, program=program,
+    #                name=name)name
 
     @classmethod
     def new_iterative_rtree(cls, nspecies):

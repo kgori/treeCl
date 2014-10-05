@@ -95,6 +95,6 @@ setup(name="treeCl",
           'pandas',
           'scikit-learn',
       ],
-      # cmdclass={'build_ext': build_ext},
-      # ext_modules=extensions,
+      cmdclass={'build_ext': build_ext},
+      ext_modules=extensions,
 )

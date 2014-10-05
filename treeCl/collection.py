@@ -10,7 +10,7 @@ import timeit
 
 # third party
 import bpp
-import dendropy as dpy
+import numpy as np
 
 # treeCl
 from interfacing import pll
@@ -110,14 +110,13 @@ class Alignment(bpp.Alignment):
             if model is not None:
                 pll.set_params_from_dict(instance, model)
             instance.optimise_tree_search(opt_subst)
-            return pll_to_dict(instance)
+            return pll.pll_to_dict(instance)
         except ValueError as exc:
             raise exc
         except Exception as exc:
             raise pll.PLLException(exc.message)
         finally:
-            if instance:
-                del instance
+            del instance
 
 
 class Collection(object):
@@ -188,9 +187,9 @@ class Collection(object):
     def trees(self):
         """ Returns a list of trees in SORT_KEY order """
         try:
-            return dpy.TreeList([Tree(self._records[i].tree) for i in range(len(self._records))])
+            return [rec.tree for rec in self]
         except ValueError:
-            return dpy.TreeList([])
+            return []
 
     # @trees.setter
     # def trees(self, trees):
@@ -251,7 +250,7 @@ class Collection(object):
                 except RuntimeError:
                     record = Alignment(f, file_format, False)
 
-            # record.set_namespace(fileIO.strip_extensions(f))
+            record.name = (fileIO.strip_extensions(f))
             record.fast_compute_distances()
             records.append(record)
 
@@ -283,8 +282,26 @@ class Collection(object):
             print_and_return("Calculating distances for {}".format(rec.name))
             rec.compute_distances()
 
-    def calc_TC_trees_new(self, verbosity=0):
-        pass
+    def calc_pll_trees(self, threads=1):
+        """ Use pllpy to calculate maximum-likelihood trees
+        :return: void
+        """
+        for rec in self.records:
+            print_and_return("Calculating ML tree for {}".format(rec.name))
+            if rec.is_dna():
+                model = 'GTR'
+            else:
+                model = 'LGX'
+            result = rec.pll_optimise('{}, {} = 1 - {}'.format(model, rec.name, len(rec)), nthreads=threads)
+            freqs = result['partitions'][0]['frequencies']
+            tree = result['tree']
+            alpha = result['partitions'][0]['alpha']
+            rec.set_substitution_model('GTR' if rec.is_dna() else 'LG08')
+            rec.set_gamma_rate_model(4, alpha)
+            rec.set_frequencies(freqs)
+            if rec.is_dna():
+                record.set_rates(result['partitions'][0]['rates'], 'ACGT')
+            rec.initialise_likelihood(tree)
 
     def get_tree_distance_matrix(self, metric, **kwargs):
         """ Generate a distance matrix from a fully-populated Collection """
@@ -316,19 +333,17 @@ class Concatenation(object):
         self.collection = collection
         self.indices = sorted(indices)
 
-
     @lazyprop
     def distances(self):
-        return list(itertools.chain(*[self.collection.records[i].dv
-                                      for i in self.indices]))
+        return [self.collection.records[i].get_distances() for i in self.indices]
+
+    @layprop
+    def datatypes(self):
+        return ['dna' if self.collection.records[i].is_dna() else 'protein' for i in self.indices]
 
     @lazyprop
     def sequence_record(self):
-        _seq = self.collection.records[self.indices[0]]
-        for i in self.indices[1:]:
-            _seq += self.collection.records[i]
-        _seq.name = '-'.join(str(x) for x in self.indices)
-        return _seq
+        return Alignment([self.collection[i] for i in self.indices])
 
     @lazyprop
     def names(self):
@@ -336,20 +351,82 @@ class Concatenation(object):
 
     @lazyprop
     def lengths(self):
-        return [self.collection.records[i].seqlength for i in self.indices]
+        return [len(self.collection.records[i]) for i in self.indices]
 
     @lazyprop
     def headers(self):
-        return [self.collection.records[i].headers for i in self.indices]
+        return [self.collection.records[i].get_names() for i in self.indices]
 
     @lazyprop
     def coverage(self):
         total = float(self.collection.num_species())
         return [len(self.collection.records[i]) / total for i in self.indices]
 
-    @lazyprop
-    def datatypes(self):
-        return [self.collection.records[i].datatype for i in self.indices]
+    def _get_tree_collection_strings(self, scale=1):
+        """ Function to get input strings for tree_collection
+        tree_collection needs distvar, genome_map and labels -
+        these are returned in the order above
+        """
+
+        # aliases
+        num_matrices = len(self.distances)
+        label_set = reduce(lambda x, y: x.union(y), (set(l) for l in self.headers))
+        labels_len = len(label_set)
+
+        # labels string can be built straight away
+        labels_string = '{0}\n{1}\n'.format(labels_len, ' '.join(label_set))
+
+        # distvar and genome_map need to be built up
+        distvar_list = [str(num_matrices)]
+        genome_map_list = ['{0} {1}'.format(num_matrices, labels_len)]
+
+        # build up lists to turn into strings
+        for i in range(num_matrices):
+            labels = self.headers[i]
+            dim = len(labels)
+            matrix = self.distances[i].copy()
+            if scale:
+                matrix[np.triu_indices(dim, 1)] *= scale
+                matrix[np.tril_indices(dim, -1)] *= scale*scale
+
+            if isinstance(matrix, np.ndarray):
+                matrix_string = '\n'.join([' '.join(str(x) for x in row)
+                                           for row in matrix]) + '\n'
+            else:
+                matrix_string = matrix
+            distvar_list.append('{0} {0} {1}\n{2}'.format(dim, i+1,
+                                                          matrix_string))
+            genome_map_entry = ' '.join((str(labels.index(lab) + 1)
+                                         if lab in labels else '-1')
+                                        for lab in label_set)
+            genome_map_list.append(genome_map_entry)
+
+        distvar_string = '\n'.join(distvar_list)
+        genome_map_string = '\n'.join(genome_map_list)
+
+        return distvar_string, genome_map_string, labels_string
+
+    def tree_collection(self,
+                        niters=5,
+                        keep_topology=False,
+                        quiet=True,
+                        guide_tree=None,
+                        scale=1):
+
+        import tree_collection
+
+        if not guide_tree.is_rooted:
+            guide_tree.reroot_at_midpoint()
+        if not guide_tree.is_rooted:
+            raise Exception('Couldn\'t root the guide tree')
+
+        dv, gm, lab = self._get_tree_collection_strings(scale)
+        output_tree, score = tree_collection.compute(dv, gm, lab, guide_tree.scale(scale).newick,
+                                                     niters, keep_topology,
+                                                     quiet)
+
+        return Tree(output_tree), score
+
 
     def qfile(self, dna_model='DNA', protein_model='LG', sep_codon_pos=False,
               ml_freqs=False, eq_freqs=False):
@@ -391,29 +468,14 @@ class Scorer(object):
     def __init__(
             self,
             collection,
-            analysis,
-            lsf=False,
-            max_guidetrees=10,
-            tmpdir=None,
-            datatype=None,
             verbosity=0,
             populate_cache=True,
             debug=False,
     ):
 
-        optioncheck(analysis, ANALYSES + ['tc', 'TreeCollection'])
-        if analysis == 'tc':
-            self.analysis = 'TreeCollection'
-        else:
-            self.analysis = analysis
-        self.max_guidetrees = max_guidetrees
-        self.lsf = lsf
         self.collection = collection
-        self.datatype = datatype or collection.datatype
         self.verbosity = verbosity
         optioncheck(self.datatype, ['protein', 'dna'])
-        self.tmpdir = tmpdir or collection.tmpdir
-        directorymake(self.tmpdir)
         self.cache = {}
         self.history = []
         self.debug = debug
@@ -622,10 +684,6 @@ class Scorer(object):
                                   for ind in inds])
                     for _ in range(ntimes)]
 
-    def dump(self, filename):
-        """ Convenience wrapper to pickle the object. Gzipped pickle
-        is written to filename """
-        fileIO.gpickle(self, filename)
 
     def dump_cache(self, filename):
         with open(filename, 'w') as outfile:
