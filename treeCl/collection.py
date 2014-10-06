@@ -2,26 +2,24 @@
 from __future__ import print_function
 
 # standard lib
-import random
 import sys
 import itertools
+import random
 import tempfile
 import timeit
 
 # third party
-import bpp
 import numpy as np
 
 # treeCl
-from interfacing import pll
 from tree import Tree
 from distance_matrix import DistanceMatrix
+from alignment import Alignment
 from utils import fileIO, flatten_list
 from utils.lazyprop import lazyprop
 from utils.printing import print_and_return
-from errors import OptionError, optioncheck, directorymake, \
-    directorycheck, isnumbercheck
-from constants import SORT_KEY, ANALYSES, PHYML_MEMORY_MIN
+from errors import OptionError, optioncheck, directorycheck
+from constants import SORT_KEY, PHYML_MEMORY_MIN
 
 
 class NoRecordsError(Exception):
@@ -36,87 +34,6 @@ class NoRecordsError(Exception):
                '\tcompression = {2}'.format(self.input_dir,
                                             self.file_format, self.compression))
         return msg
-
-
-class Alignment(bpp.Alignment):
-    def __init__(self, *args):
-        super(Alignment, self).__init__(*args)
-        self.infile = None
-        self.name = None
-        if len(args) > 0 and isinstance(args[0], basestring) and fileIO.can_locate(args[0]):
-            self.infile = args[0]
-
-    def __add__(self, other):
-        return self.__class__([self, other])
-
-    def __str__(self):
-        contents = self.get_sequences()
-        output_string = 'Alignment: {}\n'.format(self.name)
-
-        return output_string + ''.join(
-            ['>{}\n{}\n... ({}) ...\n{}\n'.format(header, seq[:50], len(seq) - 100, seq[-50:]) for header, seq in
-             contents])
-
-    @property
-    def tree(self):
-        try:
-            return Tree(self.get_tree())
-        except:
-            return Tree(self.get_bionj_tree())
-
-    def read_alignment(self, *args, **kwargs):
-        super(Alignment, self).read_alignment(*args, **kwargs)
-        self.infile = args[0]
-
-    def pll_get_instance(self, *args):
-        tmpdir = tmpfile = None
-        try:
-            with open(self.infile):
-                pass
-            alignment = self.infile
-            instance = pll.create_instance(alignment, *args)
-            return instance
-
-        except (IOError, TypeError):
-            tmpdir = tempfile.mkdtemp()
-            _, tmpfile = tempfile.mkstemp(dir=tmpdir)
-            self.write_alignment(tmpfile, "phylip", interleaved=True)
-            instance = pll.create_instance(tmpfile, *args)
-            return instance
-
-        finally:
-            if tmpfile:
-                os.remove(tmpfile)
-            if tmpdir:
-                os.rmdir(tmpdir)
-
-    def pll_optimise(self, partitions, model=None, nthreads=1, opt_subst=True, seed=None):
-        """
-        Runs the full raxml search algorithm. Model parameters are set using a combination of partitions and model.
-        Optimisation of substitution model parameters is enabled with opt_subst=True.
-        :param partitions: Links substitution models to alignment sites. Format is the same as the file RAxML uses
-         with the -q flag (e.g. DNA, gene1codon1 = 1-500/3 - see RAxML manual)
-        :param model: Dictionary to set model parameters--rates, frequencies and gamma alpha parameters--for each
-         partition.
-        :param opt_subst: bool: optimise substitution model parameters (T/F).
-        :return: Dictionary of optimisation results.
-        """
-
-        instance = None
-        seed = seed or random.randint(1, 99999)
-        tree = self.tree.newick if self.tree else True
-        try:
-            instance = self.pll_get_instance(partitions, tree, nthreads, seed)
-            if model is not None:
-                pll.set_params_from_dict(instance, model)
-            instance.optimise_tree_search(opt_subst)
-            return pll.pll_to_dict(instance)
-        except ValueError as exc:
-            raise exc
-        except Exception as exc:
-            raise pll.PLLException(exc.message)
-        finally:
-            del instance
 
 
 class Collection(object):
@@ -143,8 +60,6 @@ class Collection(object):
 
         if records:
             self.records = records
-            for rec in records:
-                rec.tmpdir = self.tmpdir
 
         elif input_dir:
             directorycheck(input_dir)
@@ -195,9 +110,9 @@ class Collection(object):
     # def trees(self, trees):
     # trees = dpy.TreeList(trees)
     # sorting_lambda = lambda x: SORT_KEY(x.name)
-    #     trees.sort(key=sorting_lambda)
-    #     for rec, tree in zip(self.records, trees):
-    #         assert rec.get_namespace() == tree.name
+    # trees.sort(key=sorting_lambda)
+    # for rec, tree in zip(self.records, trees):
+    # assert rec.get_namespace() == tree.name
     #         rec.tree = tree
 
     def num_species(self):
@@ -262,7 +177,7 @@ class Collection(object):
 
         extensions = ['nwk', 'tree']
         files = fileIO.glob_by_extensions(input_dir, extensions)
-        self.trees = [Tree.read_from_file(file_) for file_ in files]
+        trees = [Tree.read_from_file(file_) for file_ in files]
 
     def fast_calc_distances(self):
         """ Calculates within-alignment pairwise distances and variances for every
@@ -310,12 +225,32 @@ class Collection(object):
     def permuted_copy(self):
         """ Return a copy of the collection with all alignment columns permuted
         """
-        lengths, names = zip(*[(rec.seqlength, rec.name)
-                               for rec in self.records])
-        concat = Concatenation(self, range(len(self))).sequence_record
-        concat.shuffle()
-        new_records = concat.split_by_lengths(lengths, names)
-        return self.__class__(new_records)
+
+        def take(n, iterable):
+            return [iterable.next() for _ in range(n)]
+
+        def items_subset(keys, d):
+            return [(k, d[k]) for k in keys]
+
+        concat = Concatenation(self, range(len(self)))
+        sites = concat.alignment.get_sites()
+        random.shuffle(sites)
+        d = dict(zip(concat.alignment.get_names(), [iter(x) for x in zip(*sites)]))
+
+        new_seqs = []
+        for l in concat.lengths:
+            new_seqs.append(dict([(k, ''.join(take(l, d[k]))) for k in d]))
+
+        records = []
+        for (keys, d) in zip(concat.headers, new_seqs):
+            records.append(items_subset(keys, d))
+
+        permutation = self.__class__(
+            records=[Alignment(seqs, dtype) for (seqs, dtype) in zip(records, concat.datatypes)])
+        for rec, name in zip(permutation, concat.names):
+            rec.name = name
+
+        return permutation
 
 
 class Concatenation(object):
@@ -337,12 +272,12 @@ class Concatenation(object):
     def distances(self):
         return [self.collection.records[i].get_distances() for i in self.indices]
 
-    @layprop
+    @lazyprop
     def datatypes(self):
         return ['dna' if self.collection.records[i].is_dna() else 'protein' for i in self.indices]
 
     @lazyprop
-    def sequence_record(self):
+    def alignment(self):
         return Alignment([self.collection[i] for i in self.indices])
 
     @lazyprop
@@ -387,14 +322,14 @@ class Concatenation(object):
             matrix = self.distances[i].copy()
             if scale:
                 matrix[np.triu_indices(dim, 1)] *= scale
-                matrix[np.tril_indices(dim, -1)] *= scale*scale
+                matrix[np.tril_indices(dim, -1)] *= scale * scale
 
             if isinstance(matrix, np.ndarray):
                 matrix_string = '\n'.join([' '.join(str(x) for x in row)
                                            for row in matrix]) + '\n'
             else:
                 matrix_string = matrix
-            distvar_list.append('{0} {0} {1}\n{2}'.format(dim, i+1,
+            distvar_list.append('{0} {0} {1}\n{2}'.format(dim, i + 1,
                                                           matrix_string))
             genome_map_entry = ' '.join((str(labels.index(lab) + 1)
                                          if lab in labels else '-1')
@@ -470,29 +405,18 @@ class Scorer(object):
             collection,
             verbosity=0,
             populate_cache=True,
-            debug=False,
     ):
 
         self.collection = collection
         self.verbosity = verbosity
-        optioncheck(self.datatype, ['protein', 'dna'])
         self.cache = {}
         self.history = []
-        self.debug = debug
         if populate_cache:
             self.populate_cache()
 
     @property
     def records(self):
         return self.collection.records
-
-    @property
-    def debug(self):
-        return (self._debug if hasattr(self, '_debug') else False)
-
-    @debug.setter
-    def debug(self, boolean):
-        self._debug = bool(boolean)
 
     def add_partition_list(self, partition_list):
         """ Calculates concatenated trees for a list of Partitions """
@@ -503,7 +427,7 @@ class Scorer(object):
 
     def _add_index_tuple_list(self, index_tuple_list):
         if self.lsf and not self.analysis == 'TreeCollection':
-            supermatrices = [self.concatenate(index_tuple).sequence_record
+            supermatrices = [self.concatenate(index_tuple).alignment
                              for index_tuple in index_tuple_list]
 
             trees = runLSFPhyml(supermatrices,
@@ -528,19 +452,19 @@ class Scorer(object):
             return self.cache[index_tuple]
 
         if len(index_tuple) == 1:
-            sequence_record = self.collection[index_tuple[0]]
+            alignment = self.collection[index_tuple[0]]
         else:
             concat = self.concatenate(index_tuple)
-            sequence_record = concat.sequence_record
+            alignment = concat.alignment
 
         if self.analysis == 'TreeCollection':
             guidetrees = [self.records[n].tree for n in
                           index_tuple][:self.max_guidetrees]
-            tree = sequence_record.tree_collection(
+            tree = alignment.tree_collection(
                 guide_tree=guidetrees[0])
 
         else:
-            tree = runPhyml(sequence_record,
+            tree = runPhyml(alignment,
                             self.tmpdir,
                             analysis=self.analysis,
                             verbosity=self.verbosity, )
@@ -636,7 +560,7 @@ class Scorer(object):
                 return
 
         member_records = self.members(index_tuple)
-        concat = self.concatenate(index_tuple).sequence_record
+        concat = self.concatenate(index_tuple).alignment
         (lengths, names) = zip(*[(rec.seqlength, rec.name) for rec in
                                  member_records])
         full_length = sum(lengths)

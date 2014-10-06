@@ -56,11 +56,6 @@ extensions = [
               ],
               language='c++',
     ),
-    # Extension(name='evrot_extensions',
-    # sources=['extensions/evrot/evrot_extensions.c'],
-    #     language='c',
-    #     include_dirs=[numpy_get_include()]
-    # ),
 ]
 
 setup(name="treeCl",
