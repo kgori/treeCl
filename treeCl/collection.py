@@ -207,7 +207,7 @@ class Collection(object):
                 model = 'GTR'
             else:
                 model = 'LGX'
-            result = rec.pll_optimise('{}, {} = 1 - {}'.format(model, rec.name, len(rec)), nthreads=threads)
+            result = rec.pll_optimise('{}, {} = 1 - {}'.format(model, rec.name, len(rec)), rec.tree.newick, nthreads=threads)
             freqs = result['partitions'][0]['frequencies']
             tree = result['tree']
             alpha = result['partitions'][0]['alpha']
@@ -297,6 +297,15 @@ class Concatenation(object):
         total = float(self.collection.num_species())
         return [len(self.collection.records[i]) / total for i in self.indices]
 
+    @lazyprop
+    def trees(self):
+        return [self.collection.records[i].tree for i in self.indices]
+
+    @lazyprop
+    def mrp_tree(self):
+        trees = [tree.newick for tree in self.trees]
+        return Tree(Alignment().get_mrp_supertree(trees))
+
     def _get_tree_collection_strings(self, scale=1):
         """ Function to get input strings for tree_collection
         tree_collection needs distvar, genome_map and labels -
@@ -350,6 +359,14 @@ class Concatenation(object):
 
         import tree_collection
 
+        guide_tree = guide_tree.copy()
+        for e in guide_tree.postorder_edge_iter():
+            if e.length is None:
+                if e.head_node == guide_tree.seed_node:
+                    e.length = 0.0
+                else:
+                    e.length = 1.0
+
         if not guide_tree.is_rooted:
             guide_tree.reroot_at_midpoint()
         if not guide_tree.is_rooted:
@@ -390,6 +407,11 @@ class Concatenation(object):
                                                   to_))
             from_ += length
         return '\n'.join(qs)
+
+    def pll_optimise(self, partitions, tree=None, model=None, nthreads=1, **kwargs):
+        if tree is None:
+            tree = self.mrp_tree.newick
+        return self.alignment.pll_optimise(partitions, tree, model, nthreads, **kwargs)
 
     def paml_partitions(self):
         return 'G {} {}'.format(len(self.lengths),

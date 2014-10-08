@@ -1,6 +1,7 @@
 import bpp
 import collections
 from numpy import log
+import os
 import random
 import tempfile
 from tree import Tree
@@ -44,7 +45,7 @@ class Alignment(bpp.Alignment):
             with open(self.infile):
                 pass
             alignment = self.infile
-            instance = pll.create_instance(alignment, *args)
+            instance = pll.create_instance(alignment, *args) # args=(partitions, tree, threads, rns)
             return instance
 
         except (IOError, TypeError):
@@ -60,7 +61,7 @@ class Alignment(bpp.Alignment):
             if tmpdir:
                 os.rmdir(tmpdir)
 
-    def pll_optimise(self, partitions, model=None, nthreads=1, opt_subst=True, seed=None):
+    def pll_optimise(self, partitions, tree, model=None, nthreads=1, opt_subst=True, seed=None):
         """
         Runs the full raxml search algorithm. Model parameters are set using a combination of partitions and model.
         Optimisation of substitution model parameters is enabled with opt_subst=True.
@@ -74,7 +75,6 @@ class Alignment(bpp.Alignment):
 
         instance = None
         seed = seed or random.randint(1, 99999)
-        tree = self.tree.newick if self.tree else True
         try:
             instance = self.pll_get_instance(partitions, tree, nthreads, seed)
             if model is not None:
@@ -101,3 +101,23 @@ class Alignment(bpp.Alignment):
             if v > 1:
                 ucl += v * log(v)
         return ucl - n * log(n)
+
+    def to_dict(self):
+        """
+        Summarises parameter values from PLL instance and writes their values
+        to disk in a json format file
+
+        :param self: PLL instance being summarised
+        :param json_file: Either a filepath or a file-like stream (e.g. sys.stdout)
+        :return: void
+        """
+        model = dict(tree=self.get_tree(), likelihood=self.get_likelihood(), alpha=self.get_alpha(),
+                     frequencies=self.get_frequencies(), model=self.get_substitution_model(), name=self.name,
+                     distances=[list(x) for x in self.get_distance_variance_matrix()])
+        if self.is_dna():
+            try:
+                model['rates'] = self.get_rates()
+            except:
+                model['rates'] = None
+
+        return model
