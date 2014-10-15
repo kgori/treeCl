@@ -11,9 +11,9 @@ import dendropy
 import numpy as np
 
 # treeCl
-from errors import FileError, filecheck, optioncheck
-from utils import fileIO, regex_search_extract
-from utils.lazyprop import lazyprop
+from errors import optioncheck
+from utils import fileIO
+from utils.decorators import lazyprop
 
 
 def set_java_classpath():
@@ -21,18 +21,17 @@ def set_java_classpath():
     """
     import os
 
-    current_classpath = os.getenv('CLASSPATH')
-    jarfile_location = os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                                    'interfacing',
-                                                    'gtp.jar'))
-    assert fileIO.can_locate(jarfile_location)
-    if current_classpath is not None:
-        if 'gtp.jar' in current_classpath:
-            return
-        else:
-            os.environ['CLASSPATH'] = ':'.join([current_classpath, jarfile_location])
+    fallback_location = os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                                     'interfacing'))
+    gtp_location = fileIO.locate_file('gtp.jar', env_var='CLASSPATH', directory=fallback_location)
+    if gtp_location is None:
+        raise IOError("gtp.jar: file not found")
+
+    curr_classpath = os.getenv('CLASSPATH')
+    if curr_classpath is not None:
+        os.environ['CLASSPATH'] = ':'.join([curr_classpath, gtp_location])
     else:
-        os.environ['CLASSPATH'] = jarfile_location
+        os.environ['CLASSPATH'] = gtp_location
 
 
 def setup_java_classes():
@@ -55,15 +54,17 @@ def cast(dendropy_tree):
     """ Cast dendropy.Tree instance as Tree instance """
     return Tree(dendropy_tree.as_newick_string() + ';')
 
+
 def _infinite_labels_generator(labels, start=2, shuffle=True):
     l = len(labels)
     loop1 = random.sample(labels, l) if shuffle else labels
     return itertools.chain.from_iterable([loop1, ('{}{}'.format(x, y) for x, y in
-                                                 itertools.izip(itertools.cycle(labels),
-                                                                itertools.chain.from_iterable(
-                                                                    itertools.repeat(i, len(loop1)) for i
-                                                                    in
-                                                                    itertools.count(start, 1))))])
+                                                  itertools.izip(itertools.cycle(labels),
+                                                                 itertools.chain.from_iterable(
+                                                                     itertools.repeat(i, len(loop1)) for i
+                                                                     in
+                                                                     itertools.count(start, 1))))])
+
 
 def edge_length_check(length, edge):
     """ Raises error if length is not in interval [0, edge.length] """
@@ -806,7 +807,7 @@ class Tree(dendropy.Tree):
 
     # @classmethod
     # def gen_from_text(cls, s, taxon_set=None):
-    #     """ Generate new tree object from str method output """
+    # """ Generate new tree object from str method output """
     #
     #     name_search = re.search(r'(?<=Name:\t)(\w+)+', s)
     #     program_search = re.search(r'(?<=Program:\t)(\w+)+', s)

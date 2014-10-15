@@ -133,6 +133,13 @@ def locate_by_dir(filename, directory=None):
 
 
 def locate_file(filename, env_var='', directory=''):
+    """
+    Locates a file given an environment variable or directory
+    :param filename: filename to search for
+    :param env_var: environment variable to look under
+    :param directory: directory to look in
+    :return: (string) absolute path to filename or None if not found
+    """
     f = locate_by_env(filename, env_var) or locate_by_dir(filename, directory)
     return (os.path.abspath(f) if can_locate(f) else None)
 
