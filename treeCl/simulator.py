@@ -59,6 +59,7 @@ class Simulator(object):
         self.num_classes = len(class_list)
         self.num_genes = sum(class_list)
         self.class_list = class_list
+        self._master_tree = None
         self.verbosity = verbosity
         self.autocorrelated_relaxed_clock = autocorrelated_relaxed_clock
         self.uncorrelated_relaxed_clock = uncorrelated_relaxed_clock

@@ -7,6 +7,9 @@ class Silhouette(object):
         self._partition = None
         self.partition = p
         self.distances = dm
+        self.groups = None
+        self.neighbours = None
+        self.scores = None
 
     def get_indices_for_group(self, group):
         return np.where(self.partition == group)[0]

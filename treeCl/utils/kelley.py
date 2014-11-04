@@ -24,7 +24,7 @@ class Kelley(object):
 
     def _average_spread(self, partition):
         # print('_as() partition: {}'.format(partition))
-        indices = self._partition_to_indices(partition)
+        indices = self.partition_to_indices(partition)
         # print('_as() indices: {}'.format(indices))
         avg_spread = np.mean([self._spread(*ix) for ix in indices])
         # print('_as() result: {}'.format(avg_spread))
@@ -45,7 +45,7 @@ class Kelley(object):
         # print('_nas() result {}'.format(avg_spread_norm))
         return avg_spread_norm
 
-    def _partition_to_indices(self, partition):
+    def partition_to_indices(self, partition):
         # print('_pti', partition)
         ix = [tup for tup in partition.get_membership() if len(tup) > 1]
         return ix
@@ -113,7 +113,7 @@ if __name__ == '__main__':
 
     k = Kelley(dm)
     for p in plist:
-        print(k._partition_to_indices(p))
+        print(k.partition_to_indices(p))
     print(k.penalty_values(*plist))
     # print(k._spread(8,9,10,11))
     # print(k.pen_val_debug(*plist[0:11]))

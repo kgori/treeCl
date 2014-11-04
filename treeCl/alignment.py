@@ -1,13 +1,14 @@
 import bpp
 import collections
-from numpy import log
 import os
 import random
 import tempfile
+
+from numpy import log
+
 from tree import Tree
 from interfacing import pll
 from utils import fileIO
-
 
 class Alignment(bpp.Alignment):
     def __init__(self, *args):

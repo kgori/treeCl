@@ -37,10 +37,7 @@ class Optimiser(object):
         if scorer is not None and isinstance(scorer, Scorer):
             self.scorer = scorer
         else:
-            self.scorer = Scorer(self.Collection.records,
-                                 analysis=analysis,
-                                 datatype=self.datatype,
-                                 tmpdir=tmpdir)
+            self.scorer = Scorer(self.Collection.records)
 
         self.nclusters = nclusters
         self.tmpdir = tmpdir
@@ -207,12 +204,12 @@ class Optimiser(object):
                 print('Testing Clusters {0} and {1}'.format(i, j))
                 test_assignment = self.merge(assignment, i, j)
                 self.update(test_assignment)
-                score = self.scorer.score(test_assignment, history=False)
+                score_value = self.scorer.score(test_assignment, history=False)
 
-                if score > best_score:
+                if score_value > best_score:
                     merging[0] = i
                     merging[1] = j
-                    best_score = score
+                    best_score = score_value
                     best_assignment = test_assignment
 
         print('Merging clusters {0} and {1}'.format(*merging))
@@ -594,9 +591,7 @@ if __name__ == '__main__':
 
     c = Collection(input_dir=args.input_dir,
                    compression=args.compression,
-                   file_format=args.format,
-                   datatype=args.datatype,
-                   tmpdir=new_tmpdir)
+                   file_format=args.format)
 
     # Initial partitioning - either random or specified from a file
     if args.partition is not None:

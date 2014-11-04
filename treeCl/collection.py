@@ -242,8 +242,8 @@ class Collection(object):
             new_seqs.append(dict([(k, ''.join(take(l, d[k]))) for k in d]))
 
         records = []
-        for (keys, d) in zip(concat.headers, new_seqs):
-            records.append(items_subset(keys, d))
+        for (k, d) in zip(concat.headers, new_seqs):
+            records.append(items_subset(k, d))
 
         permutation = self.__class__(
             records=[Alignment(seqs, dtype) for (seqs, dtype) in zip(records, concat.datatypes)])
