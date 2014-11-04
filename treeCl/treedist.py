@@ -5,9 +5,9 @@ import itertools
 
 # third party
 import scipy
+from tree_distance import getEuclideanDistance, getGeodesicDistance, getRobinsonFouldsDistance, getWeightedRobinsonFouldsDistance
 
 # treeCl
-import tree
 
 __all__ = ["eucdist", "eucdist_matrix", "geodist", "geodist_matrix", "rfdist", "rfdist_matrix", "wrfdist",
            "wrfdist_matrix"]
@@ -31,7 +31,7 @@ def _generic_distance_calc(fn, t1, t2, normalise):
         t1, t2 = _equalise_leaf_sets(t1, t2, False)
     if len(t1 & t2) < 2:
         raise AttributeError('Can\'t calculate tree distances when tree overlap is less than two leaves')
-    return fn(t1.javatree, t2.javatree, normalise)
+    return fn(t1.phylotree, t2.phylotree, normalise)
 
 
 def _generic_matrix_calc(fn, trees, normalise):
@@ -41,32 +41,32 @@ def _generic_matrix_calc(fn, trees, normalise):
 
 
 def eucdist(t1, t2, normalise=False):
-    return _generic_distance_calc(tree.GTP.getEuclideanDistance, t1, t2, normalise)
+    return _generic_distance_calc(getEuclideanDistance, t1, t2, normalise)
 
 
 def geodist(t1, t2, normalise=False):
-    return _generic_distance_calc(tree.GTP.getGeodesicDistance, t1, t2, normalise)
+    return _generic_distance_calc(getGeodesicDistance, t1, t2, normalise)
 
 
 def rfdist(t1, t2, normalise=False):
-    return _generic_distance_calc(tree.GTP.getRobinsonFouldsDistance, t1, t2, normalise)
+    return _generic_distance_calc(getRobinsonFouldsDistance, t1, t2, normalise)
 
 
 def wrfdist(t1, t2, normalise=False):
-    return _generic_distance_calc(tree.GTP.getWeightedRobinsonFouldsDistance, t1, t2, normalise)
+    return _generic_distance_calc(getWeightedRobinsonFouldsDistance, t1, t2, normalise)
 
 
 def eucdist_matrix(trees, normalise):
-    return _generic_matrix_calc(tree.GTP.getEuclideanDistance, trees, normalise)
+    return _generic_matrix_calc(getEuclideanDistance, trees, normalise)
 
 
 def geodist_matrix(trees, normalise):
-    return _generic_matrix_calc(tree.GTP.getGeodesicDistance, trees, normalise)
+    return _generic_matrix_calc(getGeodesicDistance, trees, normalise)
 
 
 def rfdist_matrix(trees, normalise):
-    return _generic_matrix_calc(tree.GTP.getRobinsonFouldsDistance, trees, normalise)
+    return _generic_matrix_calc(getRobinsonFouldsDistance, trees, normalise)
 
 
 def wrfdist_matrix(trees, normalise):
-    return _generic_matrix_calc(tree.GTP.getWeightedRobinsonFouldsDistance, trees, normalise)
+    return _generic_matrix_calc(getWeightedRobinsonFouldsDistance, trees, normalise)

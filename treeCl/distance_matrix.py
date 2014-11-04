@@ -7,7 +7,7 @@ import sklearn
 
 # treeCl
 import errors
-from tree_distances import eucdist_matrix, geodist_matrix, rfdist_matrix, wrfdist_matrix
+from treedist import eucdist_matrix, geodist_matrix, rfdist_matrix, wrfdist_matrix
 
 dist_mtx_fns = dict(euc=eucdist_matrix, geo=geodist_matrix, rf=rfdist_matrix, wrf=wrfdist_matrix)
 

@@ -9,46 +9,12 @@ import re
 # third party
 import dendropy
 import numpy as np
+from tree_distance import PhyloTree
 
 # treeCl
 from errors import FileError, filecheck, optioncheck
 from utils import fileIO, regex_search_extract
 from utils.lazyprop import lazyprop
-
-
-def set_java_classpath():
-    """ Automatically add our gtp.jar to the environment's CLASSPATH
-    """
-    import os
-
-    current_classpath = os.getenv('CLASSPATH')
-    jarfile_location = os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                                    'interfacing',
-                                                    'gtp.jar'))
-    assert fileIO.can_locate(jarfile_location)
-    if current_classpath is not None:
-        if 'gtp.jar' in current_classpath:
-            return
-        else:
-            os.environ['CLASSPATH'] = ':'.join([current_classpath, jarfile_location])
-    else:
-        os.environ['CLASSPATH'] = jarfile_location
-
-
-def setup_java_classes():
-    """
-    Sets up access to java classes in gtp.jar using jnius
-    :return: tuple: (PhyloTree, GTP)
-    """
-    set_java_classpath()
-    import jnius
-
-    phylotree = jnius.autoclass('distanceAlg1.PhyloTree')
-    gtp = jnius.autoclass('polyAlg.PolyMain')
-    return phylotree, gtp
-
-
-PhyloTree, GTP = setup_java_classes()
 
 
 def cast(dendropy_tree):
@@ -401,7 +367,7 @@ class Tree(dendropy.Tree):
                 self.is_rooted = True
                 self.update_splits()
         self.name = name
-        self._javatree = None
+        self._phylotree = None
         self._dirty = False
 
     def __repr__(self):
@@ -466,18 +432,18 @@ class Tree(dendropy.Tree):
         return n
 
     @property
-    def javatree(self):
+    def phylotree(self):
         """
-        Gets the java PhyloTree object corresponding to this tree.
+        Gets the c++ PhyloTree object corresponding to this tree.
         Should be canonically the same - we set a _dirty flag if the Python version of the
         tree has changed since construction. If the flag is set then we reconstruct
-        the java PhyloTree
+        the c++ PhyloTree
         :return: PhyloTree instance
         """
-        if not self._javatree or self._dirty:
-            self._javatree = PhyloTree(self.newick, self.rooted)
+        if not self._phylotree or self._dirty:
+            self._phylotree = PhyloTree(self.newick, self.rooted)
             self._dirty = False
-        return self._javatree
+        return self._phylotree
 
     @newick.setter
     def newick(self, newick_string):
@@ -499,28 +465,6 @@ class Tree(dendropy.Tree):
         t = cls(newick)
         t.resolve_polytomies()
         return t.newick
-
-    @classmethod
-    def pruned_pair(cls, t1, t2):
-        """ Returns two trees pruned to the intersection of their taxon sets """
-        assert isinstance(t1, cls)
-        assert isinstance(t2, cls)
-
-        # intersection = t1 & t2
-        symdiff = t1 ^ t2
-
-        t1 = t1.copy()
-        t2 = t2.copy()
-        t1.prune_taxa_with_labels(symdiff)
-        t2.prune_taxa_with_labels(symdiff)
-        t1.seed_node.edge_length = 0.0
-        t2.seed_node.edge_length = 0.0
-
-        # To avoid taxon set nightmares do this:
-        tax = dendropy.TaxonSet()
-        t1 = cls(t1.as_string('newick'), taxon_set=tax)
-        t2 = cls(t2.as_string('newick'), taxon_set=tax)
-        return t1, t2
 
     @classmethod
     def trifurcate_base(cls, newick):
