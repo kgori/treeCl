@@ -37,7 +37,7 @@ class Optimiser(object):
         if scorer is not None and isinstance(scorer, Scorer):
             self.scorer = scorer
         else:
-            self.scorer = Scorer(self.Collection.records)
+            self.scorer = Scorer(self.Collection)
 
         self.nclusters = nclusters
         self.tmpdir = tmpdir

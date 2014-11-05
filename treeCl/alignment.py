@@ -2,13 +2,15 @@ import bpp
 import collections
 import os
 import random
+import shutil
+import sys
 import tempfile
-
 from numpy import log
-
 from tree import Tree
 from interfacing import pll
 from utils import fileIO
+from constants import PLL_RANDOM_SEED
+
 
 class Alignment(bpp.Alignment):
     def __init__(self, *args):
@@ -41,12 +43,12 @@ class Alignment(bpp.Alignment):
         self.infile = args[0]
 
     def pll_get_instance(self, *args):
-        tmpdir = tmpfile = None
+        tmpdir = None
         try:
             with open(self.infile):
                 pass
             alignment = self.infile
-            instance = pll.create_instance(alignment, *args) # args=(partitions, tree, threads, rns)
+            instance = pll.create_instance(alignment, *args)  # args=(partitions, tree, threads, rns)
             return instance
 
         except (IOError, TypeError):
@@ -57,12 +59,14 @@ class Alignment(bpp.Alignment):
             return instance
 
         finally:
-            if tmpfile:
-                os.remove(tmpfile)
-            if tmpdir:
-                os.rmdir(tmpdir)
+            try:
+                if tmpdir is not None:
+                    shutil.rmtree(tmpdir)
+            except OSError:
+                if os.path.exists(tmpdir):
+                    sys.stderr.write("Could not delete {}\n".format(tmpdir))
 
-    def pll_optimise(self, partitions, tree, model=None, nthreads=1, opt_subst=True, seed=None):
+    def pll_optimise(self, partitions, tree, model=None, nthreads=1, opt_subst=True, seed=PLL_RANDOM_SEED):
         """
         Runs the full raxml search algorithm. Model parameters are set using a combination of partitions and model.
         Optimisation of substitution model parameters is enabled with opt_subst=True.
@@ -75,7 +79,6 @@ class Alignment(bpp.Alignment):
         """
 
         instance = None
-        seed = seed or random.randint(1, 99999)
         try:
             instance = self.pll_get_instance(partitions, tree, nthreads, seed)
             if model is not None:

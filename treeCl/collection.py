@@ -2,6 +2,7 @@
 from __future__ import print_function
 
 # standard lib
+import os
 import sys
 import itertools
 import random
@@ -15,11 +16,11 @@ import numpy as np
 from tree import Tree
 from distance_matrix import DistanceMatrix
 from alignment import Alignment
-from utils import fileIO, flatten_list
+from utils import fileIO
 from utils.decorators import lazyprop
 from utils.printing import print_and_return
-from errors import OptionError, optioncheck, directorycheck
-from constants import SORT_KEY, PHYML_MEMORY_MIN
+from errors import optioncheck, directorycheck
+from constants import SORT_KEY, PLL_RANDOM_SEED
 
 
 class NoRecordsError(Exception):
@@ -113,7 +114,7 @@ class Collection(object):
     # trees.sort(key=sorting_lambda)
     # for rec, tree in zip(self.records, trees):
     # assert rec.get_namespace() == tree.name
-    #         rec.tree = tree
+    # rec.tree = tree
 
     def num_species(self):
         """ Returns the number of species found over all records
@@ -136,12 +137,15 @@ class Collection(object):
         elif file_format == 'phylip':
             extensions = ['phy']
 
+        else:
+            extensions = []
+
         if compression:
             extensions = ['.'.join([x, compression]) for x in extensions]
 
         files = fileIO.glob_by_extensions(input_dir, extensions)
         files.sort(key=SORT_KEY)
-        self._files = files
+        self._input_files = files
         records = []
 
         for f in files:
@@ -207,7 +211,8 @@ class Collection(object):
                 model = 'GTR'
             else:
                 model = 'LGX'
-            result = rec.pll_optimise('{}, {} = 1 - {}'.format(model, rec.name, len(rec)), rec.tree.newick, nthreads=threads)
+            result = rec.pll_optimise('{}, {} = 1 - {}'.format(model, rec.name, len(rec)), rec.tree.newick,
+                                                               nthreads=threads, seed=PLL_RANDOM_SEED)
             freqs = result['partitions'][0]['frequencies']
             tree = result['tree']
             alpha = result['partitions'][0]['alpha']
@@ -215,7 +220,7 @@ class Collection(object):
             rec.set_gamma_rate_model(4, alpha)
             rec.set_frequencies(freqs)
             if rec.is_dna():
-                record.set_rates(result['partitions'][0]['rates'], 'ACGT')
+                rec.set_rates(result['partitions'][0]['rates'], 'ACGT')
             rec.initialise_likelihood(tree)
 
     def get_tree_distance_matrix(self, metric, **kwargs):
@@ -229,8 +234,8 @@ class Collection(object):
         def take(n, iterable):
             return [iterable.next() for _ in range(n)]
 
-        def items_subset(keys, d):
-            return [(k, d[k]) for k in keys]
+        def items_subset(kys, dct):
+            return [(ky, dct[ky]) for ky in kys]
 
         concat = Concatenation(self, range(len(self)))
         sites = concat.alignment.get_sites()
@@ -350,7 +355,7 @@ class Concatenation(object):
 
         return distvar_string, genome_map_string, labels_string
 
-    def tree_collection(self,
+    def minsq_tree(self,
                         niters=5,
                         keep_topology=False,
                         quiet=True,
@@ -359,7 +364,11 @@ class Concatenation(object):
 
         import tree_collection
 
-        guide_tree = guide_tree.copy()
+        try:
+            guide_tree = guide_tree.copy()
+        except AttributeError:
+            guide_tree = self.mrp_tree
+
         for e in guide_tree.postorder_edge_iter():
             if e.length is None:
                 if e.head_node == guide_tree.seed_node:
@@ -376,9 +385,7 @@ class Concatenation(object):
         output_tree, score = tree_collection.compute(dv, gm, lab, guide_tree.scale(scale).newick,
                                                      niters, keep_topology,
                                                      quiet)
-
         return Tree(output_tree), score
-
 
     def qfile(self, dna_model='DNA', protein_model='LG', sep_codon_pos=False,
               ml_freqs=False, eq_freqs=False):
@@ -426,75 +433,75 @@ class Scorer(object):
             self,
             collection,
             verbosity=0,
-            populate_cache=True,
     ):
 
         self.collection = collection
         self.verbosity = verbosity
-        self.cache = {}
+        self.minsq_cache = {}
+        self.lnl_cache = {}
         self.history = []
-        if populate_cache:
-            self.populate_cache()
 
     @property
     def records(self):
         return self.collection.records
 
-    def add_partition_list(self, partition_list):
+    def get_minsq_partition(self, partition_list):
         """ Calculates concatenated trees for a list of Partitions """
-        index_tuples = list(itertools.chain(*[partition.get_membership()
-                                              for partition in partition_list]))
-        missing = sorted(set(index_tuples).difference(self.cache.keys()))
-        self._add_index_tuple_list(missing)
+        index_tuples = partition.get_membership()
+        return self._get_minsq_index_tuple_list(index_tuples)
 
-    def _add_index_tuple_list(self, index_tuple_list):
-        if self.lsf and not self.analysis == 'TreeCollection':
-            supermatrices = [self.concatenate(index_tuple).alignment
-                             for index_tuple in index_tuple_list]
 
-            trees = runLSFPhyml(supermatrices,
-                                self.tmpdir,
-                                analysis=self.analysis,
-                                verbosity=self.verbosity,
-                                strategy='dynamic',
-                                minmem=PHYML_MEMORY_MIN,
-                                debug=self.debug,
-            )
-            for index_tuple, tree in zip(index_tuple_list, trees):
-                self.cache[index_tuple] = tree
-        else:
-            for index_tuple in index_tuple_list:
-                self.add(index_tuple)
+    def get_lnl_partition(self, partition):
+        """ Calculates concatenated trees for a list of Partitions """
+        index_tuples = partition.get_membership()
+        return self._get_lnl_index_tuple_list(index_tuples)
 
-    def add(self, index_tuple):
-        """ Takes a tuple of indices. Concatenates the records in the record
-        list at these indices, and builds a tree. Returns the tree """
+    def _get_lnl_index_tuple_list(self, index_tuple_list):
+        """
+        Does maximum-likelihood tree optimisation for the alignments specified
+        by the tuple list.
+        :param index_tuple_list:
+        :return:
+        """
+        return [self._get_lnl(index_tuple) for index_tuple in index_tuple_list]
 
-        if index_tuple in self.cache:
-            return self.cache[index_tuple]
+    def _get_minsq_index_tuple_list(self, index_tuple_list):
+        """
+        Does tree estimation by minimum squared distance for the alignments
+        specified by the tuple list.
+        :param index_tuple_list:
+        :return:
+        """
+        return [self._get_minsq(index_tuple) for index_tuple in index_tuple_list]
 
-        if len(index_tuple) == 1:
-            alignment = self.collection[index_tuple[0]]
-        else:
-            concat = self.concatenate(index_tuple)
-            alignment = concat.alignment
+    def _get_lnl(self, index_tuple):
+        """
+        Takes a tuple of indices. Concatenates the records in the record
+        list at these indices, and builds a tree. Returns the tree
+        :param index_tuple: tuple of indexes at which to find the alignments.
+        :return:
+        """
+        try:
+            return self.lnl_cache[index_tuple]
+        except KeyError:
+            conc = self.concatenate(index_tuple)
+            partitions = conc.qfile(dna_model="GTR", protein_model="LGX")
+            result = self.lnl_cache[index_tuple] = conc.pll_optimise(partitions)
+            return result
 
-        if self.analysis == 'TreeCollection':
-            guidetrees = [self.records[n].tree for n in
-                          index_tuple][:self.max_guidetrees]
-            tree = alignment.tree_collection(
-                guide_tree=guidetrees[0])
-
-        else:
-            tree = runPhyml(alignment,
-                            self.tmpdir,
-                            analysis=self.analysis,
-                            verbosity=self.verbosity, )
-            if self.verbosity == 1:
-                print()
-
-        self.cache[index_tuple] = tree
-        return tree
+    def _get_minsq(self, index_tuple):
+        """
+        Takes a tuple of indices. Concatenates the records in the record
+        list at these indices, and builds a tree. Returns the tree
+        :param index_tuple: tuple of indexes at which to find the alignments.
+        :return:
+        """
+        try:
+            return self.minsq_cache[index_tuple]
+        except KeyError:
+            conc = self.concatenate(index_tuple)
+            result = self.minsq_cache[index_tuple] = conc.minsq_tree()
+            return result
 
     def concatenate(self, index_tuple):
         """ Returns a Concatenation object that stitches together
@@ -524,123 +531,15 @@ class Scorer(object):
         """ Gets records by their index, contained in the index_tuple """
         return [self.records[n] for n in index_tuple]
 
-    def populate_cache(self):
-        """ Adds all single-record trees to the cache """
-        to_calc = []
-        for i, rec in enumerate(self.records):
-            key = (i,)
-            if rec.tree is None:
-                to_calc.append(key)
-                continue
-            if rec.tree.program.startswith('phyml+'):
-                analysis = rec.tree.program[6:]
-            else:
-                analysis = rec.tree.program
-            if analysis == self.analysis:
-                tree = rec.tree
-                self.cache[key] = tree
-            else:
-                to_calc.append(key)
-        self._add_index_tuple_list(to_calc)
-
-
-    def score(self, partition_object, history=True, **kwargs):
-        """ Generates the index lists of the Partition object, gets the score
-        for each one, and returns the sum """
-
-        inds = partition_object.get_membership()
-        self.add_partition_list([partition_object])
-        likelihood = sum([self.add(index_tuple, **kwargs).score
-                          for index_tuple in inds])
-        if history is True:
-            self.update_history(likelihood, inds)
-        return likelihood
-
-    def simulate(self, index_tuple, model=None, lsf=False, ntimes=1):
-        """ Simulate a group of sequence alignments using ALF. Uses one of
-        {(GCB, JTT, LG, WAG - protein), (CPAM, ECM and ECMu - DNA)}, WAG by
-        default. TO DO: add parameterised models when I have a robust (probably
-        PAML) method of estimating them from alignment+tree """
-
-        if self.datatype == 'protein':  # set some defaults
-            model = model or 'WAG'
-            optioncheck(model, [
-                'CPAM',
-                'ECM',
-                'ECMu',
-                'WAG',
-                'JTT',
-                'GCB',
-                'LG',
-            ])
-        else:
-            model = model or 'GTR'
-            try:
-                optioncheck(model, ['CPAM', 'ECM', 'ECMu', 'GTR'])
-            except OptionError, e:
-                print('Choose a DNA-friendly model for simulation:\n', e)
-                return
-
-        member_records = self.members(index_tuple)
-        concat = self.concatenate(index_tuple).alignment
-        (lengths, names) = zip(*[(rec.seqlength, rec.name) for rec in
-                                 member_records])
-        full_length = sum(lengths)
-        concat.tree = self.add(index_tuple)
-
-        if lsf and ntimes > 1:
-            simulated_records = lsf_simulate_from_record(
-                concat,
-                ntimes,
-                length=full_length,
-                tmpdir=self.tmpdir,
-                model=model,
-                split_lengths=lengths,
-                gene_names=names,
-            )
-
-        else:
-            simulated_records = simulate_from_record(
-                concat,
-                length=full_length,
-                tmpdir=self.tmpdir,
-                model=model,
-                split_lengths=lengths,
-                gene_names=names,
-            )
-
-        return simulated_records
-
-    def simulate_from_result(self,
-                             partition_object, lsf=False,
-                             ntimes=1, **kwargs
-    ):
-        """ Simulates a set of records using parameters estimated when
-        calculating concatenated trees from the Partition object """
-        inds = partition_object.get_membership()
-
-        if lsf and ntimes > 1:
-            multiple_results = [self.simulate(ind, lsf=lsf, ntimes=ntimes)
-                                for ind in inds]
-            return [flatten_list(result)
-                    for result in zip(*multiple_results)]
-
-        else:
-            return [flatten_list([self.simulate(ind, **kwargs)
-                                  for ind in inds])
-                    for _ in range(ntimes)]
-
-
-    def dump_cache(self, filename):
-        with open(filename, 'w') as outfile:
-            for k, v in self.cache.items():
-                outfile.write('{}\t{}\n'.format(k, str(v)))
-
-    def load_cache(self, filename):
-        d = {}
-        with open(filename, 'r') as infile:
-            for line in infile:
-                k, s = line.rstrip().split('\t')
-                t = Tree.gen_from_text(s)
-                d[k] = t
-        self.cache = d
+    def score(self, partition, criterion):
+        """
+        Return the score for a partition - either the sum of log likelihoods,
+        or the total min squares dimensionless fit index
+        :param partition: Partition object
+        :param criterion: either 'minsq' or 'lnl'
+        :return: score (float)
+        """
+        optioncheck(criterion, ['lnl', 'minsq'])
+        results = (self.get_lnl_partition(partition) if criterion == 'lnl'
+                   else self.get_minsq_partition(partition))
+        return results  # TODO: how to sum scores from this?
