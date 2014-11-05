@@ -16,7 +16,7 @@ from tree import Tree
 from distance_matrix import DistanceMatrix
 from alignment import Alignment
 from utils import fileIO, flatten_list
-from utils.lazyprop import lazyprop
+from utils.decorators import lazyprop
 from utils.printing import print_and_return
 from errors import OptionError, optioncheck, directorycheck
 from constants import SORT_KEY, PHYML_MEMORY_MIN
