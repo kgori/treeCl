@@ -11,6 +11,7 @@ import numpy as np
 from scipy.cluster.hierarchy import fcluster
 from scipy.spatial.distance import squareform
 from fastcluster import linkage
+import skbio
 
 try:
     from Bio.Cluster import kmedoids
@@ -20,7 +21,7 @@ except ImportError:
     Biopython_Unavailable = True
 
 try:
-    from sklearn.cluster import KMeans
+    from sklearn.cluster import DBSCAN, KMeans
     from sklearn.mixture import GMM
 except ImportError:
     print("sklearn unavailable: KMeans disabled")
@@ -53,6 +54,14 @@ class Clustering(object):
     def __str__(self):
         return str(self.distance_matrix)
 
+    def anosim(self, partition, n_permutations=999):
+        result = skbio.stats.distance.ANOSIM(skbio.DistanceMatrix(self.distance_matrix), partition.partition_vector)
+        return result(n_permutations)
+
+    def permanova(self, partition, n_permutations=999):
+        result = skbio.stats.distance.PERMANOVA(skbio.DistanceMatrix(self.distance_matrix), partition.partition_vector)
+        return result(n_permutations)
+
     def kmedoids(self, nclusters, noise=False, npass=100, nreps=1):
 
         if Biopython_Unavailable:
@@ -68,6 +77,17 @@ class Clustering(object):
              range(nreps)]
         p.sort(key=lambda x: x[1])
         return Partition(p[0][0])
+
+    def dbscan(self, eps=0.75, min_samples=3):
+        """
+        :param kwargs: key-value arguments to pass to DBSCAN
+                       (eps: max dist between points in same neighbourhood,
+                        min_samples: number of points in a neighbourhood)
+        :return:
+        """
+        est = DBSCAN(metric='precomputed', eps=eps, min_samples=min_samples)
+        est.fit(self.distance_matrix)
+        return Partition(est.labels_)
 
     def hierarchical(
             self,

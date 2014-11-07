@@ -4,7 +4,6 @@ from __future__ import print_function
 # standard lib
 import os
 import sys
-import itertools
 import random
 import tempfile
 import timeit
@@ -16,7 +15,7 @@ import numpy as np
 from tree import Tree
 from distance_matrix import DistanceMatrix
 from alignment import Alignment
-from utils import fileIO
+from utils import fileIO, setup_progressbar
 from utils.decorators import lazyprop
 from utils.printing import print_and_return
 from errors import optioncheck, directorycheck
@@ -40,7 +39,7 @@ class NoRecordsError(Exception):
 class Collection(object):
     """ Call:
 
-    c = Collection(inut_dir, file_format, datatype, tmpdir ...)
+    c = Collection(input_dir, file_format, datatype, tmpdir ...)
     c.calc_distances(), c.calc_TC_trees(), ...
     dm = c.distance_matrix('geo')
     cl = Clustering(dm)
@@ -197,16 +196,20 @@ class Collection(object):
         having had appropriate ML parametric models set up in advance.
         :return: void
         """
-        for rec in self.records:
-            print_and_return("Calculating distances for {}".format(rec.name))
+        pbar = setup_progressbar('Calculating distances', len(self))
+        pbar.start()
+        for i, rec in enumerate(self.records):
             rec.compute_distances()
+            pbar.update(i)
+        pbar.finish()
 
     def calc_pll_trees(self, threads=1):
         """ Use pllpy to calculate maximum-likelihood trees
         :return: void
         """
-        for rec in self.records:
-            print_and_return("Calculating ML tree for {}".format(rec.name))
+        pbar = setup_progressbar('Calculating ML trees', len(self))
+        pbar.start()
+        for i, rec in enumerate(self.records):
             if rec.is_dna():
                 model = 'GTR'
             else:
@@ -222,6 +225,8 @@ class Collection(object):
             if rec.is_dna():
                 rec.set_rates(result['partitions'][0]['rates'], 'ACGT')
             rec.initialise_likelihood(tree)
+            pbar.update(i)
+        pbar.finish()
 
     def get_tree_distance_matrix(self, metric, **kwargs):
         """ Generate a distance matrix from a fully-populated Collection """
@@ -283,7 +288,9 @@ class Concatenation(object):
 
     @lazyprop
     def alignment(self):
-        return Alignment([self.collection[i] for i in self.indices])
+        al = Alignment([self.collection[i] for i in self.indices])
+        al.fast_compute_distances()
+        return al
 
     @lazyprop
     def names(self):
@@ -353,21 +360,7 @@ class Concatenation(object):
         distvar_string = '\n'.join(distvar_list)
         genome_map_string = '\n'.join(genome_map_list)
 
-        return distvar_string, genome_map_string, labels_string
-
-    def minsq_tree(self,
-                        niters=5,
-                        keep_topology=False,
-                        quiet=True,
-                        guide_tree=None,
-                        scale=1):
-
-        import tree_collection
-
-        try:
-            guide_tree = guide_tree.copy()
-        except AttributeError:
-            guide_tree = self.mrp_tree
+        guide_tree = self.alignment.tree
 
         for e in guide_tree.postorder_edge_iter():
             if e.length is None:
@@ -380,11 +373,23 @@ class Concatenation(object):
             guide_tree.reroot_at_midpoint()
         if not guide_tree.is_rooted:
             raise Exception('Couldn\'t root the guide tree')
+        tree_string = guide_tree.scale(scale).newick
 
-        dv, gm, lab = self._get_tree_collection_strings(scale)
-        output_tree, score = tree_collection.compute(dv, gm, lab, guide_tree.scale(scale).newick,
+        return distvar_string, genome_map_string, labels_string, tree_string
+
+    def minsq_tree(self,
+                   niters=5,
+                   keep_topology=False,
+                   quiet=True,
+                   scale=1):
+
+        dv, gm, lab, tree_string = self._get_tree_collection_strings(scale)
+
+        import tree_collection
+        output_tree, score = tree_collection.compute(dv, gm, lab, tree_string,
                                                      niters, keep_topology,
                                                      quiet)
+
         return Tree(output_tree), score
 
     def qfile(self, dna_model='DNA', protein_model='LG', sep_codon_pos=False,
@@ -417,7 +422,7 @@ class Concatenation(object):
 
     def pll_optimise(self, partitions, tree=None, model=None, nthreads=1, **kwargs):
         if tree is None:
-            tree = self.mrp_tree.newick
+            tree = self.alignment.tree.newick
         return self.alignment.pll_optimise(partitions, tree, model, nthreads, **kwargs)
 
     def paml_partitions(self):

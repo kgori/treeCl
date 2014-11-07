@@ -32,7 +32,9 @@ except ImportError:
 
     sys.exit()
 
-VERSION = '0.0.1'
+import pkg_resources
+
+VERSION = '0.0.2'
 
 logo = """
 ═══════════ ╔═╗┬
@@ -45,7 +47,7 @@ logo = """
 """.format(VERSION)
 
 print(logo)
-
+data_dir = pkg_resources.resource_filename("autowrap", "data_files")
 extensions = [
     Extension(name='tree_collection',
               sources=[
@@ -55,6 +57,8 @@ extensions = [
                   'extensions/tree_collection/src/newick.cc',
               ],
               language='c++',
+              include_dirs=[data_dir],
+              extra_compile_args=['-std=c++11'],
     ),
 ]
 
@@ -87,6 +91,7 @@ setup(name="treeCl",
           'pllpy',
           'progressbar-latest',
           'scipy',
+          'scikit-bio',
           'scikit-learn',
           'tree_distance',
       ],

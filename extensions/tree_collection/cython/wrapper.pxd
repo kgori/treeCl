@@ -9,8 +9,8 @@ cdef extern from "wrapper.cpp":
                                                     libcpp_string tree,
                                                     int iter,
                                                     bool keep_topology,
-                                                    bool quiet) nogil except +
+                                                    bool quiet) except +
     cdef double fit(libcpp_string matrices,
                     libcpp_string mapping,
                     libcpp_string labels,
-                    libcpp_string tree) nogil except +
+                    libcpp_string tree) except +

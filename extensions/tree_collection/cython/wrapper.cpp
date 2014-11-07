@@ -9,7 +9,7 @@ double fit(std::string matrices, std::string mapping, std::string labels, std::s
     std::vector<MinSquareTreeCollection::DblMatrix> pmatrices;
     MinSquareTreeCollection::IntMatrix pmapping;
     std::vector<std::string> plabels;
-    PhyTree *ptree = NULL;
+    PhyTree::TreePtr ptree;
     MinSquareTreeCollection *mstc = NULL;
 
     try {
@@ -19,14 +19,9 @@ double fit(std::string matrices, std::string mapping, std::string labels, std::s
         ptree = ProblemParser::parse_tree(tree);
 
         mstc = new MinSquareTreeCollection(pmatrices, pmapping, plabels, *ptree);
-        delete ptree;
-        ptree = NULL;
     }
 
     catch(std::exception &e) {
-        if(ptree) {
-            delete ptree;
-        }
         if(mstc) {
             delete mstc;
         }
@@ -44,36 +39,18 @@ std::pair<std::string, double> compute(std::string matrices, std::string mapping
     std::vector<MinSquareTreeCollection::DblMatrix> pmatrices;
     MinSquareTreeCollection::IntMatrix pmapping;
     std::vector<std::string> plabels;
-    PhyTree *ptree = NULL;
-    MinSquareTreeCollection *mstc = NULL;
+    PhyTree::TreePtr ptree;
 
-    try {
-        pmatrices = ProblemParser::parse_matrices(matrices);
-        pmapping = ProblemParser::parse_mapping(mapping);
-        plabels = ProblemParser::parse_labels(labels);
-        ptree = ProblemParser::parse_tree(tree);
+    std::pair<std::string, double> result;
 
-        mstc = new MinSquareTreeCollection(pmatrices, pmapping, plabels, *ptree);
-        delete ptree;
-        ptree = NULL;
+    pmatrices = ProblemParser::parse_matrices(matrices);
+    pmapping = ProblemParser::parse_mapping(mapping);
+    plabels = ProblemParser::parse_labels(labels);
+    ptree = ProblemParser::parse_tree(tree);
 
-        mstc->compute(keep_topology, iter, quiet);
-    }
-
-    catch(std::exception &e) {
-        if(ptree) {
-            delete ptree;
-        }
-        if(mstc) {
-            delete mstc;
-        }
-        cerr << e.what() << endl;
-    }
-
-    std::string out_tree(mstc->getTree());
-    double out_score(mstc->getScore());
-    std::pair<std::string, double> result = std::make_pair(out_tree, out_score);
-
-    delete mstc;
+    MinSquareTreeCollection mstc(pmatrices, pmapping, plabels, *ptree);
+    mstc.compute(keep_topology, iter, quiet);
+    mstc.getTree();
+    result = std::make_pair(mstc.newick, mstc.getScore());
     return result;
 }
