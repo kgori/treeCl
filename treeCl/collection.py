@@ -2,6 +2,7 @@
 from __future__ import print_function
 
 # standard lib
+import math
 import os
 import sys
 import random
@@ -215,7 +216,7 @@ class Collection(object):
             else:
                 model = 'LGX'
             result = rec.pll_optimise('{}, {} = 1 - {}'.format(model, rec.name, len(rec)), rec.tree.newick,
-                                                               nthreads=threads, seed=PLL_RANDOM_SEED)
+                                      nthreads=threads, seed=PLL_RANDOM_SEED)
             freqs = result['partitions'][0]['frequencies']
             tree = result['tree']
             alpha = result['partitions'][0]['alpha']
@@ -386,6 +387,7 @@ class Concatenation(object):
         dv, gm, lab, tree_string = self._get_tree_collection_strings(scale)
 
         import tree_collection
+
         output_tree, score = tree_collection.compute(dv, gm, lab, tree_string,
                                                      niters, keep_topology,
                                                      quiet)
@@ -450,7 +452,7 @@ class Scorer(object):
     def records(self):
         return self.collection.records
 
-    def get_minsq_partition(self, partition_list):
+    def get_minsq_partition(self, partition):
         """ Calculates concatenated trees for a list of Partitions """
         index_tuples = partition.get_membership()
         return self._get_minsq_index_tuple_list(index_tuples)
@@ -505,8 +507,9 @@ class Scorer(object):
             return self.minsq_cache[index_tuple]
         except KeyError:
             conc = self.concatenate(index_tuple)
-            result = self.minsq_cache[index_tuple] = conc.minsq_tree()
-            return result
+            tree, sse = self.minsq_cache[index_tuple] = conc.minsq_tree()
+            n_tips = len(tree)
+            return dict(tree=tree, sse=sse, fit=sse / (2 * (n_tips - 2) * (n_tips - 3)))
 
     def concatenate(self, index_tuple):
         """ Returns a Concatenation object that stitches together
@@ -536,9 +539,9 @@ class Scorer(object):
         """ Gets records by their index, contained in the index_tuple """
         return [self.records[n] for n in index_tuple]
 
-    def score(self, partition, criterion):
+    def get_results(self, partition, criterion):
         """
-        Return the score for a partition - either the sum of log likelihoods,
+        Return the results for scoring a partition - either the sum of log likelihoods,
         or the total min squares dimensionless fit index
         :param partition: Partition object
         :param criterion: either 'minsq' or 'lnl'
@@ -548,3 +551,33 @@ class Scorer(object):
         results = (self.get_lnl_partition(partition) if criterion == 'lnl'
                    else self.get_minsq_partition(partition))
         return results  # TODO: how to sum scores from this?
+
+    def get_likelihood(self, partition):
+        """
+        Return the sum of log-likelihoods for a partition.
+        :param partition: Partition object
+        :return: score (float)
+
+        """
+        results = self.get_results(partition, 'lnl')
+        return math.fsum(x['likelihood'] for x in results)
+
+    def get_sse(self, partition):
+        """
+        Return the sum of squared errors score for a partition
+        :param partition: Partition object
+        :return: score (float)
+        """
+        results = self.get_results(partition, 'minsq')
+        return math.fsum(x['sse'] for x in results)
+
+    def get_fit(self, partition):
+        """
+        Return the dimensionless fit index for a partition
+        (sum of sq err / (2*(T-2)*(T-3), where T is the number of tips).
+        in the tree.
+        :param partition: Partition object
+        :return: score (float)
+        """
+        results = self.get_results(partition, 'minsq')
+        return math.fsum(x['fit'] for x in results)
