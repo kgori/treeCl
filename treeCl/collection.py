@@ -108,15 +108,6 @@ class Collection(object):
         except ValueError:
             return []
 
-    # @trees.setter
-    # def trees(self, trees):
-    # trees = dpy.TreeList(trees)
-    # sorting_lambda = lambda x: SORT_KEY(x.name)
-    # trees.sort(key=sorting_lambda)
-    # for rec, tree in zip(self.records, trees):
-    # assert rec.get_namespace() == tree.name
-    # rec.tree = tree
-
     def num_species(self):
         """ Returns the number of species found over all records
         """
