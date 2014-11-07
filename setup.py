@@ -34,7 +34,7 @@ except ImportError:
 
 import pkg_resources
 
-VERSION = '0.0.2'
+VERSION = '0.0.4'
 
 logo = """
 ═══════════ ╔═╗┬
@@ -71,7 +71,6 @@ setup(name="treeCl",
       packages=find_packages(),
       include_package_data=True,
       package_data={
-          'treeCl': ['software_interfaces/gtp.jar']
       },
       scripts=[
           'bin/simulator',
