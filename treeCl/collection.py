@@ -2,6 +2,7 @@
 from __future__ import print_function
 
 # standard lib
+import json
 import math
 import os
 import sys
@@ -51,7 +52,7 @@ class Collection(object):
             self,
             records=None,
             input_dir=None,
-            trees_dir=None,
+            param_dir=None,
             file_format='fasta',
             compression=None,
     ):
@@ -59,10 +60,10 @@ class Collection(object):
         self._records = None
         self._input_files = None
 
-        if records:
+        if records is not None:
             self.records = records
 
-        elif input_dir:
+        elif input_dir is not None:
             directorycheck(input_dir)
             optioncheck(file_format, ['fasta', 'phylip'])
             self.records = self.read_alignments(input_dir,
@@ -73,8 +74,8 @@ class Collection(object):
             raise Exception('Provide a list of records, '
                             'or the path to a set of alignments')
 
-        if trees_dir:
-            self.read_trees(trees_dir)
+        if param_dir is not None:
+            self.read_parameters(param_dir)
 
         if not self.records:
             raise NoRecordsError(file_format, input_dir, compression)
@@ -171,17 +172,58 @@ class Collection(object):
 
             record.name = (fileIO.strip_extensions(f))
             record.fast_compute_distances()
+            record.parameters = dict(tree=record.tree.newick, name=record.name,
+                                     partitions={0:dict(distances=record.get_distance_variance_matrix().tolist())})
             records.append(record)
 
         return records
 
-    def read_trees(self, input_dir):
+    def read_parameters(self, input_dir):
         """ Read a directory full of tree files, matching them up to the
         already loaded alignments """
 
-        extensions = ['nwk', 'tree']
-        files = fileIO.glob_by_extensions(input_dir, extensions)
-        trees = [Tree.read_from_file(file_) for file_ in files]
+        for rec in self.records:
+            try:
+                with open(os.path.join(input_dir, '{}.json'.format(rec.name))) as infile:
+                    parameters = json.load(infile, parse_int=True)
+                    rec.parameters = parameters
+                    if 'partitions' in rec.parameters:
+                        rec.parameters['partitions'] = {int(k): v for (k, v) in rec.parameters['partitions'].iteritems()}
+                        try:
+                            freqs = rec.parameters['partitions'][0]['frequencies']
+                            alpha = rec.parameters['partitions'][0]['alpha']
+                            tree = rec.parameters['tree']
+                            rec.set_substitution_model('GTR' if rec.is_dna() else 'LG08')
+                            rec.set_gamma_rate_model(4, alpha)
+                            rec.set_frequencies(freqs)
+                            if rec.is_dna():
+                                rec.set_rates(result['partitions'][0]['rates'], 'ACGT')
+                            rec.initialise_likelihood(str(tree))
+                        except KeyError:
+                            pass
+
+                        try:
+                            dists = rec.parameters['partitions'][0]['distances']
+                            rec.set_distance_matrix(dists)
+                        except KeyError:
+                            pass
+
+            except IOError:
+                continue
+
+    def write_parameters(self, output_dir):
+        if not os.path.exists(output_dir):
+            try:
+                os.makedirs(output_dir)
+            except IOError as err:
+                sys.stderr.write(err.message)
+                raise err
+                return
+
+        for rec in self.records:
+            with open(os.path.join(output_dir, '{}.json'.format(rec.name)), 'w') as outfile:
+                parameters = dict((key, val) for (key, val) in rec.parameters.iteritems())
+                json.dump(rec.parameters, outfile, indent=4, separators=(',', ': '))
 
     def fast_calc_distances(self):
         """ Calculates within-alignment pairwise distances and variances for every
@@ -204,13 +246,20 @@ class Collection(object):
             pbar.update(i)
         pbar.finish()
 
-    def calc_pll_trees(self, threads=1):
+    def calc_trees(self, threads=1, indices=None):
         """ Use pllpy to calculate maximum-likelihood trees
         :return: void
         """
-        pbar = setup_progressbar('Calculating ML trees', len(self))
+
+        if indices is None:
+            indices = range(len(self))
+        else:
+            indices = indices
+
+        pbar = setup_progressbar('Calculating ML trees', len(indices))
         pbar.start()
-        for i, rec in enumerate(self.records):
+
+        for i, rec in enumerate(self[i] for i in indices):
             if rec.is_dna():
                 model = 'GTR'
             else:
@@ -226,10 +275,14 @@ class Collection(object):
             if rec.is_dna():
                 rec.set_rates(result['partitions'][0]['rates'], 'ACGT')
             rec.initialise_likelihood(tree)
+            rec.compute_distances()
+            result['partitions'][0]['distances'] = rec.get_distance_variance_matrix().tolist()
+            result['name'] = rec.name
+            rec.parameters = result
             pbar.update(i)
         pbar.finish()
 
-    def get_tree_distance_matrix(self, metric, **kwargs):
+    def get_inter_tree_distances(self, metric, **kwargs):
         """ Generate a distance matrix from a fully-populated Collection """
         return DistanceMatrix(self.trees, metric, **kwargs)
 
@@ -281,7 +334,7 @@ class Concatenation(object):
 
     @lazyprop
     def distances(self):
-        return [self.collection.records[i].get_distances() for i in self.indices]
+        return [self.collection.records[i].get_distance_variance_matrix() for i in self.indices]
 
     @lazyprop
     def datatypes(self):
@@ -550,7 +603,7 @@ class Scorer(object):
         optioncheck(criterion, ['lnl', 'minsq'])
         results = (self.get_lnl_partition(partition) if criterion == 'lnl'
                    else self.get_minsq_partition(partition))
-        return results  # TODO: how to sum scores from this?
+        return results
 
     def get_likelihood(self, partition):
         """

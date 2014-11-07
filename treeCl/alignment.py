@@ -19,6 +19,7 @@ class Alignment(bpp.Alignment):
         self.name = None
         if len(args) > 0 and isinstance(args[0], basestring) and fileIO.can_locate(args[0]):
             self.infile = args[0]
+        self._parameters = {}
 
     def __add__(self, other):
         return self.__class__([self, other])
@@ -30,6 +31,14 @@ class Alignment(bpp.Alignment):
         return output_string + ''.join(
             ['>{}\n{}\n... ({}) ...\n{}\n'.format(header, seq[:50], len(seq) - 100, seq[-50:]) for header, seq in
              contents])
+
+    @property
+    def parameters(self):
+        return self._parameters
+
+    @parameters.setter
+    def parameters(self, parameters):
+        self._parameters = parameters
 
     @property
     def tree(self):
@@ -106,13 +115,11 @@ class Alignment(bpp.Alignment):
                 ucl += v * log(v)
         return ucl - n * log(n)
 
-    def to_dict(self):
+    def write_parameters(self, outfile):
         """
-        Summarises parameter values from PLL instance and writes their values
-        to disk in a json format file
+        Summarises parameter values from PLL instance
 
         :param self: PLL instance being summarised
-        :param json_file: Either a filepath or a file-like stream (e.g. sys.stdout)
         :return: void
         """
         model = dict(tree=self.get_tree(), likelihood=self.get_likelihood(), alpha=self.get_alpha(),
