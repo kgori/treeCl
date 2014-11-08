@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 from __future__ import absolute_import
 
 import os
@@ -17,10 +18,10 @@ except IOError, e:
     sys.exit()
 
 
-app = Celery('proj',
+app = Celery('treeCl_tasks',
              broker='redis://{}'.format(broker_conn),
              backend='redis://{}'.format(backend_conn),
-             include=['tasks'])
+             include=['treeCl_tasks.tasks'])
 
 # Optional configuration, see the application user guide.
 app.conf.update(
