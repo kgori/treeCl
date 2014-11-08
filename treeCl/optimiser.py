@@ -18,6 +18,14 @@ from constants import EPS, NEGINF, TMPDIR, ANALYSES
 from errors import optioncheck
 
 
+def get_clusters(assignment):
+    pvec = assignment.partition_vector
+    index_dict = defaultdict(list)
+    for (position, value) in enumerate(pvec):
+        index_dict[value].append(position)
+    return index_dict
+
+
 class Optimiser(object):
     def __init__(self, nclusters, collection, tmpdir=TMPDIR,
                  analysis='nj', initial_assignment=None, scorer=None):
@@ -91,15 +99,8 @@ class Optimiser(object):
             self.global_best_scores[nclusters] = self.scorer.score(assignment,
                                                                    history=False)
 
-    def get_clusters(self, assignment):
-        pvec = assignment.partition_vector
-        index_dict = defaultdict(list)
-        for (position, value) in enumerate(pvec):
-            index_dict[value].append(position)
-        return index_dict
-
     def get_cluster_trees(self, assignment, index_dict=None):
-        index_dict = (index_dict or self.get_clusters(assignment))
+        index_dict = (index_dict or get_clusters(assignment))
         tree_dict = {}
         for (k, v) in index_dict.items():
             if not tuple(v) in self.scorer.concats:
@@ -122,7 +123,7 @@ class Optimiser(object):
             rec = self.Collection.records[record_index]
             for j, tree in cluster_trees.items():
                 scores[i, j - 1] = self.test(rec, tree)
-        return (scores)
+        return scores
 
     def constrain_assignment(self, assignment, nclusters=None):
         """
@@ -144,12 +145,12 @@ class Optimiser(object):
         """
         MAKES A NEW PARTITION BY REASSIGNING RECORDS BETWEEN CLUSTERS
         """
-
+        optioncheck(choose, ('max', 'min'))
         new_clusters = scores.argmax(axis=1)
         M = scores / scores.sum(axis=1)[:, np.newaxis]
         if choose == 'max':
             reassignments = M.max(axis=1).argsort()[-nreassign:]
-        elif choose == 'min':
+        else:
             reassignments = M.min(axis=1).argsort()[:nreassign]
 
         new_assignment = list(assignment.partition_vector)
@@ -192,7 +193,7 @@ class Optimiser(object):
 
     def merge_closest(self, assignment):
         print('Finding clusters to merge...')
-        clusters = self.get_clusters(assignment)
+        clusters = get_clusters(assignment)
         best_score = NEGINF
         merging = [None, None]
 
@@ -214,7 +215,7 @@ class Optimiser(object):
 
         print('Merging clusters {0} and {1}'.format(*merging))
         print('Best assignment: {0}'.format(best_assignment))
-        return (best_assignment)
+        return best_assignment
 
     def split(self, k, assignment, verbosity=1):
         """
@@ -222,7 +223,7 @@ class Optimiser(object):
         """
         if verbosity > 1:
             print(assignment)
-        members = self.get_clusters(assignment)[k]
+        members = get_clusters(assignment)[k]
         if len(members) == 1:
             return assignment
         elif len(members) == 2:
@@ -262,7 +263,7 @@ class Optimiser(object):
         return assignment
 
     def split_max_var(self, assignment):
-        clusters = self.get_clusters(assignment)
+        clusters = get_clusters(assignment)
         var_dict = {}
 
         for k in clusters.keys():
@@ -274,7 +275,7 @@ class Optimiser(object):
                                     key=operator.itemgetter(1))
 
     def split_search(self, assignment, update=True):
-        clusters = self.get_clusters(assignment)
+        clusters = get_clusters(assignment)
         k = len(assignment)
         best_score = NEGINF
 
@@ -283,16 +284,16 @@ class Optimiser(object):
             test_assignment = self.split(i, assignment)
             # score = self.scorer.score(test_assignment)
             if len(test_assignment) == k + 1:
-                score = self.scorer.score(test_assignment, history=False)
+                curr_score = self.scorer.score(test_assignment, history=False)
                 self.update(test_assignment)
             else:
-                score = -np.Inf
+                curr_score = -np.Inf
                 print('Something has gone wrong')
             print(test_assignment)
-            print(score)
+            print(curr_score)
 
-            if score > best_score:
-                best_score = score
+            if curr_score > best_score:
+                best_score = curr_score
                 best_assignment = test_assignment
 
         return best_assignment
@@ -352,7 +353,7 @@ class Optimiser(object):
         records = [self.Collection.records[i] for i in members]
         total_length = sum([r.seqlength for r in records])
 
-        return (score / total_length)
+        return score / total_length
 
     def optimise(self,
                  assignment,
@@ -487,7 +488,7 @@ def get_partition(clusters):
         for i in clusters[k]:
             pvec[i] = k
 
-    return (Partition(tuple(pvec)))
+    return Partition(tuple(pvec))
 
 
 def get_partition_from_file(filename):
@@ -575,7 +576,6 @@ if __name__ == '__main__':
                         '--quit',
                         action='store_true',
                         help='Quit before optimising, just return initial partition and score')
-
 
     # ## GET COMMAND LINE ARGUMENTS
     args = parser.parse_args()

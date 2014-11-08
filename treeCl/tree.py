@@ -4,7 +4,6 @@ from __future__ import print_function
 # standard library
 import itertools
 import random
-import re
 
 # third party
 import dendropy

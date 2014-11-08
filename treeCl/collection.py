@@ -209,11 +209,9 @@ class Collection(object):
             except IOError as err:
                 sys.stderr.write(err.message)
                 raise err
-                return
 
         for rec in self.records:
             with open(os.path.join(output_dir, '{}.json'.format(rec.name)), 'w') as outfile:
-                parameters = dict((key, val) for (key, val) in rec.parameters.iteritems())
                 json.dump(rec.parameters, outfile, indent=4, separators=(',', ': '))
 
     def fast_calc_distances(self):

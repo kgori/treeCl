@@ -29,7 +29,7 @@ def symmetrise(matrix, tri='upper'):
 
 
 def regex_search_extract(search_attempt):
-    return (search_attempt.group() if search_attempt else None)
+    return search_attempt.group() if search_attempt else None
 
 
 def setup_progressbar(msg, size, format_label=None):

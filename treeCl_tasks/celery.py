@@ -2,7 +2,9 @@
 from __future__ import absolute_import
 
 import os
+
 from celery import Celery
+
 
 homedir = os.getenv('HOME')
 
@@ -13,10 +15,10 @@ try:
         backend_conn = fl.readline().strip()
 except IOError, e:
     import sys
+
     sys.stderr.write('FATAL ERROR: no redis connection available - exiting\n')
     sys.stderr.flush()
     sys.exit()
-
 
 app = Celery('treeCl_tasks',
              broker='redis://{}'.format(broker_conn),
@@ -26,7 +28,7 @@ app = Celery('treeCl_tasks',
 # Optional configuration, see the application user guide.
 app.conf.update(
     CELERY_TASK_RESULT_EXPIRES=36000,
-    )
+)
 
 if __name__ == '__main__':
     app.start()

@@ -160,6 +160,8 @@ class Clustering(object):
             elif isinstance(local_scale, int):
                 ks = local_scale
                 scale = matrix.kscale(local_scale)
+            else:
+                scale = est_scale
         else:
             scale = est_scale
 
