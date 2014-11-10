@@ -66,6 +66,7 @@ class Collection(object):
             self.records = records
 
         elif input_dir is not None:
+            input_dir = os.path.abspath(input_dir)
             directorycheck(input_dir)
             optioncheck(file_format, ['fasta', 'phylip'])
             self.records = self.read_alignments(input_dir,
@@ -282,7 +283,6 @@ class Collection(object):
             pbar.update(i)
         pbar.finish()
 
-    # TODO: need to pass alignment file as arg in jobs
     def _calc_trees_celery(self, threads=1, indices=None):
         """ Use pllpy to calculate maximum-likelihood trees, and use celery to distribute
         the computation across cores
@@ -605,9 +605,11 @@ class Scorer(object):
             return self.minsq_cache[index_tuple]
         except KeyError:
             conc = self.concatenate(index_tuple)
-            tree, sse = self.minsq_cache[index_tuple] = conc.minsq_tree()
+            tree, sse = conc.minsq_tree()
             n_tips = len(tree)
-            return dict(tree=tree, sse=sse, fit=sse / (2 * (n_tips - 2) * (n_tips - 3)))
+            result = dict(tree=tree, sse=sse, fit=sse / (2 * (n_tips - 2) * (n_tips - 3)), names=conc.names)
+            self.minsq_cache[index_tuple] = result
+            return result
 
     def concatenate(self, index_tuple):
         """ Returns a Concatenation object that stitches together
@@ -669,13 +671,16 @@ class Scorer(object):
         results = self.get_results(partition, 'minsq')
         return math.fsum(x['sse'] for x in results)
 
-    def get_fit(self, partition):
-        """
-        Return the dimensionless fit index for a partition
-        (sum of sq err / (2*(T-2)*(T-3), where T is the number of tips).
-        in the tree.
-        :param partition: Partition object
-        :return: score (float)
-        """
-        results = self.get_results(partition, 'minsq')
-        return math.fsum(x['fit'] for x in results)
+    # def get_fit(self, partition):
+    #     """
+    #                          harmonic mean of variances     sum of sq err
+    #     Dimensionless fit ~  -------------------------- * ------------------
+    #                            variance of distances      degrees of freedom
+    #
+    #     Return the dimensionless fit index for a partition
+    #     in the tree.
+    #     :param partition: Partition object
+    #     :return: score (float)
+    #     """
+    #     results = self.get_results(partition, 'minsq')
+    #     return math.fsum(x['fit'] for x in results)

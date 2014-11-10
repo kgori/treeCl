@@ -57,12 +57,12 @@ class Alignment(bpp.Alignment):
             with open(self.infile):
                 pass
             alignment = self.infile
-            return alignment, False
+            return os.path.abspath(alignment), False
 
         except (IOError, TypeError):
             _, tmpfile = tempfile.mkstemp()
             self.write_alignment(tmpfile, "phylip", interleaved=True)
-            return tmpfile, True
+            return os.path.abspath(tmpfile), True
 
     def pll_get_instance(self, *args):
         tmpdir = None
