@@ -7,7 +7,7 @@ except ImportError:
     from distutils.core import setup, Extension
 
     def find_packages():
-        return ['treeCl']
+        return ['treeCl', 'treeCl.interfacing', 'treeCl.tasks', 'treeCl.utils']
 try:
     from Cython.Distutils import build_ext
 except ImportError:
@@ -34,7 +34,7 @@ except ImportError:
 
 import pkg_resources
 
-VERSION = '0.0.4'
+VERSION = '0.0.5'
 
 logo = """
 ═══════════ ╔═╗┬
