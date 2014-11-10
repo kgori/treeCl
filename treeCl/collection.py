@@ -8,6 +8,7 @@ import os
 import sys
 import random
 import tempfile
+import time
 import timeit
 
 # third party
@@ -304,14 +305,21 @@ class Collection(object):
 
         try:
             job_group = group(tasks.pll_unpartitioned_task.s(*args) for args in jobs)()
-            print("Waiting for computation...")
-            results = job_group.get()
+            pbar = setup_progressbar('Calculating ML trees', len(jobs))
+            pbar.start()
+            while not job_group.ready():
+                time.sleep(5)
+                n_finished = sum([1 if x.ready() else 0 for x in job_group.results])
+                pbar.update(n_finished)
+            pbar.finish()
+
+            # results = job_group.get()
         except Exception, err:
             print("ERROR:", err.message)
             for fname in to_delete:
                 os.remove(fname)
 
-        for i, result in zip(indices, results):
+        for i, result in zip(indices, job_group.results):
             rec = self[i]
             freqs = result['partitions'][0]['frequencies']
             tree = result['tree']
