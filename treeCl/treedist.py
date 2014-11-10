@@ -5,8 +5,9 @@ import functools
 import itertools
 
 # third party
-import scipy
-from tree_distance import getEuclideanDistance, getGeodesicDistance, getRobinsonFouldsDistance, getWeightedRobinsonFouldsDistance
+import scipy.spatial
+from tree_distance import getEuclideanDistance, getGeodesicDistance, getRobinsonFouldsDistance,\
+    getWeightedRobinsonFouldsDistance
 
 # treeCl
 from utils import setup_progressbar

@@ -1,8 +1,10 @@
 from pllpy import pll
 
-from treeCl_tasks.celery import app
-from treeCl import treedist, Tree
+from treeCl import treedist
+from treeCl.tree import Tree
+from treeCl.tasks.celery import app
 from treeCl.interfacing.pll import pll_to_dict
+from treeCl.constants import PLL_RANDOM_SEED
 
 
 @app.task(time_limit=5)
@@ -62,12 +64,9 @@ def wrfdist_task(newick_string_a, newick_string_b, normalise):
 
 
 @app.task()
-def pll_unpartitioned_task(alignment_file, model='LG', guidetree=None):
-    with open(alignment_file) as fl:
-        nseq, lseq = fl.readline().split()
-    partition_string = '{}, all = 1-{}\n'.format(model, lseq)
+def pll_unpartitioned_task(alignment_file, partition_string, guidetree=None, threads=1, seed=PLL_RANDOM_SEED):
     guidetree = True if guidetree is None else guidetree
-    instance = pll(alignment_file, partition_string, guidetree, 1, random.randint(10000, 100000))
-    instance.set_optimisable_frequencies(0, True)
-    instance.optimise(True)
+    instance = pll(alignment_file, partition_string, guidetree, threads, seed)
+    # instance.set_optimisable_frequencies(0, True)
+    instance.optimise_tree_search(True)
     return pll_to_dict(instance)

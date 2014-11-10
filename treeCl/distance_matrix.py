@@ -1,16 +1,16 @@
 #!/usr/bin/env python
 from __future__ import print_function
 
+# standard lib
+
 # third party
 import numpy as np
 import sklearn
 
 # treeCl
 import errors
+from celery_runners import eucdist_matrix_task, geodist_matrix_task, rfdist_matrix_task, wrfdist_matrix_task
 from treedist import eucdist_matrix, geodist_matrix, rfdist_matrix, wrfdist_matrix
-
-dist_mtx_fns = dict(euc=eucdist_matrix, geo=geodist_matrix, rf=rfdist_matrix, wrf=wrfdist_matrix)
-
 
 def isconnected(mask):
     """ Checks that all nodes are reachable from the first node - i.e. that the
@@ -63,9 +63,13 @@ class Decomp(object):
         return coords_matrix, varexp
 
 
-# noinspection PyNoneFunctionAssignment
+
 class DistanceMatrix(np.ndarray):
-    # noinspection PyNoneFunctionAssignment
+    # optioncheck(metric, ['euc', 'geo', 'rf', 'wrf'])
+    #
+    # else:
+    #     fns = dict(euc=eucdist_matrix, geo=geodist_matrix, rf=rfdist_matrix, wrf=wrfdist_matrix)
+    #     return fns[metric]().view(DistanceMatrix)
     def __new__(
             cls,
             trees,
@@ -73,9 +77,14 @@ class DistanceMatrix(np.ndarray):
             dtype=float,
             add_noise=False,
             normalise=False,
+            celery=False,
     ):
-        errors.optioncheck(metric, ['euc', 'geo', 'rf', 'wrf'])
-        fn = dist_mtx_fns[metric]
+
+        if celery:
+            fns = dict(euc=eucdist_matrix_task, geo=geodist_matrix_task, rf=rfdist_matrix_task, wrf=wrfdist_matrix_task)
+        else:
+            fns = dict(euc=eucdist_matrix, geo=geodist_matrix, rf=rfdist_matrix, wrf=wrfdist_matrix)
+        fn = fns[metric]
         input_array = fn(trees, normalise)
         obj = np.asarray(input_array, dtype).view(cls)
         obj.metric = metric

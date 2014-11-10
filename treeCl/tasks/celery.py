@@ -20,10 +20,10 @@ except IOError, e:
     sys.stderr.flush()
     sys.exit()
 
-app = Celery('treeCl_tasks',
+app = Celery('treeCl.tasks',
              broker='redis://{}'.format(broker_conn),
              backend='redis://{}'.format(backend_conn),
-             include=['treeCl_tasks.tasks'])
+             include=['treeCl.tasks.tasks'])
 
 # Optional configuration, see the application user guide.
 app.conf.update(

@@ -52,6 +52,18 @@ class Alignment(bpp.Alignment):
         super(Alignment, self).read_alignment(*args, **kwargs)
         self.infile = args[0]
 
+    def get_alignment_file(self):
+        try:
+            with open(self.infile):
+                pass
+            alignment = self.infile
+            return alignment, False
+
+        except (IOError, TypeError):
+            _, tmpfile = tempfile.mkstemp()
+            self.write_alignment(tmpfile, "phylip", interleaved=True)
+            return tmpfile, True
+
     def pll_get_instance(self, *args):
         tmpdir = None
         try:

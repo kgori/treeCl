@@ -16,7 +16,6 @@ from utils import fileIO
 from utils.decorators import lazyprop
 
 
-
 def cast(dendropy_tree):
     """ Cast dendropy.Tree instance as Tree instance """
     return Tree(dendropy_tree.as_newick_string() + ';')
