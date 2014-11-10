@@ -7,7 +7,7 @@ except ImportError:
     from distutils.core import setup, Extension
 
     def find_packages():
-        return ['treeCl']
+        return ['treeCl', 'treeCl.interfacing', 'treeCl.tasks', 'treeCl.utils']
 try:
     from Cython.Distutils import build_ext
 except ImportError:
@@ -34,7 +34,7 @@ except ImportError:
 
 import pkg_resources
 
-VERSION = '0.0.4'
+VERSION = '0.0.5'
 
 logo = """
 ═══════════ ╔═╗┬
@@ -47,6 +47,7 @@ logo = """
 """.format(VERSION)
 
 print(logo)
+print(find_packages())
 data_dir = pkg_resources.resource_filename("autowrap", "data_files")
 extensions = [
     Extension(name='tree_collection',
@@ -81,6 +82,7 @@ setup(name="treeCl",
       install_requires=[
           'biopython',
           'bpp',
+          'celery',
           'cython',
           'dendropy',
           'fastcluster',

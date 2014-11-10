@@ -30,16 +30,16 @@ __all__ = [
 ]
 
 
-def basename(filename, strip_all_extensions=True):
+def basename(filename):
     return os.path.basename(filename)
 
 
 def can_locate(filename):
-    return (os.path.isfile(filename) if filename else False)
+    return os.path.isfile(filename) if filename else False
 
 
 def can_open(directory):
-    return (os.path.isdir(directory) if directory else False)
+    return os.path.isdir(directory) if directory else False
 
 
 def delete(filename):
@@ -129,7 +129,7 @@ def locate_by_env(filename, path=None):
 
 def locate_by_dir(filename, directory=None):
     f = os.path.join(directory, filename)
-    return (os.path.abspath(f) if can_locate(f) else None)
+    return os.path.abspath(f) if can_locate(f) else None
 
 
 def locate_file(filename, env_var='', directory=''):
@@ -141,7 +141,7 @@ def locate_file(filename, env_var='', directory=''):
     :return: (string) absolute path to filename or None if not found
     """
     f = locate_by_env(filename, env_var) or locate_by_dir(filename, directory)
-    return (os.path.abspath(f) if can_locate(f) else None)
+    return os.path.abspath(f) if can_locate(f) else None
 
 
 def path_to(filename):

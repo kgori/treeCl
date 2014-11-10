@@ -5,9 +5,9 @@ import sys
 __all__ = ['print_and_return']
 
 
-def print_and_return(s, file=sys.stdout):
-    print('\r\x1b[K{0}'.format(s), end='', file=file)  # \x1b[K = Esc+[K = clear line
-    file.flush()
+def print_and_return(s, stream=sys.stdout):
+    print('\r\x1b[K{0}'.format(s), end='', file=stream)  # \x1b[K = Esc+[K = clear line
+    stream.flush()
 
 
 if __name__ == '__main__':

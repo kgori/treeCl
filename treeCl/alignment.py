@@ -1,11 +1,12 @@
 import bpp
 import collections
 import os
-import random
 import shutil
 import sys
 import tempfile
+
 from numpy import log
+
 from tree import Tree
 from interfacing import pll
 from utils import fileIO
@@ -50,6 +51,18 @@ class Alignment(bpp.Alignment):
     def read_alignment(self, *args, **kwargs):
         super(Alignment, self).read_alignment(*args, **kwargs)
         self.infile = args[0]
+
+    def get_alignment_file(self):
+        try:
+            with open(self.infile):
+                pass
+            alignment = self.infile
+            return alignment, False
+
+        except (IOError, TypeError):
+            _, tmpfile = tempfile.mkstemp()
+            self.write_alignment(tmpfile, "phylip", interleaved=True)
+            return tmpfile, True
 
     def pll_get_instance(self, *args):
         tmpdir = None
@@ -114,21 +127,3 @@ class Alignment(bpp.Alignment):
             if v > 1:
                 ucl += v * log(v)
         return ucl - n * log(n)
-
-    def write_parameters(self, outfile):
-        """
-        Summarises parameter values from PLL instance
-
-        :param self: PLL instance being summarised
-        :return: void
-        """
-        model = dict(tree=self.get_tree(), likelihood=self.get_likelihood(), alpha=self.get_alpha(),
-                     frequencies=self.get_frequencies(), model=self.get_substitution_model(), name=self.name,
-                     distances=[list(x) for x in self.get_distance_variance_matrix()])
-        if self.is_dna():
-            try:
-                model['rates'] = self.get_rates()
-            except:
-                model['rates'] = None
-
-        return model

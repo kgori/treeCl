@@ -15,11 +15,11 @@ import numpy as np
 
 # treeCl
 from tree import Tree
+from treeCl.tasks import tasks
 from distance_matrix import DistanceMatrix
 from alignment import Alignment
 from utils import fileIO, setup_progressbar
 from utils.decorators import lazyprop
-from utils.printing import print_and_return
 from errors import optioncheck, directorycheck
 from constants import SORT_KEY, PLL_RANDOM_SEED
 
@@ -36,6 +36,8 @@ class NoRecordsError(Exception):
                '\tcompression = {2}'.format(self.input_dir,
                                             self.file_format, self.compression))
         return msg
+
+
 
 
 class Collection(object):
@@ -209,20 +211,21 @@ class Collection(object):
             except IOError as err:
                 sys.stderr.write(err.message)
                 raise err
-                return
 
         for rec in self.records:
             with open(os.path.join(output_dir, '{}.json'.format(rec.name)), 'w') as outfile:
-                parameters = dict((key, val) for (key, val) in rec.parameters.iteritems())
                 json.dump(rec.parameters, outfile, indent=4, separators=(',', ': '))
 
     def fast_calc_distances(self):
         """ Calculates within-alignment pairwise distances and variances for every
         alignment. Uses fast Jukes-Cantor method.
         :return: void"""
-        for rec in self.records:
-            print_and_return("Calculating fast distances for {}".format(rec.name))
+        pbar = setup_progressbar('Calculating fast approximate distances', len(self))
+        pbar.start()
+        for i, rec in enumerate(self.records):
             rec.fast_compute_distances()
+            pbar.update(i)
+        pbar.finish()
 
     def calc_distances(self):
         """ Calculates within-alignment pairwise distances and variances for every
@@ -237,13 +240,19 @@ class Collection(object):
             pbar.update(i)
         pbar.finish()
 
-    def calc_trees(self, threads=1, indices=None):
+    def calc_trees(self, threads=1, indices=None, use_celery=False):
+        if use_celery:
+            self._calc_trees_celery(threads, indices)
+        else:
+            self._calc_trees_sequential(threads, indices)
+
+    def _calc_trees_sequential(self, threads=1, indices=None):
         """ Use pllpy to calculate maximum-likelihood trees
         :return: void
         """
 
         if indices is None:
-            indices = range(len(self))
+            indices = list(range(len(self)))
         else:
             indices = indices
 
@@ -272,6 +281,51 @@ class Collection(object):
             rec.parameters = result
             pbar.update(i)
         pbar.finish()
+
+    # TODO: need to pass alignment file as arg in jobs
+    def _calc_trees_celery(self, threads=1, indices=None):
+        """ Use pllpy to calculate maximum-likelihood trees, and use celery to distribute
+        the computation across cores
+        :return: void
+        """
+        from celery import group
+        if indices is None:
+            indices = list(range(len(self)))
+        jobs = []
+        to_delete = []
+        results = []
+        for i in indices:
+            rec = self[i]
+            filename, delete = rec.get_alignment_file()
+            if delete:
+                to_delete.append(filename)
+            partition = '{}, {} = 1 - {}'.format('GTR' if rec.is_dna() else 'LGX', rec.name, len(rec))
+            jobs.append((filename, partition, rec.tree.newick, threads, PLL_RANDOM_SEED))
+
+        try:
+            job_group = group(tasks.pll_unpartitioned_task.s(*args) for args in jobs)()
+            print("Waiting for computation...")
+            results = job_group.get()
+        except Exception, err:
+            print("ERROR:", err.message)
+            for fname in to_delete:
+                os.remove(fname)
+
+        for i, result in zip(indices, results):
+            rec = self[i]
+            freqs = result['partitions'][0]['frequencies']
+            tree = result['tree']
+            alpha = result['partitions'][0]['alpha']
+            rec.set_substitution_model('GTR' if rec.is_dna() else 'LG08')
+            rec.set_gamma_rate_model(4, alpha)
+            rec.set_frequencies(freqs)
+            if rec.is_dna():
+                rec.set_rates(result['partitions'][0]['rates'], 'ACGT')
+            rec.initialise_likelihood(tree)
+            rec.compute_distances()
+            result['partitions'][0]['distances'] = rec.get_distance_variance_matrix().tolist()
+            result['name'] = rec.name
+            rec.parameters = result
 
     def get_inter_tree_distances(self, metric, **kwargs):
         """ Generate a distance matrix from a fully-populated Collection """

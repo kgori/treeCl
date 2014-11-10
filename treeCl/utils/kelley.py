@@ -31,7 +31,7 @@ class Kelley(object):
         return avg_spread
 
     def _normalised_average_spread(self, *partitions):
-        partitions = [p for p in partitions if 1 < len(p) < self.n_obs]
+        partitions = [pt for pt in partitions if 1 < len(pt) < self.n_obs]
         # print('_nas()', partitions)
         avg_spread_list = np.array([self._average_spread(partition) for partition in partitions])
         # print('_nas() avg_spread_list: {}'.format(avg_spread_list))

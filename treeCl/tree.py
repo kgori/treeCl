@@ -4,7 +4,6 @@ from __future__ import print_function
 # standard library
 import itertools
 import random
-import re
 
 # third party
 import dendropy
@@ -15,7 +14,6 @@ from tree_distance import PhyloTree
 from errors import optioncheck
 from utils import fileIO
 from utils.decorators import lazyprop
-
 
 
 def cast(dendropy_tree):

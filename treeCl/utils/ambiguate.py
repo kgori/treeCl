@@ -33,12 +33,12 @@ ambiguities_rev[frozenset(['a', 'c', 'g', 't'])] = 'n'
 
 
 def get_prefixes(r):
-    prefixes = list()
+    prefix_list = list()
     for x in r.headers:
         prefix = '.'.join(x.split('.')[:-1])
-        if not prefix in prefixes:
-            prefixes.append(prefix)
-    return prefixes
+        if not prefix in prefix_list:
+            prefix_list.append(prefix)
+    return prefix_list
 
 
 def get_ambiguity(a, b):
@@ -57,12 +57,12 @@ def get_ambiguity(a, b):
     return ambig.upper() if upper else ambig
 
 
-def ambiguate(seq1, seq2, delete_ambiguous=False):
+def ambiguate(sequence1, sequence2, delete_ambiguous=False):
     """ delete_ambiguous: Marks sequences for deletion by replacing all
     chars with 'X'. These seqs are deleted later with remove_empty """
     delete = False
     combination = list()
-    z = zip(seq1, seq2)
+    z = zip(sequence1, sequence2)
     for (a, b) in z:
         if a == b:
             combination.append(a)
