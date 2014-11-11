@@ -293,7 +293,6 @@ class Collection(object):
             indices = list(range(len(self)))
         jobs = []
         to_delete = []
-        results = []
         for i in indices:
             rec = self[i]
             filename, delete = rec.get_alignment_file()
@@ -303,7 +302,7 @@ class Collection(object):
             jobs.append((filename, partition, rec.tree.newick, threads, PLL_RANDOM_SEED))
 
         try:
-            job_group = group(chain(tasks.pll_unpartitioned_task.s(*args) | tasks.calc_distances_task.s(filename)) for args in jobs)()
+            job_group = group(chain(tasks.pll_task.s(*args) | tasks.calc_distances_task.s(filename)) for args in jobs)()
             pbar = setup_progressbar('Calculating ML trees', len(jobs))
             pbar.start()
             while not job_group.ready():
@@ -313,8 +312,11 @@ class Collection(object):
             pbar.finish()
         except Exception, err:
             print("ERROR:", err.message)
+            raise err
+        finally:
             for fname in to_delete:
                 os.remove(fname)
+
         pbar = setup_progressbar('Processing results', len(jobs))
         j = 0
         pbar.start()
@@ -535,10 +537,28 @@ class Concatenation(object):
             from_ += length
         return '\n'.join(qs)
 
-    def pll_optimise(self, partitions, tree=None, model=None, nthreads=1, **kwargs):
+    def pll_optimise(self, partitions, tree=None, model=None, nthreads=1, use_celery=False, **kwargs):
         if tree is None:
             tree = self.alignment.tree.newick
+        if use_celery:
+            return self._pll_optimise_celery(partitions, tree, nthreads)
         return self.alignment.pll_optimise(partitions, tree, model, nthreads, **kwargs)
+
+    def _pll_optimise_celery(self, partition, tree, nthreads):
+        rec = self.alignment
+        filename, delete = rec.get_alignment_file()
+        args = (filename, partition, tree, nthreads, PLL_RANDOM_SEED)
+
+        try:
+            queue = 'THREADED' if nthreads > 1 else 'celery'
+            job = tasks.pll_task.apply_async(args, queue=queue)
+            return job.get()
+        except Exception, err:
+            print("ERROR:", err.message)
+            raise err
+        finally:
+            if delete:
+                os.remove(filename)
 
     def paml_partitions(self):
         return 'G {} {}'.format(len(self.lengths),
@@ -571,19 +591,19 @@ class Scorer(object):
         return self._get_minsq_index_tuple_list(index_tuples)
 
 
-    def get_lnl_partition(self, partition):
+    def get_lnl_partition(self, partition, use_celery=False, nthreads=1):
         """ Calculates concatenated trees for a list of Partitions """
         index_tuples = partition.get_membership()
-        return self._get_lnl_index_tuple_list(index_tuples)
+        return self._get_lnl_index_tuple_list(index_tuples, use_celery, nthreads)
 
-    def _get_lnl_index_tuple_list(self, index_tuple_list):
+    def _get_lnl_index_tuple_list(self, index_tuple_list, use_celery=False, nthreads=1):
         """
         Does maximum-likelihood tree optimisation for the alignments specified
         by the tuple list.
         :param index_tuple_list:
         :return:
         """
-        return [self._get_lnl(index_tuple) for index_tuple in index_tuple_list]
+        return [self._get_lnl(index_tuple, use_celery, nthreads) for index_tuple in index_tuple_list]
 
     def _get_minsq_index_tuple_list(self, index_tuple_list):
         """
@@ -594,7 +614,7 @@ class Scorer(object):
         """
         return [self._get_minsq(index_tuple) for index_tuple in index_tuple_list]
 
-    def _get_lnl(self, index_tuple):
+    def _get_lnl(self, index_tuple, use_celery=False, nthreads=1):
         """
         Takes a tuple of indices. Concatenates the records in the record
         list at these indices, and builds a tree. Returns the tree
@@ -606,7 +626,9 @@ class Scorer(object):
         except KeyError:
             conc = self.concatenate(index_tuple)
             partitions = conc.qfile(dna_model="GTR", protein_model="LGX")
-            result = self.lnl_cache[index_tuple] = conc.pll_optimise(partitions)
+            result = self.lnl_cache[index_tuple] = conc.pll_optimise(partitions,
+                                                                     use_celery=use_celery,
+                                                                     nthreads=nthreads)
             return result
 
     def _get_minsq(self, index_tuple):
@@ -654,7 +676,7 @@ class Scorer(object):
         """ Gets records by their index, contained in the index_tuple """
         return [self.records[n] for n in index_tuple]
 
-    def get_results(self, partition, criterion):
+    def get_results(self, partition, criterion, use_celery=False, nthreads=1):
         """
         Return the results for scoring a partition - either the sum of log likelihoods,
         or the total min squares dimensionless fit index
@@ -663,18 +685,18 @@ class Scorer(object):
         :return: score (float)
         """
         optioncheck(criterion, ['lnl', 'minsq'])
-        results = (self.get_lnl_partition(partition) if criterion == 'lnl'
+        results = (self.get_lnl_partition(partition, use_celery, nthreads) if criterion == 'lnl'
                    else self.get_minsq_partition(partition))
         return results
 
-    def get_likelihood(self, partition):
+    def get_likelihood(self, partition, use_celery=False, nthreads=1):
         """
         Return the sum of log-likelihoods for a partition.
         :param partition: Partition object
         :return: score (float)
 
         """
-        results = self.get_results(partition, 'lnl')
+        results = self.get_results(partition, 'lnl', use_celery, nthreads)
         return math.fsum(x['likelihood'] for x in results)
 
     def get_sse(self, partition):

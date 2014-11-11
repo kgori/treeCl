@@ -65,11 +65,12 @@ def wrfdist_task(newick_string_a, newick_string_b, normalise):
 
 
 @app.task()
-def pll_unpartitioned_task(alignment_file, partition_string, guidetree=None, threads=1, seed=PLL_RANDOM_SEED):
+def pll_task(alignment_file, partition_string, guidetree=None, threads=1, seed=PLL_RANDOM_SEED):
     guidetree = True if guidetree is None else guidetree
     instance = pll(alignment_file, partition_string, guidetree, threads, seed)
     instance.optimise_tree_search(True)
     return pll_to_dict(instance)
+
 
 @app.task()
 def calc_distances_task(result, alignment_file):

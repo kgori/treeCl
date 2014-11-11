@@ -77,10 +77,10 @@ class DistanceMatrix(np.ndarray):
             dtype=float,
             add_noise=False,
             normalise=False,
-            celery=False,
+            use_celery=False,
     ):
 
-        if celery:
+        if use_celery:
             fns = dict(euc=eucdist_matrix_task, geo=geodist_matrix_task, rf=rfdist_matrix_task, wrf=wrfdist_matrix_task)
         else:
             fns = dict(euc=eucdist_matrix, geo=geodist_matrix, rf=rfdist_matrix, wrf=wrfdist_matrix)
