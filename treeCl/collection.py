@@ -185,13 +185,13 @@ class Collection(object):
                         try:
                             freqs = rec.parameters['partitions'][0]['frequencies']
                             alpha = rec.parameters['partitions'][0]['alpha']
-                            tree = rec.parameters['tree']
+                            # tree = rec.parameters['tree']
                             rec.set_substitution_model('GTR' if rec.is_dna() else 'LG08')
                             rec.set_gamma_rate_model(4, alpha)
                             rec.set_frequencies(freqs)
                             if rec.is_dna():
                                 rec.set_rates(result['partitions'][0]['rates'], 'ACGT')
-                            rec.initialise_likelihood(str(tree))
+                            # rec.initialise_likelihood(str(tree))
                         except KeyError:
                             pass
 
@@ -267,14 +267,14 @@ class Collection(object):
             result = rec.pll_optimise('{}, {} = 1 - {}'.format(model, rec.name, len(rec)), rec.tree.newick,
                                       nthreads=threads, seed=PLL_RANDOM_SEED)
             freqs = result['partitions'][0]['frequencies']
-            tree = result['tree']
+            # tree = result['tree']
             alpha = result['partitions'][0]['alpha']
             rec.set_substitution_model('GTR' if rec.is_dna() else 'LG08')
             rec.set_gamma_rate_model(4, alpha)
             rec.set_frequencies(freqs)
             if rec.is_dna():
                 rec.set_rates(result['partitions'][0]['rates'], 'ACGT')
-            rec.initialise_likelihood(tree)
+            # rec.initialise_likelihood(tree)
             rec.compute_distances()
             result['partitions'][0]['distances'] = rec.get_distance_variance_matrix().tolist()
             result['name'] = rec.name
@@ -326,14 +326,14 @@ class Collection(object):
                 retries.append(i)
             rec = self[i]
             freqs = result['partitions'][0]['frequencies']
-            tree = result['tree']
+            # tree = result['tree']
             alpha = result['partitions'][0]['alpha']
             rec.set_substitution_model('GTR' if rec.is_dna() else 'LG08')
             rec.set_gamma_rate_model(4, alpha)
             rec.set_frequencies(freqs)
             if rec.is_dna():
                 rec.set_rates(result['partitions'][0]['rates'], 'ACGT')
-            rec.initialise_likelihood(tree)
+            # rec.initialise_likelihood(tree)
             result['partitions'][0]['distances'] = rec.get_distance_variance_matrix().tolist()
             result['name'] = rec.name
             rec.parameters = result
