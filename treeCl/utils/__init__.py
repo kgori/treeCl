@@ -1,5 +1,5 @@
 # import fileIO
-from progressbar import ProgressBar, Percentage, Timer, AdaptiveETA, Bar, FormatLabel
+from progressbar import ProgressBar, Percentage, SimpleProgress, Timer, AdaptiveETA, Bar, FormatLabel
 import numpy as np
 
 from printing import print_and_return
@@ -32,15 +32,22 @@ def regex_search_extract(search_attempt):
     return search_attempt.group() if search_attempt else None
 
 
-def setup_progressbar(msg, size, format_label=None):
+def setup_progressbar(msg, size, format_label=None, simple_progress=False):
     if not msg.endswith(': '):
         msg += ': '
 
-    widgets = [msg,
-               Percentage(), ' ',
-               Bar(), ' ',
-               Timer(), ' ',
-               AdaptiveETA()]
+    if simple_progress:
+        widgets = [msg,
+                   SimpleProgress(), ' ',
+                   Bar(), ' ',
+                   Timer(), ' ',
+                   AdaptiveETA()]
+    else:
+        widgets = [msg,
+                   Percentage(), ' ',
+                   Bar(), ' ',
+                   Timer(), ' ',
+                   AdaptiveETA()]
 
     if format_label is not None:
         widgets.append(FormatLabel(format_label))

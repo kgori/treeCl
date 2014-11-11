@@ -39,8 +39,6 @@ class NoRecordsError(Exception):
         return msg
 
 
-
-
 class Collection(object):
     """ Call:
 
@@ -284,12 +282,13 @@ class Collection(object):
             pbar.update(i)
         pbar.finish()
 
-    def _calc_trees_celery(self, threads=1, indices=None):
+    def _calc_trees_celery(self, threads=1, indices=None, allow_retry=True):
         """ Use pllpy to calculate maximum-likelihood trees, and use celery to distribute
         the computation across cores
         :return: void
         """
-        from celery import group
+        from celery import chain, group
+        from celery.exceptions import TimeoutError
         if indices is None:
             indices = list(range(len(self)))
         jobs = []
@@ -304,7 +303,7 @@ class Collection(object):
             jobs.append((filename, partition, rec.tree.newick, threads, PLL_RANDOM_SEED))
 
         try:
-            job_group = group(tasks.pll_unpartitioned_task.s(*args) for args in jobs)()
+            job_group = group(chain(tasks.pll_unpartitioned_task.s(*args) | tasks.calc_distances_task.s(filename)) for args in jobs)()
             pbar = setup_progressbar('Calculating ML trees', len(jobs))
             pbar.start()
             while not job_group.ready():
@@ -312,14 +311,19 @@ class Collection(object):
                 n_finished = sum([1 if x.ready() else 0 for x in job_group.results])
                 pbar.update(n_finished)
             pbar.finish()
-
-            # results = job_group.get()
         except Exception, err:
             print("ERROR:", err.message)
             for fname in to_delete:
                 os.remove(fname)
-
-        for i, result in zip(indices, job_group.results):
+        pbar = setup_progressbar('Processing results', len(jobs))
+        j = 0
+        pbar.start()
+        retries = []
+        for i, async_result in zip(indices, job_group.results):
+            try:
+                result = async_result.get(timeout=20)
+            except TimeoutError:
+                retries.append(i)
             rec = self[i]
             freqs = result['partitions'][0]['frequencies']
             tree = result['tree']
@@ -330,10 +334,13 @@ class Collection(object):
             if rec.is_dna():
                 rec.set_rates(result['partitions'][0]['rates'], 'ACGT')
             rec.initialise_likelihood(tree)
-            rec.compute_distances()
             result['partitions'][0]['distances'] = rec.get_distance_variance_matrix().tolist()
             result['name'] = rec.name
             rec.parameters = result
+            pbar.update(j+1)
+            j += 1
+        if retries > [] and allow_retry:
+            self._calc_trees_celery(1, retries, False)
 
     def get_inter_tree_distances(self, metric, **kwargs):
         """ Generate a distance matrix from a fully-populated Collection """
