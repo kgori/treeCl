@@ -590,20 +590,35 @@ class Scorer(object):
         index_tuples = partition.get_membership()
         return self._get_minsq_index_tuple_list(index_tuples)
 
-    def add_lnl_multiple_partitions_celery(self, partitions):
-        index_tuples = set(partition.get_membership() for partition in partitions)
-        async_jobs = []
-        index_tuples = [tup for tup in index_tuples if not tup in self.lnl_cache]
-        for index_tuple in index_tuples:
-            if not index_tuple in self.lnl_cache:
-                conc = self.concatenate(index_tuple)
-                part = conc.qfile(dna_model="GTR", protein_model="LGX")
-                async_jobs.append(conc.pll_optimise(partitions, use_celery=True, nthreads=1))
-        while not all(job.ready() for job in async_jobs):
-            for tup, job in zip(index_tuples, async_jobs):
-                if job.ready():
-                    self.lnl_cache[tup] = job.get()
-            time.sleep(5)
+    def _add_lnl_multiple_partitions(self, partitions):
+        from celery import group
+        index_tuples = set(ix for partition in partitions for ix in partition.get_membership()).difference(self.lnl_cache.keys())
+        jobs = []
+        to_delete = []
+        for ix in index_tuples:
+            conc = self.concatenate(ix)
+            filename, delete = conc.alignment.get_alignment_file()
+            if delete:
+                to_delete.append(filename)
+            part = conc.qfile(dna_model="GTR", protein_model="LGX")
+            tree = self._get_minsq(ix)['tree']
+            jobs.append((filename, part, tree, 1, PLL_RANDOM_SEED))
+        job_group = group(tasks.pll_task.s(*args) for args in jobs)()
+        try:
+            pbar = setup_progressbar('Adding partitions', len(jobs))
+            pbar.start()
+            while not job_group.ready():
+                time.sleep(5)
+                n_finished = sum([1 if x.ready() else 0 for x in job_group.results])
+                pbar.update(n_finished)
+            pbar.finish()
+            for ix, result in zip(index_tuples, job_group.get()):
+                self.lnl_cache[ix] = result
+        except:
+            raise
+        finally:
+            for fl in to_delete:
+                os.remove(fl)
 
     # def add_lnl_multiple_partitions_bsub(self, partitions):
 
@@ -619,7 +634,7 @@ class Scorer(object):
         :param index_tuple_list:
         :return:
         """
-        return [self._get_lnl(index_tuple, use_celery, nthreads) for index_tuple in index_tuple_list]
+        return [self._get_lnl(ix, use_celery, nthreads) for ix in index_tuple_list]
 
     def _get_minsq_index_tuple_list(self, index_tuple_list):
         """
@@ -659,8 +674,9 @@ class Scorer(object):
         except KeyError:
             conc = self.concatenate(index_tuple)
             tree, sse = conc.minsq_tree()
+            tree.deroot()
             n_tips = len(tree)
-            result = dict(tree=tree, sse=sse, fit=sse / (2 * (n_tips - 2) * (n_tips - 3)), names=conc.names)
+            result = dict(tree=tree.newick, sse=sse, fit=sse / (2 * (n_tips - 2) * (n_tips - 3)), names=conc.names)
             self.minsq_cache[index_tuple] = result
             return result
 
