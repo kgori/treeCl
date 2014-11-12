@@ -552,7 +552,7 @@ class Concatenation(object):
         try:
             queue = 'THREADED' if nthreads > 1 else 'celery'
             job = tasks.pll_task.apply_async(args, queue=queue)
-            return job.get()
+            return job
         except Exception, err:
             print("ERROR:", err.message)
             raise err
@@ -586,13 +586,29 @@ class Scorer(object):
         return self.collection.records
 
     def get_minsq_partition(self, partition):
-        """ Calculates concatenated trees for a list of Partitions """
+        """ Calculates concatenated trees for a Partition """
         index_tuples = partition.get_membership()
         return self._get_minsq_index_tuple_list(index_tuples)
 
+    def add_lnl_multiple_partitions_celery(self, partitions):
+        index_tuples = set(partition.get_membership() for partition in partitions)
+        async_jobs = []
+        index_tuples = [tup for tup in index_tuples if not tup in self.lnl_cache]
+        for index_tuple in index_tuples:
+            if not index_tuple in self.lnl_cache:
+                conc = self.concatenate(index_tuple)
+                part = conc.qfile(dna_model="GTR", protein_model="LGX")
+                async_jobs.append(conc.pll_optimise(partitions, use_celery=True, nthreads=1))
+        while not all(job.ready() for job in async_jobs):
+            for tup, job in zip(index_tuples, async_jobs):
+                if job.ready():
+                    self.lnl_cache[tup] = job.get()
+            time.sleep(5)
+
+    # def add_lnl_multiple_partitions_bsub(self, partitions):
 
     def get_lnl_partition(self, partition, use_celery=False, nthreads=1):
-        """ Calculates concatenated trees for a list of Partitions """
+        """ Calculates concatenated trees for a Partition """
         index_tuples = partition.get_membership()
         return self._get_lnl_index_tuple_list(index_tuples, use_celery, nthreads)
 
