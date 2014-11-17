@@ -142,7 +142,10 @@ class Collection(object):
         self._input_files = files
         records = []
 
-        for f in files:
+        pbar = setup_progressbar("Loading files", len(files))
+        pbar.start()
+
+        for i, f in enumerate(files):
             if compression is not None:
                 tmpdir = tempfile.mkdtemp()
                 _, tmpfile = tempfile.mkstemp(dir=tmpdir)
@@ -168,6 +171,9 @@ class Collection(object):
             record.parameters = dict(tree=record.tree.newick, name=record.name,
                                      partitions={0:dict(distances=record.get_distance_variance_matrix().tolist())})
             records.append(record)
+            pbar.update(i)
+
+        pbar.finish()
 
         return records
 
@@ -175,7 +181,9 @@ class Collection(object):
         """ Read a directory full of tree files, matching them up to the
         already loaded alignments """
 
-        for rec in self.records:
+        pbar = setup_progressbar("Loading parameters", len(self.records))
+        pbar.start()
+        for i, rec in enumerate(self.records):
             try:
                 with open(os.path.join(input_dir, '{}.json'.format(rec.name))) as infile:
                     parameters = json.load(infile, parse_int=True)
@@ -203,6 +211,9 @@ class Collection(object):
 
             except IOError:
                 continue
+            finally:
+                pbar.update(i)
+        pbar.finish()
 
     def write_parameters(self, output_dir):
         if not os.path.exists(output_dir):
