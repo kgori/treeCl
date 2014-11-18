@@ -142,7 +142,7 @@ class Collection(object):
         self._input_files = files
         records = []
 
-        pbar = setup_progressbar("Loading files", len(files))
+        pbar = setup_progressbar("Loading files", len(files), simple_progress=True)
         pbar.start()
 
         for i, f in enumerate(files):
@@ -167,9 +167,9 @@ class Collection(object):
                     record = Alignment(f, file_format, False)
 
             record.name = (fileIO.strip_extensions(f))
-            record.fast_compute_distances()
-            record.parameters = dict(tree=record.tree.newick, name=record.name,
-                                     partitions={0:dict(distances=record.get_distance_variance_matrix().tolist())})
+            #record.fast_compute_distances()
+            #record.parameters = dict(tree=record.tree.newick, name=record.name,
+                                     #partitions={0:dict(distances=record.get_distance_variance_matrix().tolist())})
             records.append(record)
             pbar.update(i)
 
@@ -309,7 +309,7 @@ class Collection(object):
             filename, delete = rec.get_alignment_file()
             if delete:
                 to_delete.append(filename)
-            partition = '{}, {} = 1 - {}'.format('GTR' if rec.is_dna() else 'LGX', rec.name, len(rec))
+            partition = '{}, {} = 1 - {}'.format('DNA' if rec.is_dna() else 'LGX', rec.name, len(rec))
             jobs.append((filename, partition, rec.tree.newick, threads, PLL_RANDOM_SEED))
 
         try:
