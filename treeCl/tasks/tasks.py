@@ -71,19 +71,27 @@ def pll_task(alignment_file, partition_string, guidetree=None, threads=1, seed=P
     instance.optimise_tree_search(True)
     return pll_to_dict(instance)
 
+@app.task()
+def fast_calc_distances_task(alignment_file):
+    rec = Alignment(alignment_file, 'phylip', True)
+    rec.fast_compute_distances()
+    result = {}
+    result['partitions'] = {}
+    result['partitions'][0] = {}
+    result['partitions'][0]['distances'] = rec.get_distance_variance_matrix()
+    result['tree'] = rec.get_bionj_tree()
+    return result
 
 @app.task()
 def calc_distances_task(result, alignment_file):
     rec = Alignment(alignment_file, 'phylip', True)
     freqs = result['partitions'][0]['frequencies']
-    # tree = result['tree']
     alpha = result['partitions'][0]['alpha']
     rec.set_substitution_model('GTR' if rec.is_dna() else 'LG08')
     rec.set_gamma_rate_model(4, alpha)
     rec.set_frequencies(freqs)
     if rec.is_dna():
         rec.set_rates(result['partitions'][0]['rates'], 'ACGT')
-    # rec.initialise_likelihood(tree)
     rec.compute_distances()
     result['partitions'][0]['distances'] = rec.get_distance_variance_matrix()
     return result
