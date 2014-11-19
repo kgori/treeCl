@@ -71,6 +71,7 @@ def pll_task(alignment_file, partition_string, guidetree=None, threads=1, seed=P
     instance.optimise_tree_search(True)
     return pll_to_dict(instance)
 
+
 @app.task()
 def fast_calc_distances_task(alignment_file):
     rec = Alignment(alignment_file, 'phylip', True)
@@ -78,9 +79,11 @@ def fast_calc_distances_task(alignment_file):
     result = {}
     result['partitions'] = {}
     result['partitions'][0] = {}
-    result['partitions'][0]['distances'] = rec.get_distance_variance_matrix()
+    result['partitions'][0]['distances'] = rec.get_distance_matrix()
+    result['partitions'][0]['variances'] = rec.get_variance_matrix()
     result['tree'] = rec.get_bionj_tree()
     return result
+
 
 @app.task()
 def calc_distances_task(result, alignment_file):
@@ -93,6 +96,7 @@ def calc_distances_task(result, alignment_file):
     if rec.is_dna():
         rec.set_rates(result['partitions'][0]['rates'], 'ACGT')
     rec.compute_distances()
-    result['partitions'][0]['distances'] = rec.get_distance_variance_matrix()
+    result['partitions'][0]['distances'] = rec.get_distance_matrix()
+    result['partitions'][0]['variances'] = rec.get_variance_matrix()
     return result
 

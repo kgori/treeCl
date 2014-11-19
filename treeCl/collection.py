@@ -238,6 +238,7 @@ class Collection(object):
             pbar.update(i)
         pbar.finish()
 
+
     def calc_distances(self):
         """ Calculates within-alignment pairwise distances and variances for every
         alignment. Uses slow ML optimisation, and depends on the Alignment record
@@ -292,6 +293,45 @@ class Collection(object):
             rec.parameters = result
             pbar.update(i)
         pbar.finish()
+
+    def _fast_calc_distances_celery(self):
+        from celery import group
+        jobs = []
+        to_delete = []
+        for rec in self:
+            filename, delete = rec.get_alignment_file()
+            if delete:
+                to_delete.append(filename)
+            jobs.append((filename))
+
+        try:
+            job_group = group(tasks.fast_calc_distances_task.s(*args) for args in jobs)()
+            pbar = setup_progressbar('Fast Distance Calculation', len(jobs), simple_progress=True)
+            pbar.start()
+            while not job_group.ready():
+                time.sleep(5)
+                pbar.update(job_group.completed_count())
+            pbar.finish()
+
+        except:
+            raise
+
+        finally:
+            for fname in to_delete:
+                os.remove(fname)
+
+        pbar = setup_progressbar('Processing results', len(jobs))
+        j = 0
+        pbar.start()
+        for i, async_result in enumerate(job_group.results):
+            rec = self[i]
+            result = async_result.get()
+            distances = result['partitions'][0]['distances']
+            variances = result['partitions'][0]['variances']
+            rec.set_distance_matrix(distances)
+            rec.set_variance_matrix(variances)
+            rec.parameters = result
+
 
     def _calc_trees_celery(self, threads=1, indices=None, allow_retry=True):
         """ Use pllpy to calculate maximum-likelihood trees, and use celery to distribute
