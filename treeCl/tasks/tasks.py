@@ -79,8 +79,8 @@ def fast_calc_distances_task(alignment_file):
     result = {}
     result['partitions'] = {}
     result['partitions'][0] = {}
-    result['partitions'][0]['distances'] = rec.get_distance_matrix()
-    result['partitions'][0]['variances'] = rec.get_variance_matrix()
+    result['partitions'][0]['distances'] = rec.get_distances().tolist()
+    result['partitions'][0]['variances'] = rec.get_variances().tolist()
     result['tree'] = rec.get_bionj_tree()
     return result
 
@@ -96,7 +96,7 @@ def calc_distances_task(result, alignment_file):
     if rec.is_dna():
         rec.set_rates(result['partitions'][0]['rates'], 'ACGT')
     rec.compute_distances()
-    result['partitions'][0]['distances'] = rec.get_distance_matrix()
-    result['partitions'][0]['variances'] = rec.get_variance_matrix()
+    result['partitions'][0]['distances'] = rec.get_distances().tolist()
+    result['partitions'][0]['variances'] = rec.get_variances().tolist()
     return result
 

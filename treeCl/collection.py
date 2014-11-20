@@ -305,7 +305,7 @@ class Collection(object):
             jobs.append((filename))
 
         try:
-            job_group = group(tasks.fast_calc_distances_task.s(*args) for args in jobs)()
+            job_group = group(tasks.fast_calc_distances_task.s(args) for args in jobs)()
             pbar = setup_progressbar('Fast Distance Calculation', len(jobs), simple_progress=True)
             pbar.start()
             while not job_group.ready():
