@@ -2,7 +2,6 @@ __author__ = 'kgori'
 
 import pllpy
 
-
 class PLLException(Exception):
     pass
 
@@ -79,7 +78,7 @@ def pll_to_dict(instance):
     :param json_file: Either a filepath or a file-like stream (e.g. sys.stdout)
     :return: void
     """
-    model = {'tree': instance.get_tree(), 'likelihood': instance.get_likelihood(), 'partitions': {}}
+    model = {'ml_tree': instance.get_tree(), 'likelihood': instance.get_likelihood(), 'partitions': {}}
     for i in range(instance.get_number_of_partitions()):
         data = {'alpha': instance.get_alpha(i), 'frequencies': instance.get_frequencies_vector(i)}
         if instance.is_dna(i):

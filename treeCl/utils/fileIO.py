@@ -6,12 +6,14 @@ import cPickle
 import glob
 import gzip
 import os
+import tempfile
 from subprocess import Popen, PIPE
 
 # treeCl
 from ..errors import filecheck, directorycheck
 
 __all__ = [
+    'TempFile',
     'basename',
     'can_locate',
     'can_open',
@@ -28,6 +30,28 @@ __all__ = [
     'syscall',
     'verify',
 ]
+
+
+class TempFile(object):
+
+    def __enter__(self):
+        self._wrapped_tmp = tempfile.mkstemp()[1]
+        return os.path.abspath(self._wrapped_tmp)
+
+    def __exit__(self, type, value, tb):
+        os.remove(self._wrapped_tmp)
+
+
+class TempFileList(object):
+
+    def __init__(self, filelist):
+        self._filelist = filelist
+
+    def __enter__(self):
+        return self._filelist
+
+    def __exit__(self, type, value, tb):
+        [os.remove(fl) for fl in self._filelist]
 
 
 def basename(filename):

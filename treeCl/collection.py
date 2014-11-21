@@ -7,7 +7,6 @@ import math
 import os
 import sys
 import random
-import tempfile
 import time
 import timeit
 
@@ -17,12 +16,16 @@ import numpy as np
 # treeCl
 from tree import Tree
 from treeCl.tasks import tasks
+from treeCl.tasks.celery import app
 from distance_matrix import DistanceMatrix
 from alignment import Alignment
+from parameters import PartitionParameters
 from utils import fileIO, setup_progressbar
 from utils.decorators import lazyprop
 from errors import optioncheck, directorycheck
 from constants import SORT_KEY, PLL_RANDOM_SEED
+
+DISTRIBUTED_TASK_QUEUE_INSPECT = app.control.inspect()
 
 
 class NoRecordsError(Exception):
@@ -147,19 +150,15 @@ class Collection(object):
 
         for i, f in enumerate(files):
             if compression is not None:
-                tmpdir = tempfile.mkdtemp()
-                _, tmpfile = tempfile.mkstemp(dir=tmpdir)
-                with fileIO.freader(f, compression) as reader:
-                    with fileIO.fwriter(tmpfile) as writer:
+                with fileIO.TempFile() as tmpfile:
+                    with fileIO.freader(f, compression) as reader, fileIO.fwriter(tmpfile) as writer:
                         for line in reader:
                             writer.write(line)
-                try:
-                    record = Alignment(tmpfile, file_format, True)
-                except RuntimeError:
-                    record = Alignment(tmpfile, file_format, False)
-                finally:
-                    os.remove(tmpfile)
-                    os.rmdir(tmpdir)
+                    try:
+                        record = Alignment(tmpfile, file_format, True)
+                    except RuntimeError:
+                        record = Alignment(tmpfile, file_format, False)
+
             else:
                 try:
                     record = Alignment(f, file_format, True)
@@ -167,14 +166,9 @@ class Collection(object):
                     record = Alignment(f, file_format, False)
 
             record.name = (fileIO.strip_extensions(f))
-            #record.fast_compute_distances()
-            #record.parameters = dict(tree=record.tree.newick, name=record.name,
-                                     #partitions={0:dict(distances=record.get_distance_variance_matrix().tolist())})
             records.append(record)
             pbar.update(i)
-
         pbar.finish()
-
         return records
 
     def read_parameters(self, input_dir):
@@ -193,13 +187,11 @@ class Collection(object):
                         try:
                             freqs = rec.parameters['partitions'][0]['frequencies']
                             alpha = rec.parameters['partitions'][0]['alpha']
-                            # tree = rec.parameters['tree']
                             rec.set_substitution_model('GTR' if rec.is_dna() else 'LG08')
                             rec.set_gamma_rate_model(4, alpha)
                             rec.set_frequencies(freqs)
                             if rec.is_dna():
                                 rec.set_rates(result['partitions'][0]['rates'], 'ACGT')
-                            # rec.initialise_likelihood(str(tree))
                         except KeyError:
                             pass
 
@@ -227,7 +219,17 @@ class Collection(object):
             with open(os.path.join(output_dir, '{}.json'.format(rec.name)), 'w') as outfile:
                 json.dump(rec.parameters, outfile, indent=4, separators=(',', ': '))
 
+
+####### TASKS ##########################################################################################################
+
     def fast_calc_distances(self):
+        if DISTRIBUTED_TASK_QUEUE_INSPECT.active() is None:
+            self._fast_calc_distances_sequential()
+        else:
+            self._fast_calc_distances_async()
+
+    # noinspection PyUnresolvedReferences
+    def _fast_calc_distances_sequential(self):
         """ Calculates within-alignment pairwise distances and variances for every
         alignment. Uses fast Jukes-Cantor method.
         :return: void"""
@@ -236,8 +238,49 @@ class Collection(object):
         for i, rec in enumerate(self.records):
             rec.fast_compute_distances()
             pbar.update(i)
+            params = PartitionParameters()
+            params.distances = rec.get_distances().tolist()
+            params.variances = rec.get_variances().tolist()
+            rec.parameters.partitions.append(params)
+            rec.parameters.nj_tree = rec.get_bionj_tree()
         pbar.finish()
 
+    # noinspection PyUnresolvedReferences
+    def _fast_calc_distances_async(self):
+        from celery import group
+        jobs = []
+        to_delete = []
+        for rec in self:
+            filename, delete = rec.get_alignment_file(as_phylip=True)
+            if delete:
+                to_delete.append(filename)
+            jobs.append((filename))
+
+        with fileIO.TempFileList(to_delete):
+            job_group = group(tasks.fast_calc_distances_task.s(args) for args in jobs)()
+            pbar = setup_progressbar('Fast Distance Calculation', len(jobs), simple_progress=True)
+            pbar.start()
+            while not job_group.ready():
+                time.sleep(2)
+                pbar.update(job_group.completed_count())
+            pbar.finish()
+
+        pbar = setup_progressbar('Processing results', len(jobs))
+        j = 0
+        pbar.start()
+        for i, async_result in enumerate(job_group.results):
+            rec = self[i]
+            result = async_result.get()
+            distances = result['distances']
+            variances = result['variances']
+            tree = result['tree']
+            rec.parameters.nj_tree = tree
+            params = PartitionParameters()
+            params.distances = distances
+            params.variances = variances
+            rec.parameters.partitions = [params]
+            pbar.update(i)
+        pbar.finish()
 
     def calc_distances(self):
         """ Calculates within-alignment pairwise distances and variances for every
@@ -252,11 +295,11 @@ class Collection(object):
             pbar.update(i)
         pbar.finish()
 
-    def calc_trees(self, threads=1, indices=None, use_celery=False):
-        if use_celery:
-            self._calc_trees_celery(threads, indices)
-        else:
+    def calc_trees(self, threads=1, indices=None):
+        if DISTRIBUTED_TASK_QUEUE_INSPECT.active() is None:
             self._calc_trees_sequential(threads, indices)
+        else:
+            self._calc_trees_async(threads, indices)
 
     def _calc_trees_sequential(self, threads=1, indices=None):
         """ Use pllpy to calculate maximum-likelihood trees
@@ -279,14 +322,12 @@ class Collection(object):
             result = rec.pll_optimise('{}, {} = 1 - {}'.format(model, rec.name, len(rec)), rec.tree.newick,
                                       nthreads=threads, seed=PLL_RANDOM_SEED)
             freqs = result['partitions'][0]['frequencies']
-            # tree = result['tree']
             alpha = result['partitions'][0]['alpha']
             rec.set_substitution_model('GTR' if rec.is_dna() else 'LG08')
             rec.set_gamma_rate_model(4, alpha)
             rec.set_frequencies(freqs)
             if rec.is_dna():
                 rec.set_rates(result['partitions'][0]['rates'], 'ACGT')
-            # rec.initialise_likelihood(tree)
             rec.compute_distances()
             result['partitions'][0]['distances'] = rec.get_distance_variance_matrix().tolist()
             result['name'] = rec.name
@@ -294,46 +335,8 @@ class Collection(object):
             pbar.update(i)
         pbar.finish()
 
-    def _fast_calc_distances_celery(self):
-        from celery import group
-        jobs = []
-        to_delete = []
-        for rec in self:
-            filename, delete = rec.get_alignment_file()
-            if delete:
-                to_delete.append(filename)
-            jobs.append((filename))
-
-        try:
-            job_group = group(tasks.fast_calc_distances_task.s(args) for args in jobs)()
-            pbar = setup_progressbar('Fast Distance Calculation', len(jobs), simple_progress=True)
-            pbar.start()
-            while not job_group.ready():
-                time.sleep(5)
-                pbar.update(job_group.completed_count())
-            pbar.finish()
-
-        except:
-            raise
-
-        finally:
-            for fname in to_delete:
-                os.remove(fname)
-
-        pbar = setup_progressbar('Processing results', len(jobs))
-        j = 0
-        pbar.start()
-        for i, async_result in enumerate(job_group.results):
-            rec = self[i]
-            result = async_result.get()
-            distances = result['partitions'][0]['distances']
-            variances = result['partitions'][0]['variances']
-            rec.set_distance_matrix(distances)
-            rec.set_variance_matrix(variances)
-            rec.parameters = result
-
-
-    def _calc_trees_celery(self, threads=1, indices=None, allow_retry=True):
+    # noinspection PyUnresolvedReferences
+    def _calc_trees_async(self, threads=1, indices=None, allow_retry=True):
         """ Use pllpy to calculate maximum-likelihood trees, and use celery to distribute
         the computation across cores
         :return: void
@@ -346,27 +349,21 @@ class Collection(object):
         to_delete = []
         for i in indices:
             rec = self[i]
-            filename, delete = rec.get_alignment_file()
+            filename, delete = rec.get_alignment_file(as_phylip=True)
             if delete:
                 to_delete.append(filename)
             partition = '{}, {} = 1 - {}'.format('DNA' if rec.is_dna() else 'LGX', rec.name, len(rec))
-            jobs.append((filename, partition, rec.tree.newick, threads, PLL_RANDOM_SEED))
+            tree = rec.parameters.nj_tree if rec.parameters.nj_tree is not None else True
+            jobs.append((filename, partition, tree, threads, PLL_RANDOM_SEED))
 
-        try:
+        with fileIO.TempFileList(to_delete):
             job_group = group(chain(tasks.pll_task.s(*args) | tasks.calc_distances_task.s(filename)) for args in jobs)()
             pbar = setup_progressbar('Calculating ML trees', len(jobs))
             pbar.start()
             while not job_group.ready():
                 time.sleep(5)
-                n_finished = sum([1 if x.ready() else 0 for x in job_group.results])
-                pbar.update(n_finished)
+                pbar.update(job_group.completed_count())
             pbar.finish()
-        except Exception, err:
-            print("ERROR:", err.message)
-            raise err
-        finally:
-            for fname in to_delete:
-                os.remove(fname)
 
         pbar = setup_progressbar('Processing results', len(jobs))
         j = 0
@@ -378,31 +375,31 @@ class Collection(object):
             except TimeoutError:
                 retries.append(i)
             rec = self[i]
-            freqs = result['partitions'][0]['frequencies']
-            # tree = result['tree']
-            alpha = result['partitions'][0]['alpha']
-            rec.set_substitution_model('GTR' if rec.is_dna() else 'LG08')
-            rec.set_gamma_rate_model(4, alpha)
-            rec.set_frequencies(freqs)
-            if rec.is_dna():
-                rec.set_rates(result['partitions'][0]['rates'], 'ACGT')
-            # rec.initialise_likelihood(tree)
-            result['partitions'][0]['distances'] = rec.get_distance_variance_matrix().tolist()
-            result['name'] = rec.name
-            rec.parameters = result
+            rec.parameters.ml_tree = result['ml_tree']
+            rec.parameters.nj_tree = result['nj_tree']
+            params = PartitionParameters()
+            params.alpha = result['partitions'][0]['alpha']
+            params.frequencies = result['partitions'][0]['frequencies']
+            try:
+                params.rates = result['partitions'][0]['rates']
+            except KeyError:
+                pass
+            params.distances = result['partitions'][0]['distances']
+            params.variances = result['partitions'][0]['variances']
+            rec.parameters.partitions = [params]
             pbar.update(j+1)
             j += 1
         if retries > [] and allow_retry:
-            self._calc_trees_celery(1, retries, False)
+            self._calc_trees_async(1, retries, False)
 
     def get_inter_tree_distances(self, metric, **kwargs):
         """ Generate a distance matrix from a fully-populated Collection """
-        return DistanceMatrix(self.trees, metric, **kwargs)
+        distribute_tasks = DISTRIBUTED_TASK_QUEUE_INSPECT.active() is not None
+        return DistanceMatrix(self.trees, metric, distribute_tasks=distribute_tasks, **kwargs)
 
     def permuted_copy(self):
         """ Return a copy of the collection with all alignment columns permuted
         """
-
         def take(n, iterable):
             return [iterable.next() for _ in range(n)]
 

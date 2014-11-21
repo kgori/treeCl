@@ -11,7 +11,7 @@ from treeCl.utils import flatten_list, setup_progressbar
 
 def _generic_matrix_task(task, trees, normalise):
 
-    jobs = itertools.combinations((tree.newick for tree in trees), 2)
+    jobs = itertools.combinations(trees, 2)
     n_jobs = int(math.ceil(len(trees) * (len(trees)-1) / 200))
     pbar = setup_progressbar("Getting inter-tree distances", n_jobs)
     pbar.start()

@@ -47,7 +47,6 @@ logo = """
 """.format(VERSION)
 
 print(logo)
-print(find_packages())
 data_dir = pkg_resources.resource_filename("autowrap", "data_files")
 extensions = [
     Extension(name='tree_collection',
@@ -97,5 +96,5 @@ setup(name="treeCl",
           'tree_distance',
       ],
       cmdclass={'build_ext': build_ext},
-      ext_modules=extensions,
+      # ext_modules=extensions,
 )
