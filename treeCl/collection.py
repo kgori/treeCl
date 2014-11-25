@@ -329,7 +329,7 @@ class Collection(object):
                 to_delete.append(filename)
             # Get input dict
             data = {'alpha': rec.parameters.partitions.alpha, 'frequencies': rec.parameters.partitions.frequencies}
-            if rec.is_dna(i):
+            if rec.is_dna():
                 data['rates'] = rec.parameters.partitions.rates
             model['partitions'][0] = data
             jobs.append((model, filename))
