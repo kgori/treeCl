@@ -97,7 +97,6 @@ class Alignment(bpp.Alignment):
     def set_params_from_pll_result(self, result):
         self.parameters.ml_tree = result['ml_tree']
         self.parameters.likelihood = result['likelihood']
-        self.parameters.nj_tree = result['nj_tree']
         params = PartitionParameters()
         params.alpha = result['partitions'][0]['alpha']
         params.frequencies = result['partitions'][0]['frequencies']

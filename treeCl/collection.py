@@ -258,7 +258,7 @@ class Collection(object):
 
         with fileIO.TempFileList(to_delete):
             job_group = group(tasks.fast_calc_distances_task.s(args) for args in jobs)()
-            pbar = setup_progressbar('Fast Distance Calculation', len(jobs), simple_progress=True)
+            pbar = setup_progressbar('Calculating fast distances', len(jobs), simple_progress=True)
             pbar.start()
             while not job_group.ready():
                 time.sleep(2)
@@ -288,12 +288,71 @@ class Collection(object):
         having had appropriate ML parametric models set up in advance.
         :return: void
         """
-        pbar = setup_progressbar('Calculating distances', len(self))
+        if DISTRIBUTED_TASK_QUEUE_INSPECT.active() is None:
+            self._calc_distances_sequential()
+        else:
+            self._calc_distances_async()
+
+    def _calc_distances_sequential(self):
+        pbar = setup_progressbar('Calculating ML distances', len(self))
         pbar.start()
+        to_delete = []
         for i, rec in enumerate(self.records):
-            rec.compute_distances()
+            # Get file
+            filename, delete = rec.get_alignment_file()
+            if delete:
+                to_delete.append(filename)
+            # Get input dict
+            data = {'alpha': rec.parameters.partitions.alpha, 'frequencies': rec.parameters.partitions.frequency}
+            if rec.is_dna(i):
+                data['rates'] = rec.parameters.partitions.rates
+            model['partitions'][0] = data
+            # Launch local task
+            result = tasks.calc_distances_task(model, filename)
+            rec.parameters.partitions.distances = result['partitions'][0]['distances']
+            rec.parameters.partitions.variances = result['partitions'][0]['variances']
+            rec.parameters['nj_tree'] = result['nj_tree']
             pbar.update(i)
-        pbar.finish()
+        with fileIO.TempFileList(to_delete):
+            pbar.finish()
+
+    def _calc_distances_async(self):
+        from celery import group
+
+        jobs = []
+        to_delete = []
+
+        for rec in self:
+            filename, delete = rec.get_alignment_file(as_phylip=True)
+            if delete:
+                to_delete.append(filename)
+            # Get input dict
+            data = {'alpha': rec.parameters.partitions.alpha, 'frequencies': rec.parameters.partitions.frequency}
+            if rec.is_dna(i):
+                data['rates'] = rec.parameters.partitions.rates
+            model['partitions'][0] = data
+            jobs.append((model, filename))
+
+        with fileIO.TempFileList(to_delete):
+            job_group = group(tasks.calc_distances_task.subtask(args) for args in jobs)()
+            pbar = setup_progressbar('Calculating ML distances', len(jobs))
+            pbar.start()
+            while not job_group.ready():
+                time.sleep(2)
+                pbar.update(job_group.completed_count())
+            pbar.finish()
+
+        pbar = setup_progressbar('Processing results', len(jobs))
+        j = 0
+        pbar.start()
+        for i, async_result in enumerate(job_group.results):
+            result = async_result.get(timeout=20)
+            rec = self[i]
+            rec.parameters.partitions.distances = result['partitions'][0]['distances']
+            rec.parameters.partitions.variances = result['partitions'][0]['variances']
+            rec.parameters['nj_tree'] = result['nj_tree']
+            pbar.update(j+1)
+            j += 1
 
     def calc_trees(self, threads=1, indices=None):
         if DISTRIBUTED_TASK_QUEUE_INSPECT.active() is None:
@@ -357,7 +416,7 @@ class Collection(object):
             pbar = setup_progressbar('Calculating ML trees', len(jobs))
             pbar.start()
             while not job_group.ready():
-                time.sleep(5)
+                time.sleep(2)
                 pbar.update(job_group.completed_count())
             pbar.finish()
 
