@@ -17,10 +17,10 @@ class Alignment(bpp.Alignment):
         super(Alignment, self).__init__(*args)
         self.infile = None
         self.name = None
+        self.parameters = Parameters()
         if len(args) > 0 and isinstance(args[0], basestring) and fileIO.can_locate(args[0]):
             self.infile = args[0]
-
-        self.parameters = Parameters()
+            self.parameters.filename = args[0]
 
     def __add__(self, other):
         return self.__class__([self, other])

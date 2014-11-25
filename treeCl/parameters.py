@@ -11,8 +11,8 @@ class BaseParameters(object):
     def dict(self):
         return dict((item.lstrip('_'), getattr(self, item)) for item in self.__slots__)
 
-    def write(self, fileobj=sys.stdout):
-        json.dump(self.dict, fileobj)
+    def write(self, fileobj=sys.stdout, indent=None):
+        json.dump(self.dict, fileobj, indent=indent)
 
 
 class PartitionParameters(BaseParameters):
@@ -52,11 +52,11 @@ class PartitionParameters(BaseParameters):
 
     @property
     def name(self):
-        return self._frequencies
+        return self._name
 
     @name.setter
     def name(self, value):
-        self._frequencies = value
+        self._name = value
 
     @property
     def rates(self):
