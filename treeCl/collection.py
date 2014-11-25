@@ -314,26 +314,22 @@ class Collection(object):
         pbar = setup_progressbar('Calculating ML trees', len(indices))
         pbar.start()
 
+        to_delete = []
         for i, rec in enumerate(self[i] for i in indices):
-            if rec.is_dna():
-                model = 'GTR'
-            else:
-                model = 'LGX'
-            result = rec.pll_optimise('{}, {} = 1 - {}'.format(model, rec.name, len(rec)), rec.tree.newick,
-                                      nthreads=threads, seed=PLL_RANDOM_SEED)
-            freqs = result['partitions'][0]['frequencies']
-            alpha = result['partitions'][0]['alpha']
-            rec.set_substitution_model('GTR' if rec.is_dna() else 'LG08')
-            rec.set_gamma_rate_model(4, alpha)
-            rec.set_frequencies(freqs)
-            if rec.is_dna():
-                rec.set_rates(result['partitions'][0]['rates'], 'ACGT')
-            rec.compute_distances()
-            result['partitions'][0]['distances'] = rec.get_distance_variance_matrix().tolist()
-            result['name'] = rec.name
-            rec.parameters = result
+            filename, delete = rec.get_alignment_file(as_phylip=True)
+            if delete:
+                to_delete.append(filename)
+            partition = '{}, {} = 1 - {}'.format('DNA' if rec.is_dna() else 'LGX', rec.name, len(rec))
+            try:
+                tree = rec.tree
+            except AttributeError:
+                tree = True
+            result = tasks.pll_task(filename, partition, tree, threads, PLL_RANDOM_SEED)
+            rec.set_params_from_pll_result(result)
             pbar.update(i)
-        pbar.finish()
+
+        with fileIO.TempFileList(to_delete):
+            pbar.finish()
 
     # noinspection PyUnresolvedReferences
     def _calc_trees_async(self, threads=1, indices=None, allow_retry=True):
@@ -341,7 +337,7 @@ class Collection(object):
         the computation across cores
         :return: void
         """
-        from celery import chain, group
+        from celery import group
         from celery.exceptions import TimeoutError
         if indices is None:
             indices = list(range(len(self)))
@@ -357,7 +353,7 @@ class Collection(object):
             jobs.append((filename, partition, tree, threads, PLL_RANDOM_SEED))
 
         with fileIO.TempFileList(to_delete):
-            job_group = group(chain(tasks.pll_task.s(*args) | tasks.calc_distances_task.s(filename)) for args in jobs)()
+            job_group = group(tasks.pll_task.subtask(args) for args in jobs)()
             pbar = setup_progressbar('Calculating ML trees', len(jobs))
             pbar.start()
             while not job_group.ready():
@@ -375,19 +371,7 @@ class Collection(object):
             except TimeoutError:
                 retries.append(i)
             rec = self[i]
-            rec.parameters.ml_tree = result['ml_tree']
-            rec.parameters.likelihood = result['likelihood']
-            rec.parameters.nj_tree = result['nj_tree']
-            params = PartitionParameters()
-            params.alpha = result['partitions'][0]['alpha']
-            params.frequencies = result['partitions'][0]['frequencies']
-            try:
-                params.rates = result['partitions'][0]['rates']
-            except KeyError:
-                pass
-            params.distances = result['partitions'][0]['distances']
-            params.variances = result['partitions'][0]['variances']
-            rec.parameters.partitions = [params]
+            rec.set_params_from_pll_result(result)
             pbar.update(j+1)
             j += 1
         if retries > [] and allow_retry:
