@@ -376,6 +376,7 @@ class Collection(object):
                 retries.append(i)
             rec = self[i]
             rec.parameters.ml_tree = result['ml_tree']
+            rec.parameters.likelihood = result['likelihood']
             rec.parameters.nj_tree = result['nj_tree']
             params = PartitionParameters()
             params.alpha = result['partitions'][0]['alpha']
