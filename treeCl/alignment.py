@@ -8,7 +8,7 @@ import tempfile
 from numpy import log
 
 from interfacing import pll
-from parameters import Parameters
+from parameters import Parameters, PartitionParameters
 from utils import fileIO
 
 
