@@ -312,7 +312,7 @@ class Collection(object):
             result = tasks.calc_distances_task(model, filename)
             rec.parameters.partitions.distances = result['partitions'][0]['distances']
             rec.parameters.partitions.variances = result['partitions'][0]['variances']
-            rec.parameters['nj_tree'] = result['nj_tree']
+            rec.parameters.nj_tree = result['nj_tree']
             pbar.update(i)
         with fileIO.TempFileList(to_delete):
             pbar.finish()
@@ -328,7 +328,7 @@ class Collection(object):
             if delete:
                 to_delete.append(filename)
             # Get input dict
-            data = {'alpha': rec.parameters.partitions.alpha, 'frequencies': rec.parameters.partitions.frequency}
+            data = {'alpha': rec.parameters.partitions.alpha, 'frequencies': rec.parameters.partitions.frequencies}
             if rec.is_dna(i):
                 data['rates'] = rec.parameters.partitions.rates
             model['partitions'][0] = data
@@ -351,7 +351,7 @@ class Collection(object):
             rec = self[i]
             rec.parameters.partitions.distances = result['partitions'][0]['distances']
             rec.parameters.partitions.variances = result['partitions'][0]['variances']
-            rec.parameters['nj_tree'] = result['nj_tree']
+            rec.parameters.nj_tree = result['nj_tree']
             pbar.update(j+1)
             j += 1
 
