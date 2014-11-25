@@ -303,6 +303,7 @@ class Collection(object):
             if delete:
                 to_delete.append(filename)
             # Get input dict
+            model = {'partitions': {}}
             data = {'alpha': rec.parameters.partitions.alpha, 'frequencies': rec.parameters.partitions.frequencies}
             if rec.is_dna():
                 data['rates'] = rec.parameters.partitions.rates
