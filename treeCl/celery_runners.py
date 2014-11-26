@@ -22,7 +22,7 @@ def _generic_matrix_task(task, trees, normalise):
     job_chunks = task.chunks(((t1, t2, normalise) for (t1, t2) in jobs), 100).group()()
     while not job_chunks.ready():
         pbar.update(job_chunks.completed_count())
-        time.sleep(5)
+        time.sleep(2)
     pbar.finish()
     results = job_chunks.get()
     return scipy.spatial.distance.squareform(flatten_list(results))

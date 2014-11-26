@@ -98,3 +98,15 @@ def calc_distances_task(pll_dict, alignment_file):
     pll_dict['partitions'][0].update(result)
     pll_dict['nj_tree'] = rec.get_bionj_tree()
     return pll_dict
+
+@app.task()
+def simulate_task(n, model, frequencies, alpha, tree, rates=None):
+    rec = Alignment()
+    rec.set_substitution_model(model)
+    rec.set_frequencies(frequencies)
+    rec.set_alpha(4, alpha)
+    if rec.is_dna() and rates is not None:
+        rec.set_rates(rates, 'acgt')
+    rec.set_simulator(tree)
+    rec.simulate(n)
+    return dict(rec.get_sequences())

@@ -217,7 +217,7 @@ class Collection(object):
 
         for rec in self.records:
             with open(os.path.join(output_dir, '{}.json'.format(rec.name)), 'w') as outfile:
-                json.dump(rec.parameters, outfile, indent=4, separators=(',', ': '))
+                rec.parameters.write(outfile, indent=4)
 
 
 ####### TASKS ##########################################################################################################
@@ -490,7 +490,11 @@ class Concatenation(object):
 
     @lazyprop
     def distances(self):
-        return [self.collection.records[i].get_distance_variance_matrix() for i in self.indices]
+        return [self.collection.records[i].parameters.partitions.distances for i in self.indices]
+
+    @lazyprop
+    def variances(self):
+        return [self.collection.records[i].parameters.partitions.variances for i in self.indices]
 
     @lazyprop
     def datatypes(self):
@@ -550,7 +554,11 @@ class Concatenation(object):
         for i in range(num_matrices):
             labels = self.headers[i]
             dim = len(labels)
-            matrix = self.distances[i].copy()
+            dmatrix = np.array(self.distances[i])
+            vmatrix = np.array(self.variances[i])
+            matrix = np.zeros(dmatrix.shape)
+            matrix[np.triu_indices(len(dmatrix), 1)] = dmatrix[np.triu_indices(len(dmatrix), 1)]
+            matrix[np.tril_indices(len(vmatrix), -1)] = vmatrix[np.tril_indices(len(vmatrix), -1)]
             if scale:
                 matrix[np.triu_indices(dim, 1)] *= scale
                 matrix[np.tril_indices(dim, -1)] *= scale * scale
