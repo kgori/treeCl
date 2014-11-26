@@ -101,9 +101,10 @@ def calc_distances_task(pll_dict, alignment_file):
 
 @app.task()
 def simulate_task(n, model, frequencies, alpha, tree, rates=None):
-    rec = Alignment(model)
+    rec = Alignment()
+    rec.set_substitution_model(model)
     rec.set_frequencies(frequencies)
-    rec.set_alpha(4, alpha)
+    rec.set_gamma_rate_model(4, alpha)
     if rec.is_dna() and rates is not None:
         rec.set_rates(rates, 'acgt')
     rec.set_simulator(tree)
