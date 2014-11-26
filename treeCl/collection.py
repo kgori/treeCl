@@ -529,8 +529,8 @@ class Concatenation(object):
 
     @lazyprop
     def mrp_tree(self):
-        trees = [tree.newick for tree in self.trees]
-        return Tree(Alignment().get_mrp_supertree(trees))
+        trees = [tree.newick if hasattr('newick', tree) else tree for tree in self.trees]
+        return Alignment().get_mrp_supertree(trees)
 
     def _get_tree_collection_strings(self, scale=1):
         """ Function to get input strings for tree_collection
@@ -578,7 +578,7 @@ class Concatenation(object):
         distvar_string = '\n'.join(distvar_list)
         genome_map_string = '\n'.join(genome_map_list)
 
-        guide_tree = self.alignment.tree
+        guide_tree = Tree(self.mrp_tree)
 
         for e in guide_tree.postorder_edge_iter():
             if e.length is None:
