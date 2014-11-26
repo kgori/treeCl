@@ -111,5 +111,5 @@ def simulate_task(n, model, frequencies, alpha, tree, rates=None):
         except RuntimeError:
             pass
     rec.set_simulator(tree)
-    rec.simulate(n)
-    return dict(rec.get_sequences())
+    return rec.simulate(n)
+
