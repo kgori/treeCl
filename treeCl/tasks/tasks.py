@@ -105,8 +105,11 @@ def simulate_task(n, model, frequencies, alpha, tree, rates=None):
     rec.set_substitution_model(model)
     rec.set_frequencies(frequencies)
     rec.set_gamma_rate_model(4, alpha)
-    if rec.is_dna() and rates is not None:
-        rec.set_rates(rates, 'acgt')
+    if rates is not None:
+        try:
+            rec.set_rates(rates, 'acgt')
+        except RuntimeError:
+            pass
     rec.set_simulator(tree)
     rec.simulate(n)
     return dict(rec.get_sequences())
