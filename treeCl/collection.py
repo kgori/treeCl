@@ -216,7 +216,7 @@ class Collection(object):
                 raise err
 
         for rec in self.records:
-            with open(os.path.join(output_dir, '{}.json'.format(rec.name)), 'w') as outfile:
+            with fileIO.fwriter(os.path.join(output_dir, '{}.json'.format(rec.name)), gz=True) as outfile:
                 rec.parameters.write(outfile, indent=4)
 
 
@@ -759,7 +759,9 @@ class Scorer(object):
         except KeyError:
             conc = self.concatenate(index_tuple)
             partitions = conc.qfile(dna_model="GTR", protein_model="LGX")
+            tree = self._get_minsq(index_tuple)['tree']
             result = self.lnl_cache[index_tuple] = conc.pll_optimise(partitions,
+                                                                     tree,
                                                                      use_celery=use_celery,
                                                                      nthreads=nthreads)
             return result
