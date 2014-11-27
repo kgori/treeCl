@@ -561,11 +561,11 @@ class Scorer(object):
             self.lnl_cache.keys())
         if len(index_tuples) > 0:
             if DISTRIBUTED_TASK_QUEUE_INSPECT.active is None:
-                self._add_minsq_sequential(indices)
+                self._add_minsq_sequential(index_tuples)
             else:
-                self._add_minsq_async(indices)
+                self._add_minsq_async(index_tuples)
 
-    def _add_minsq_sequential(self):
+    def _add_minsq_sequential(self, index_tuples):
         pbar = setup_progressbar('Adding MinSq cluster trees: ', len(index_tuples))
         pbar.start()
         for i, ix in enumerate(index_tuples):
@@ -575,7 +575,7 @@ class Scorer(object):
             pbar.update(i)
         pbar.finish()
 
-    def _add_minsq_async(self):
+    def _add_minsq_async(self, index_tuples):
         from celery import group
 
         jobs = []
