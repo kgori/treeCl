@@ -500,9 +500,9 @@ class Scorer(object):
             self.lnl_cache.keys())
         if len(index_tuples) > 0:
             if DISTRIBUTED_TASK_QUEUE_INSPECT.active is None:
-                _add_lnl_sequential(index_tuples, threads)
+                self._add_lnl_sequential(index_tuples, threads)
             else:
-                _add_lnl_async(index_tuples, threads)
+                self._add_lnl_async(index_tuples, threads)
 
     def _add_lnl_sequential(self, index_tuples, threads=1):
         pbar = setup_progressbar('Adding ML cluster trees: ', len(index_tuples))
@@ -561,9 +561,9 @@ class Scorer(object):
             self.lnl_cache.keys())
         if len(index_tuples) > 0:
             if DISTRIBUTED_TASK_QUEUE_INSPECT.active is None:
-                _add_minsq_sequential(indices)
+                self._add_minsq_sequential(indices)
             else:
-                _add_minsq_async(indices)
+                self._add_minsq_async(indices)
 
     def _add_minsq_sequential(self):
         pbar = setup_progressbar('Adding MinSq cluster trees: ', len(index_tuples))
