@@ -515,7 +515,7 @@ class Scorer(object):
             filename, delete = al.get_alignment_file(as_phylip=True)
             if delete:
                 to_delete.append(filename)
-            partition = conc.qfile(dna_model="GTR", protein_model="LG")
+            partition = conc.qfile(dna_model="GTR", protein_model="LG", ml_freqs=True)
             tree = self.minsq_cache[ix]['tree']
             self.lnl_cache[ix] = tasks.pll_task(filename, partition, tree, threads, PLL_RANDOM_SEED)
             pbar.update(i)
@@ -534,7 +534,7 @@ class Scorer(object):
             filename, delete = al.get_alignment_file(as_phylip=True)
             if delete:
                 to_delete.append(filename)
-            partition = conc.qfile(dna_model="GTR", protein_model="LG")
+            partition = conc.qfile(dna_model="GTR", protein_model="LG", ml_freqs=True)
             tree = self.minsq_cache[ix]['tree']
             jobs.append((filename, partition, tree, threads, PLL_RANDOM_SEED))
 
