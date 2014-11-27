@@ -116,4 +116,5 @@ def simulate_task(n, model, frequencies, alpha, tree, rates=None):
 
 @app.task()
 def minsq_task(dv, gm, lab, tree, niters=10):
-    return tree_collection.compute(dv, gm, lab, tree, niters, True, False)
+    tree, sse = tree_collection.compute(dv, gm, lab, tree, niters, False, True)
+    return dict(tree=tree, sse=sse)
