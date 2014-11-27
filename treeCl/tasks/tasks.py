@@ -66,9 +66,12 @@ def wrfdist_task(newick_string_a, newick_string_b, normalise):
 
 
 @app.task()
-def pll_task(alignment_file, partition_string, guidetree=None, threads=1, seed=PLL_RANDOM_SEED):
+def pll_task(alignment_file, partition_string, guidetree=None, threads=1, seed=PLL_RANDOM_SEED, frequencies=None):
     guidetree = True if guidetree is None else guidetree
     instance = pll(alignment_file, partition_string, guidetree, threads, seed)
+    if frequencies is not None and len(frequencies) == instance.get_number_of_partitions():
+        for i in range(len(frequencies)):
+            instance.set_frequencies(frequencies[i], i, False)
     instance.optimise_tree_search(True)
     return pll_to_dict(instance)
 

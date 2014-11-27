@@ -32,6 +32,10 @@ class Concatenation(object):
         return [self.collection.records[i].parameters.partitions.variances for i in self.indices]
 
     @lazyprop
+    def frequencies(self):
+        return [self.collection.records[i].parameters.partitions.frequencies for i in self.indices]
+
+    @lazyprop
     def datatypes(self):
         return ['dna' if self.collection.records[i].is_dna() else 'protein' for i in self.indices]
 

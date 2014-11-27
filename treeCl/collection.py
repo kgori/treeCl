@@ -492,7 +492,7 @@ class Scorer(object):
     def records(self):
         return self.collection.records
 
-    def add_lnl_partitions(self, partitions, threads=1):
+    def add_lnl_partitions(self, partitions, threads=1, use_calculated_freqs=True):
         self.add_minsq_partitions(partitions)
         if isinstance(partitions, Partition):
             partitions = (partitions,)
@@ -500,11 +500,11 @@ class Scorer(object):
             self.lnl_cache.keys())
         if len(index_tuples) > 0:
             if DISTRIBUTED_TASK_QUEUE_INSPECT.active is None:
-                self._add_lnl_sequential(index_tuples, threads)
+                self._add_lnl_sequential(index_tuples, threads, use_calculated_freqs)
             else:
-                self._add_lnl_async(index_tuples, threads)
+                self._add_lnl_async(index_tuples, threads, use_calculated_freqs)
 
-    def _add_lnl_sequential(self, index_tuples, threads=1):
+    def _add_lnl_sequential(self, index_tuples, threads=1, use_calculated_freqs=True):
         pbar = setup_progressbar('Adding ML cluster trees: ', len(index_tuples))
         pbar.start()
 
@@ -517,13 +517,16 @@ class Scorer(object):
                 to_delete.append(filename)
             partition = conc.qfile(dna_model="GTR", protein_model="LG", ml_freqs=True)
             tree = self.minsq_cache[ix]['tree']
-            self.lnl_cache[ix] = tasks.pll_task(filename, partition, tree, threads, PLL_RANDOM_SEED)
+            if use_calculated_freqs:
+                self.lnl_cache[ix] = tasks.pll_task(filename, partition, tree, threads, PLL_RANDOM_SEED, conc.frequencies)
+            else:
+                self.lnl_cache[ix] = tasks.pll_task(filename, partition, tree, threads, PLL_RANDOM_SEED)
             pbar.update(i)
 
         with fileIO.TempFileList(to_delete):
             pbar.finish()
 
-    def _add_lnl_async(self, index_tuples, threads=1):
+    def _add_lnl_async(self, index_tuples, threads=1, use_calculated_freqs=True):
         from celery import group
 
         jobs = []
@@ -536,7 +539,10 @@ class Scorer(object):
                 to_delete.append(filename)
             partition = conc.qfile(dna_model="GTR", protein_model="LG", ml_freqs=True)
             tree = self.minsq_cache[ix]['tree']
-            jobs.append((filename, partition, tree, threads, PLL_RANDOM_SEED))
+            if use_calculated_freqs:
+                jobs.append((filename, partition, tree, threads, PLL_RANDOM_SEED, conc.frequencies))
+            else:
+                jobs.append((filename, partition, tree, threads, PLL_RANDOM_SEED))
 
         with fileIO.TempFileList(to_delete):
             job_group = group(tasks.pll_task.subtask(args) for args in jobs)()
