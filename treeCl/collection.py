@@ -14,6 +14,7 @@ import timeit
 
 # treeCl
 from treeCl.concatenation import Concatenation
+from treeCl.clustering import Partition
 from treeCl.tasks import tasks
 from treeCl.tasks.celery import app
 from distance_matrix import DistanceMatrix
@@ -492,8 +493,8 @@ class Scorer(object):
         return self.collection.records
 
     def add_lnl_partitions(self, partitions, threads=1):
-        add_minsq_partitions(partitions)
-        if isinstance(partitions, treeCl.Partition):
+        self.add_minsq_partitions(partitions)
+        if isinstance(partitions, Partition):
             partitions = (partitions,)
         index_tuples = set(ix for partition in partitions for ix in partition.get_membership()).difference(
             self.lnl_cache.keys())
@@ -554,7 +555,7 @@ class Scorer(object):
         pbar.finish()
 
     def add_minsq_partitions(self, partitions):
-        if isinstance(partitions, treeCl.Partition):
+        if isinstance(partitions, Partition):
             partitions = (partitions,)
         index_tuples = set(ix for partition in partitions for ix in partition.get_membership()).difference(
             self.lnl_cache.keys())
