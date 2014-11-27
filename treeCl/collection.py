@@ -13,7 +13,7 @@ import timeit
 # third party
 
 # treeCl
-from treeCl import Concatenation
+from treeCl.concatenation import Concatenation
 from treeCl.tasks import tasks
 from treeCl.tasks.celery import app
 from distance_matrix import DistanceMatrix
@@ -491,72 +491,126 @@ class Scorer(object):
     def records(self):
         return self.collection.records
 
-    def get_minsq_partition(self, partition):
-        """ Calculates concatenated trees for a Partition """
-        index_tuples = partition.get_membership()
-        return self._get_minsq_index_tuple_list(index_tuples)
+    def add_lnl_partitions(self, partitions, threads=1):
+        add_minsq_partitions(partitions)
+        if isinstance(partitions, treeCl.Partition):
+            partitions = (partitions,)
+        index_tuples = set(ix for partition in partitions for ix in partition.get_membership()).difference(
+            self.lnl_cache.keys())
+        if len(index_tuples) > 0:
+            if DISTRIBUTED_TASK_QUEUE_INSPECT.active is None:
+                _add_lnl_sequential(index_tuples, threads)
+            else:
+                _add_lnl_async(index_tuples, threads)
 
-    def _add_lnl_multiple_partitions(self, partitions):
+    def _add_lnl_sequential(self, index_tuples, threads=1):
+        pbar = setup_progressbar('Adding ML cluster trees: ', len(index_tuples))
+        pbar.start()
+
+        to_delete = []
+        for i, ix in enumerate(index_tuples):
+            conc = self.concatenate(ix)
+            al = conc.alignment
+            filename, delete = al.get_alignment_file(as_phylip=True)
+            if delete:
+                to_delete.append(filename)
+            partition = conc.qfile(dna_model="GTR", protein_model="LG")
+            tree = self.minsq_cache[ix]['tree']
+            self.lnl_cache[ix] = tasks.pll_task(filename, partition, tree, threads, PLL_RANDOM_SEED)
+            pbar.update(i)
+
+        with fileIO.TempFileList(to_delete):
+            pbar.finish()
+
+    def _add_lnl_async(self, index_tuples, threads=1):
         from celery import group
-        index_tuples = set(ix for partition in partitions for ix in partition.get_membership()).difference(self.lnl_cache.keys())
+
         jobs = []
         to_delete = []
         for ix in index_tuples:
             conc = self.concatenate(ix)
-            filename, delete = conc.alignment.get_alignment_file()
+            al = conc.alignment
+            filename, delete = al.get_alignment_file(as_phylip=True)
             if delete:
                 to_delete.append(filename)
-            part = conc.qfile(dna_model="GTR", protein_model="LGX")
-            tree = self._get_minsq(ix)['tree']
-            jobs.append((filename, part, tree, 1, PLL_RANDOM_SEED))
-        job_group = group(tasks.pll_task.s(*args) for args in jobs)()
-        try:
-            pbar = setup_progressbar('Adding partitions', len(jobs))
+            partition = conc.qfile(dna_model="GTR", protein_model="LG")
+            tree = self.minsq_cache[ix]['tree']
+            jobs.append((filename, partition, tree, threads, PLL_RANDOM_SEED))
+
+        with fileIO.TempFileList(to_delete):
+            job_group = group(tasks.pll_task.subtask(args) for args in jobs)()
+            pbar = setup_progressbar('Adding ML cluster trees', len(jobs))
             pbar.start()
             while not job_group.ready():
-                time.sleep(5)
-                n_finished = sum([1 if x.ready() else 0 for x in job_group.results])
-                pbar.update(n_finished)
+                time.sleep(2)
+                pbar.update(job_group.completed_count())
             pbar.finish()
-            for ix, result in zip(index_tuples, job_group.get()):
-                self.lnl_cache[ix] = result
-        except:
-            raise
-        finally:
-            for fl in to_delete:
-                os.remove(fl)
 
-    # def add_lnl_multiple_partitions_bsub(self, partitions):
+        pbar = setup_progressbar('Processing results', len(jobs))
+        pbar.start()
+        for i, (ix, async_result) in enumerate(zip(index_tuples, job_group.results)):
+            self.lnl_cache[ix] = async_result.get(timeout=20)
+            pbar.update(i)
+        pbar.finish()
 
-    def get_lnl_partition(self, partition, use_celery=False, nthreads=1):
+    def add_minsq_partitions(self, partitions):
+        if isinstance(partitions, treeCl.Partition):
+            partitions = (partitions,)
+        index_tuples = set(ix for partition in partitions for ix in partition.get_membership()).difference(
+            self.lnl_cache.keys())
+        if len(index_tuples) > 0:
+            if DISTRIBUTED_TASK_QUEUE_INSPECT.active is None:
+                _add_minsq_sequential(indices)
+            else:
+                _add_minsq_async(indices)
+
+    def _add_minsq_sequential(self):
+        pbar = setup_progressbar('Adding MinSq cluster trees: ', len(index_tuples))
+        pbar.start()
+        for i, ix in enumerate(index_tuples):
+            conc = self.concatenate(ix)
+            dv, lab, gm, tree = conc.get_tree_collection_strings()
+            self.minsq_cache[ix] = tasks.minsq_task(dv, lab, gm, tree)
+            pbar.update(i)
+        pbar.finish()
+
+    def _add_minsq_async(self):
+        from celery import group
+
+        jobs = []
+        for ix in index_tuples:
+            conc = self.concatenate(ix)
+            jobs.append(conc.get_tree_collection_strings())
+
+        job_group = group(tasks.minsq_task.subtask(args) for args in jobs)()
+        pbar = setup_progressbar('Adding MinSq cluster trees', len(jobs))
+        pbar.start()
+        while not job_group.ready():
+            time.sleep(2)
+            pbar.update(job_group.completed_count())
+        pbar.finish()
+
+        pbar = setup_progressbar('Processing results', len(jobs))
+        pbar.start()
+        for i, (ix, async_result) in enumerate(zip(index_tuples, job_group.results)):
+            self.minsq_cache[ix] = async_result.get(timeout=20)
+            pbar.update(i)
+        pbar.finish()
+
+    def get_lnl_partition(self, partition):
         """ Calculates concatenated trees for a Partition """
-        index_tuples = partition.get_membership()
-        return self._get_lnl_index_tuple_list(index_tuples, use_celery, nthreads)
+        index_tuple_list = partition.get_membership()
 
-    def _get_lnl_index_tuple_list(self, index_tuple_list, use_celery=False, nthreads=1):
-        """
-        Does maximum-likelihood tree optimisation for the alignments specified
-        by the tuple list.
-        :param index_tuple_list:
-        :return:
-        """
-        return [self._get_lnl(ix, use_celery, nthreads) for ix in index_tuple_list]
+        return [self._get_lnl(ix, nthreads) for ix in index_tuple_list]
 
-    def _get_minsq_index_tuple_list(self, index_tuple_list):
-        """
-        Does tree estimation by minimum squared distance for the alignments
-        specified by the tuple list.
-        :param index_tuple_list:
-        :return:
-        """
-        return [self._get_minsq(index_tuple) for index_tuple in index_tuple_list]
 
-    def _get_lnl(self, index_tuple, use_celery=False, nthreads=1):
+    def _get_lnl(self, index_tuple):
         """
         Takes a tuple of indices. Concatenates the records in the record
         list at these indices, and builds a tree. Returns the tree
         :param index_tuple: tuple of indexes at which to find the alignments.
-        :return:
+        Result is memoized in self.lnl_cache dictionary
+        :return: dictionary
         """
         try:
             return self.lnl_cache[index_tuple]
@@ -564,18 +618,28 @@ class Scorer(object):
             conc = self.concatenate(index_tuple)
             partitions = conc.qfile(dna_model="GTR", protein_model="LGX")
             tree = self._get_minsq(index_tuple)['tree']
-            result = self.lnl_cache[index_tuple] = conc.pll_optimise(partitions,
-                                                                     tree,
-                                                                     use_celery=use_celery,
-                                                                     nthreads=nthreads)
+            result = self.lnl_cache[index_tuple] = \
+                tasks.pll_task()#todo
             return result
+
+    def get_minsq_partition(self, partition):
+        """ Calculates concatenated trees for a Partition """
+        index_tuple_list = partition.get_membership()
+        return [self._get_minsq(index_tuple) for index_tuple in index_tuple_list]
+
+    def _get_minsq_partition_sequential(self):
+        pass
+
+    def _get_minsq_partition_async(self):
+        pass
 
     def _get_minsq(self, index_tuple):
         """
         Takes a tuple of indices. Concatenates the records in the record
         list at these indices, and builds a tree. Returns the tree
+        Result is memoized in self.minsq_cache dictionary
         :param index_tuple: tuple of indexes at which to find the alignments.
-        :return:
+        :return: dictionary
         """
         try:
             return self.minsq_cache[index_tuple]

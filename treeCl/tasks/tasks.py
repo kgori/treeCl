@@ -1,4 +1,5 @@
 from pllpy import pll
+import tree_collection
 
 from treeCl import treedist
 from treeCl.tree import Tree
@@ -113,3 +114,6 @@ def simulate_task(n, model, frequencies, alpha, tree, rates=None):
     rec.set_simulator(tree)
     return rec.simulate(n)
 
+@app.task()
+def minsq_task(dv, gm, lab, tree, niters=10):
+    return tree_collection.compute(dv, gm, lab, tree, niters, True, False)

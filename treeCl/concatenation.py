@@ -1,3 +1,4 @@
+import numpy as np
 from treeCl import Tree
 from treeCl.alignment import Alignment
 from treeCl.constants import PLL_RANDOM_SEED
@@ -66,7 +67,7 @@ class Concatenation(object):
         trees = [tree.newick if hasattr('newick', tree) else tree for tree in self.trees]
         return Alignment().get_mrp_supertree(trees)
 
-    def _get_tree_collection_strings(self, scale=1):
+    def get_tree_collection_strings(self, scale=1):
         """ Function to get input strings for tree_collection
         tree_collection needs distvar, genome_map and labels -
         these are returned in the order above
@@ -129,22 +130,6 @@ class Concatenation(object):
 
         return distvar_string, genome_map_string, labels_string, tree_string
 
-    def minsq_tree(self,
-                   niters=5,
-                   keep_topology=False,
-                   quiet=True,
-                   scale=1):
-
-        dv, gm, lab, tree_string = self._get_tree_collection_strings(scale)
-
-        import tree_collection
-
-        output_tree, score = tree_collection.compute(dv, gm, lab, tree_string,
-                                                     niters, keep_topology,
-                                                     quiet)
-
-        return Tree(output_tree), score
-
     def qfile(self, dna_model='DNA', protein_model='LG', sep_codon_pos=False,
               ml_freqs=False, eq_freqs=False):
         from_ = 1
@@ -172,29 +157,6 @@ class Concatenation(object):
                                                   to_))
             from_ += length
         return '\n'.join(qs)
-
-    def pll_optimise(self, partitions, tree=None, model=None, nthreads=1, use_celery=False, **kwargs):
-        if tree is None:
-            tree = self.alignment.tree.newick
-        if use_celery:
-            return self._pll_optimise_celery(partitions, tree, nthreads)
-        return self.alignment.pll_optimise(partitions, tree, model, nthreads, **kwargs)
-
-    def _pll_optimise_celery(self, partition, tree, nthreads):
-        rec = self.alignment
-        filename, delete = rec.get_alignment_file()
-        args = (filename, partition, tree, nthreads, PLL_RANDOM_SEED)
-
-        try:
-            queue = 'THREADED' if nthreads > 1 else 'celery'
-            job = tasks.pll_task.apply_async(args, queue=queue)
-            return job
-        except Exception, err:
-            print("ERROR:", err.message)
-            raise err
-        finally:
-            if delete:
-                os.remove(filename)
 
     def paml_partitions(self):
         return 'G {} {}'.format(len(self.lengths),
