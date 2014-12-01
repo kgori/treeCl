@@ -223,12 +223,12 @@ class Collection(object):
 
     def fast_calc_distances(self):
         if DISTRIBUTED_TASK_QUEUE_INSPECT.active() is None:
-            self._fast_calc_distances_sequential()
+            self.__fast_calc_distances_sequential()
         else:
-            self._fast_calc_distances_async()
+            self.__fast_calc_distances_async()
 
     # noinspection PyUnresolvedReferences
-    def _fast_calc_distances_sequential(self):
+    def __fast_calc_distances_sequential(self):
         """ Calculates within-alignment pairwise distances and variances for every
         alignment. Uses fast Jukes-Cantor method.
         :return: void"""
@@ -245,7 +245,7 @@ class Collection(object):
         pbar.finish()
 
     # noinspection PyUnresolvedReferences
-    def _fast_calc_distances_async(self):
+    def __fast_calc_distances_async(self):
         from celery import group
         jobs = []
         to_delete = []
@@ -288,11 +288,11 @@ class Collection(object):
         :return: void
         """
         if DISTRIBUTED_TASK_QUEUE_INSPECT.active() is None:
-            self._calc_distances_sequential()
+            self.__calc_distances_sequential()
         else:
-            self._calc_distances_async()
+            self.__calc_distances_async()
 
-    def _calc_distances_sequential(self):
+    def __calc_distances_sequential(self):
         pbar = setup_progressbar('Calculating ML distances', len(self))
         pbar.start()
         to_delete = []
@@ -316,7 +316,7 @@ class Collection(object):
         with fileIO.TempFileList(to_delete):
             pbar.finish()
 
-    def _calc_distances_async(self):
+    def __calc_distances_async(self):
         from celery import group
 
         jobs = []
@@ -357,11 +357,11 @@ class Collection(object):
 
     def calc_trees(self, threads=1, indices=None):
         if DISTRIBUTED_TASK_QUEUE_INSPECT.active() is None:
-            self._calc_trees_sequential(threads, indices)
+            self.__calc_trees_sequential(threads, indices)
         else:
-            self._calc_trees_async(threads, indices)
+            self.__calc_trees_async(threads, indices)
 
-    def _calc_trees_sequential(self, threads=1, indices=None):
+    def __calc_trees_sequential(self, threads=1, indices=None):
         """ Use pllpy to calculate maximum-likelihood trees
         :return: void
         """
@@ -392,7 +392,7 @@ class Collection(object):
             pbar.finish()
 
     # noinspection PyUnresolvedReferences
-    def _calc_trees_async(self, threads=1, indices=None, allow_retry=True):
+    def __calc_trees_async(self, threads=1, indices=None, allow_retry=True):
         """ Use pllpy to calculate maximum-likelihood trees, and use celery to distribute
         the computation across cores
         :return: void
@@ -435,7 +435,7 @@ class Collection(object):
             pbar.update(j+1)
             j += 1
         if retries > [] and allow_retry:
-            self._calc_trees_async(1, retries, False)
+            self.__calc_trees_async(1, retries, False)
 
     def get_inter_tree_distances(self, metric, **kwargs):
         """ Generate a distance matrix from a fully-populated Collection """
@@ -477,16 +477,15 @@ class Scorer(object):
     a tree and score """
 
     def __init__(
-            self,
-            collection,
-            verbosity=0,
+        self,
+        collection,
+        verbosity=0,
     ):
 
         self.collection = collection
         self.verbosity = verbosity
         self.minsq_cache = {}
         self.lnl_cache = {}
-        self.history = []
 
     @property
     def records(self):
@@ -500,11 +499,11 @@ class Scorer(object):
             self.lnl_cache.keys())
         if len(index_tuples) > 0:
             if DISTRIBUTED_TASK_QUEUE_INSPECT.active is None:
-                self._add_lnl_sequential(index_tuples, threads, use_calculated_freqs)
+                self.__add_lnl_sequential(index_tuples, threads, use_calculated_freqs)
             else:
-                self._add_lnl_async(index_tuples, threads, use_calculated_freqs)
+                self.__add_lnl_async(index_tuples, threads, use_calculated_freqs)
 
-    def _add_lnl_sequential(self, index_tuples, threads=1, use_calculated_freqs=True):
+    def __add_lnl_sequential(self, index_tuples, threads=1, use_calculated_freqs=True):
         pbar = setup_progressbar('Adding ML cluster trees: ', len(index_tuples))
         pbar.start()
 
@@ -526,7 +525,7 @@ class Scorer(object):
         with fileIO.TempFileList(to_delete):
             pbar.finish()
 
-    def _add_lnl_async(self, index_tuples, threads=1, use_calculated_freqs=True):
+    def __add_lnl_async(self, index_tuples, threads=1, use_calculated_freqs=True):
         from celery import group
 
         jobs = []
@@ -567,11 +566,11 @@ class Scorer(object):
             self.lnl_cache.keys())
         if len(index_tuples) > 0:
             if DISTRIBUTED_TASK_QUEUE_INSPECT.active is None:
-                self._add_minsq_sequential(index_tuples)
+                self.__add_minsq_sequential(index_tuples)
             else:
-                self._add_minsq_async(index_tuples)
+                self.__add_minsq_async(index_tuples)
 
-    def _add_minsq_sequential(self, index_tuples):
+    def __add_minsq_sequential(self, index_tuples):
         pbar = setup_progressbar('Adding MinSq cluster trees: ', len(index_tuples))
         pbar.start()
         for i, ix in enumerate(index_tuples):
@@ -581,7 +580,7 @@ class Scorer(object):
             pbar.update(i)
         pbar.finish()
 
-    def _add_minsq_async(self, index_tuples):
+    def __add_minsq_async(self, index_tuples):
         from celery import group
 
         jobs = []
@@ -604,110 +603,24 @@ class Scorer(object):
             pbar.update(i)
         pbar.finish()
 
-    def get_lnl_partition(self, partition):
-        """ Calculates concatenated trees for a Partition """
-        index_tuple_list = partition.get_membership()
-
-        return [self._get_lnl(ix, nthreads) for ix in index_tuple_list]
-
-
-    def _get_lnl(self, index_tuple):
-        """
-        Takes a tuple of indices. Concatenates the records in the record
-        list at these indices, and builds a tree. Returns the tree
-        :param index_tuple: tuple of indexes at which to find the alignments.
-        Result is memoized in self.lnl_cache dictionary
-        :return: dictionary
-        """
-        try:
-            return self.lnl_cache[index_tuple]
-        except KeyError:
-            conc = self.concatenate(index_tuple)
-            partitions = conc.qfile(dna_model="GTR", protein_model="LGX")
-            tree = self._get_minsq(index_tuple)['tree']
-            result = self.lnl_cache[index_tuple] = \
-                tasks.pll_task()#todo
-            return result
-
-    def get_minsq_partition(self, partition):
-        """ Calculates concatenated trees for a Partition """
-        index_tuple_list = partition.get_membership()
-        return [self._get_minsq(index_tuple) for index_tuple in index_tuple_list]
-
-    def _get_minsq_partition_sequential(self):
-        pass
-
-    def _get_minsq_partition_async(self):
-        pass
-
-    def _get_minsq(self, index_tuple):
-        """
-        Takes a tuple of indices. Concatenates the records in the record
-        list at these indices, and builds a tree. Returns the tree
-        Result is memoized in self.minsq_cache dictionary
-        :param index_tuple: tuple of indexes at which to find the alignments.
-        :return: dictionary
-        """
-        try:
-            return self.minsq_cache[index_tuple]
-        except KeyError:
-            conc = self.concatenate(index_tuple)
-            tree, sse = conc.minsq_tree()
-            tree.deroot()
-            n_tips = len(tree)
-            result = dict(tree=tree.newick, sse=sse, fit=sse / (2 * (n_tips - 2) * (n_tips - 3)), names=conc.names)
-            self.minsq_cache[index_tuple] = result
-            return result
-
     def concatenate(self, index_tuple):
         """ Returns a Concatenation object that stitches together
         the alignments picked out by the index tuple """
         return Concatenation(self.collection, index_tuple)
 
-    def update_history(self, score, index_tuple):
-        """ Used for logging the optimiser """
-        time = timeit.default_timer()
-        self.history.append([time, score, index_tuple, len(index_tuple)])
-
-    def print_history(self, fh=sys.stdout):
-        """ Used for logging the optimiser """
-        for iteration, (time, score, index_tuple, nclusters) in enumerate(
-                self.history):
-            fh.write(str(iteration) + "\t")
-            fh.write(str(time) + "\t")
-            fh.write(str(score) + "\t")
-            fh.write(str(index_tuple) + "\t")
-            fh.write(str(nclusters) + "\n")
-
-    def clear_history(self):
-        """ Used for logging the optimiser: clears the log """
-        self.history = []
-
     def members(self, index_tuple):
         """ Gets records by their index, contained in the index_tuple """
         return [self.records[n] for n in index_tuple]
 
-    def get_results(self, partition, criterion, use_celery=False, nthreads=1):
-        """
-        Return the results for scoring a partition - either the sum of log likelihoods,
-        or the total min squares dimensionless fit index
-        :param partition: Partition object
-        :param criterion: either 'minsq' or 'lnl'
-        :return: score (float)
-        """
-        optioncheck(criterion, ['lnl', 'minsq'])
-        results = (self.get_lnl_partition(partition, use_celery, nthreads) if criterion == 'lnl'
-                   else self.get_minsq_partition(partition))
-        return results
-
-    def get_likelihood(self, partition, use_celery=False, nthreads=1):
+    def get_likelihood(self, partition, **kwargs):
         """
         Return the sum of log-likelihoods for a partition.
         :param partition: Partition object
         :return: score (float)
-
         """
-        results = self.get_results(partition, 'lnl', use_celery, nthreads)
+        indices = partition.get_membership()
+        self.add_lnl_partitions(partition, **kwargs)
+        results = [self.lnl_cache[ix] for ix in indices]
         return math.fsum(x['likelihood'] for x in results)
 
     def get_sse(self, partition):
@@ -716,7 +629,9 @@ class Scorer(object):
         :param partition: Partition object
         :return: score (float)
         """
-        results = self.get_results(partition, 'minsq')
+        indices = partition.get_membership()
+        self.add_minsq_partitions(partition, **kwargs)
+        results = [self.minsq_cache[ix] for ix in indices]
         return math.fsum(x['sse'] for x in results)
 
     # def get_fit(self, partition):
@@ -732,3 +647,63 @@ class Scorer(object):
     #     """
     #     results = self.get_results(partition, 'minsq')
     #     return math.fsum(x['fit'] for x in results)
+
+    def simulate(self, partition, **kwargs):
+        if DISTRIBUTED_TASK_QUEUE_INSPECT.active():
+            self.__simulate_async(partition, **kwargs)
+        else:
+            self.__simulate_sequential(partition, **kwargs)
+
+    def __simulate_async(self, partition, outdir, **kwargs):
+        """
+        Simulate a set of alignments from the parameters inferred on a partition
+        :param partition:
+        :return:
+        """
+        indices = partition.get_membership()
+        self.add_lnl_partitions(partitions, **kwargs)
+        results = [self.minsq_cache[ix] for ix in indices]
+        places = dict((j,i) for (i,j) in enumerate(rec.name for rec in self.collection.records))
+        jobs = [] * len(self.collection)
+        for result in results:
+            for partition in result['partitions'].values():
+                place = places[partition['name']]
+                jobs[place] = (len(self.collection[place]),
+                               partition['model'],
+                               partition['frequencies'],
+                               partition['alpha'],
+                               result['ml_tree'],
+                               partition['rates'] if 'rates' in partition else None)
+
+        job_group = group(tasks.minsq_task.subtask(args) for args in jobs)()
+        pbar = setup_progressbar('Simulating: ', len(jobs))
+        pbar.start()
+        while not job_group.ready():
+            time.sleep(2)
+            pbar.update(job_group.completed_count())
+        pbar.finish()
+
+        for i, async_result in enumerate(job_group.results):
+            al = Alignment(async_result.get(), 'protein' if self.collection[i].is_protein() else 'dna')
+            outfile = os.path.join(outdir, self.collection[i].name)
+            al.write_alignment(outfile, 'phylip', True)
+
+
+    def __simulate_sequential(self, partition):
+        indices = partition.get_membership()
+        self.add_lnl_partitions(partitions, **kwargs)
+        results = [self.minsq_cache[ix] for ix in indices]
+        places = dict((j,i) for (i,j) in enumerate(rec.name for rec in self.collection.records))
+        pbar = setup_progressbar('Simulating: ', len(results))
+        for result in results:
+            for partition in result['partitions'].values():
+                place = places[partition['name']]
+                sim = tasks.simulate_task(len(self.collection[place]),
+                                          partition['model'],
+                                          partition['frequencies'],
+                                          partition['alpha'],
+                                          result['ml_tree'],
+                                          partition['rates'] if 'rates' in partition else None)
+                al = Alignment(sim, 'protein' if self.collection[place].is_protein() else 'dna')
+                outfile = os.path.join(outdir, partition['name'])
+                al.write_alignment(outfile, 'phylip', True)

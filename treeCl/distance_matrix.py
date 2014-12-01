@@ -78,6 +78,7 @@ class DistanceMatrix(np.ndarray):
             add_noise=False,
             normalise=False,
             distribute_tasks=False,
+            **kwargs, # i.e. batch_size
     ):
 
         if distribute_tasks:
@@ -85,7 +86,7 @@ class DistanceMatrix(np.ndarray):
         else:
             fns = dict(euc=eucdist_matrix, geo=geodist_matrix, rf=rfdist_matrix, wrf=wrfdist_matrix)
         fn = fns[metric]
-        input_array = fn(trees, normalise)
+        input_array = fn(trees, normalise, **kwargs)
         obj = np.asarray(input_array, dtype).view(cls)
         obj.metric = metric
         if add_noise:
