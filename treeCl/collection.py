@@ -29,7 +29,7 @@ DISTRIBUTED_TASK_QUEUE_INSPECT = app.control.inspect()
 def async_avail(inspect):
     try:
         response = inspect.active()
-        return response is None
+        return response is not None
     except:
         return False
 
@@ -299,7 +299,7 @@ class Collection(object):
             self.__calc_distances_sequential()
 
     def __calc_distances_sequential(self):
-        pbar = setup_progressbar('Calculating ML distances', len(self))
+        pbar = setup_progressbar('Calculating ML distances (seq)', len(self))
         pbar.start()
         to_delete = []
         for i, rec in enumerate(self.records):
@@ -342,7 +342,7 @@ class Collection(object):
 
         with fileIO.TempFileList(to_delete):
             job_group = group(tasks.calc_distances_task.subtask(args) for args in jobs)()
-            pbar = setup_progressbar('Calculating ML distances', len(jobs))
+            pbar = setup_progressbar('Calculating ML distances (async)', len(jobs))
             pbar.start()
             while not job_group.ready():
                 time.sleep(2)
@@ -571,7 +571,7 @@ class Scorer(object):
         index_tuples = set(ix for partition in partitions for ix in partition.get_membership()).difference(
             self.minsq_cache.keys())
         if len(index_tuples) > 0:
-            if async_avail(DISTRIBUTED_TASK_QUEUE_INSPECT)
+            if async_avail(DISTRIBUTED_TASK_QUEUE_INSPECT):
                 self.__add_minsq_async(index_tuples)
             else:
                 self.__add_minsq_sequential(index_tuples)
