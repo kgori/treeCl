@@ -623,7 +623,7 @@ class Scorer(object):
         results = [self.lnl_cache[ix] for ix in indices]
         return math.fsum(x['likelihood'] for x in results)
 
-    def get_sse(self, partition):
+    def get_sse(self, partition, **kwargs):
         """
         Return the sum of squared errors score for a partition
         :param partition: Partition object
