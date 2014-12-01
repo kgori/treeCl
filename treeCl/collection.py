@@ -26,6 +26,12 @@ from constants import SORT_KEY, PLL_RANDOM_SEED
 
 DISTRIBUTED_TASK_QUEUE_INSPECT = app.control.inspect()
 
+def async_avail(inspect):
+    try:
+        response = inspect.active()
+        return response is None
+    except:
+        return False
 
 class NoRecordsError(Exception):
     def __init__(self, file_format, input_dir, compression):
@@ -222,10 +228,10 @@ class Collection(object):
 ####### TASKS ##########################################################################################################
 
     def fast_calc_distances(self):
-        if DISTRIBUTED_TASK_QUEUE_INSPECT.active() is None:
-            self.__fast_calc_distances_sequential()
-        else:
+        if async_avail(DISTRIBUTED_TASK_QUEUE_INSPECT):
             self.__fast_calc_distances_async()
+        else:
+            self.__fast_calc_distances_sequential()
 
     # noinspection PyUnresolvedReferences
     def __fast_calc_distances_sequential(self):
@@ -287,10 +293,10 @@ class Collection(object):
         having had appropriate ML parametric models set up in advance.
         :return: void
         """
-        if DISTRIBUTED_TASK_QUEUE_INSPECT.active() is None:
-            self.__calc_distances_sequential()
-        else:
+        if async_avail(DISTRIBUTED_TASK_QUEUE_INSPECT):
             self.__calc_distances_async()
+        else:
+            self.__calc_distances_sequential()
 
     def __calc_distances_sequential(self):
         pbar = setup_progressbar('Calculating ML distances', len(self))
@@ -356,10 +362,10 @@ class Collection(object):
             j += 1
 
     def calc_trees(self, threads=1, indices=None):
-        if DISTRIBUTED_TASK_QUEUE_INSPECT.active() is None:
-            self.__calc_trees_sequential(threads, indices)
-        else:
+        if async_avail(DISTRIBUTED_TASK_QUEUE_INSPECT):
             self.__calc_trees_async(threads, indices)
+        else:
+            self.__calc_trees_sequential(threads, indices)
 
     def __calc_trees_sequential(self, threads=1, indices=None):
         """ Use pllpy to calculate maximum-likelihood trees
@@ -439,7 +445,7 @@ class Collection(object):
 
     def get_inter_tree_distances(self, metric, **kwargs):
         """ Generate a distance matrix from a fully-populated Collection """
-        distribute_tasks = DISTRIBUTED_TASK_QUEUE_INSPECT.active() is not None
+        distribute_tasks = async_avail(DISTRIBUTED_TASK_QUEUE_INSPECT)
         return DistanceMatrix(self.trees, metric, distribute_tasks=distribute_tasks, **kwargs)
 
     def permuted_copy(self):
@@ -498,10 +504,10 @@ class Scorer(object):
         index_tuples = set(ix for partition in partitions for ix in partition.get_membership()).difference(
             self.lnl_cache.keys())
         if len(index_tuples) > 0:
-            if DISTRIBUTED_TASK_QUEUE_INSPECT.active() is None:
-                self.__add_lnl_sequential(index_tuples, threads, use_calculated_freqs)
-            else:
+            if async_avail(DISTRIBUTED_TASK_QUEUE_INSPECT):
                 self.__add_lnl_async(index_tuples, threads, use_calculated_freqs)
+            else:
+                self.__add_lnl_sequential(index_tuples, threads, use_calculated_freqs)
 
     def __add_lnl_sequential(self, index_tuples, threads=1, use_calculated_freqs=True):
         pbar = setup_progressbar('Adding ML cluster trees (sequential): ', len(index_tuples))
@@ -565,10 +571,10 @@ class Scorer(object):
         index_tuples = set(ix for partition in partitions for ix in partition.get_membership()).difference(
             self.minsq_cache.keys())
         if len(index_tuples) > 0:
-            if DISTRIBUTED_TASK_QUEUE_INSPECT.active() is None:
-                self.__add_minsq_sequential(index_tuples)
-            else:
+            if async_avail(DISTRIBUTED_TASK_QUEUE_INSPECT)
                 self.__add_minsq_async(index_tuples)
+            else:
+                self.__add_minsq_sequential(index_tuples)
 
     def __add_minsq_sequential(self, index_tuples):
         pbar = setup_progressbar('Adding MinSq cluster trees (sequential): ', len(index_tuples))
@@ -649,7 +655,7 @@ class Scorer(object):
     #     return math.fsum(x['fit'] for x in results)
 
     def simulate(self, partition, **kwargs):
-        if DISTRIBUTED_TASK_QUEUE_INSPECT.active():
+        if async_avail(DISTRIBUTED_TASK_QUEUE_INSPECT):
             self.__simulate_async(partition, **kwargs)
         else:
             self.__simulate_sequential(partition, **kwargs)

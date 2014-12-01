@@ -5,17 +5,6 @@ import os
 from celery import Celery
 
 
-class MockInspect(object):
-    def active(self):
-        return None
-
-class MockControl(object):
-    def inspect(self):
-        return MockInspect()
-
-class MockApp(object):
-    control = MockControl()
-
 try:
     homedir = os.getenv('HOME')
     with open(os.path.join(homedir, '.broker', 'connection')) as fl:
@@ -34,13 +23,9 @@ try:
     )
 
 except IOError:
-    app = MockApp()
+    app = Celery('treeCl.tasks',
+                 include=['treeCl.tasks.tasks'])
 
 
 if __name__ == '__main__':
-    if isinstance(app, MockApp):
-        import sys
-        sys.stderr.write('ERROR: no redis connection available\n')
-        sys.stderr.flush()
-        sys.exit()
     app.start()
