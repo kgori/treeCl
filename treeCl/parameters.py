@@ -11,6 +11,14 @@ class BaseParameters(object):
     def dict(self):
         return dict((item.lstrip('_'), getattr(self, item)) for item in self.__slots__)
 
+    def read(self, fileobj):
+        return json.load(fileobj)
+
+    def construct_from_dict(self, dict):
+        for k, v in dict.items():
+            if '_{}'.format(k) in self.__slots__:
+                setattr(self, k, v)
+
     def write(self, fileobj=sys.stdout, indent=None):
         json.dump(self.dict, fileobj, indent=indent)
 

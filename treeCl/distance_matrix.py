@@ -78,7 +78,7 @@ class DistanceMatrix(np.ndarray):
             add_noise=False,
             normalise=False,
             distribute_tasks=False,
-            **kwargs, # i.e. batch_size
+            **kwargs
     ):
 
         if distribute_tasks:
