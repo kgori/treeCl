@@ -96,5 +96,5 @@ setup(name="treeCl",
           'tree_distance',
       ],
       cmdclass={'build_ext': build_ext},
-      # ext_modules=extensions,
+      ext_modules=extensions,
 )

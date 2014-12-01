@@ -504,7 +504,7 @@ class Scorer(object):
                 self.__add_lnl_async(index_tuples, threads, use_calculated_freqs)
 
     def __add_lnl_sequential(self, index_tuples, threads=1, use_calculated_freqs=True):
-        pbar = setup_progressbar('Adding ML cluster trees: ', len(index_tuples))
+        pbar = setup_progressbar('Adding ML cluster trees (sequential): ', len(index_tuples))
         pbar.start()
 
         to_delete = []
@@ -545,7 +545,7 @@ class Scorer(object):
 
         with fileIO.TempFileList(to_delete):
             job_group = group(tasks.pll_task.subtask(args) for args in jobs)()
-            pbar = setup_progressbar('Adding ML cluster trees', len(jobs))
+            pbar = setup_progressbar('Adding ML cluster trees (async)', len(jobs))
             pbar.start()
             while not job_group.ready():
                 time.sleep(2)
@@ -571,7 +571,7 @@ class Scorer(object):
                 self.__add_minsq_async(index_tuples)
 
     def __add_minsq_sequential(self, index_tuples):
-        pbar = setup_progressbar('Adding MinSq cluster trees: ', len(index_tuples))
+        pbar = setup_progressbar('Adding MinSq cluster trees (sequential): ', len(index_tuples))
         pbar.start()
         for i, ix in enumerate(index_tuples):
             conc = self.concatenate(ix)
@@ -589,7 +589,7 @@ class Scorer(object):
             jobs.append(conc.get_tree_collection_strings())
 
         job_group = group(tasks.minsq_task.subtask(args) for args in jobs)()
-        pbar = setup_progressbar('Adding MinSq cluster trees', len(jobs))
+        pbar = setup_progressbar('Adding MinSq cluster trees (async)', len(jobs))
         pbar.start()
         while not job_group.ready():
             time.sleep(2)

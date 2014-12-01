@@ -160,3 +160,8 @@ class Parameters(BaseParameters):
         if d['partitions'] is not None:
             d['partitions'] = {i: subpar.dict for (i, subpar) in enumerate(d['partitions'])}
         return d
+
+    def construct_from_dict(self, dict):
+        super(Parameters, self).construct_from_dict(dict)
+        tmp = {int(k): v for (k, v) in self._parameters.items()}
+        self.partitions = [PartitionParameters().construct_from_dict(tmp[k]) for k in k in sorted(tmp)]
