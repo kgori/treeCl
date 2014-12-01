@@ -498,7 +498,7 @@ class Scorer(object):
         index_tuples = set(ix for partition in partitions for ix in partition.get_membership()).difference(
             self.lnl_cache.keys())
         if len(index_tuples) > 0:
-            if DISTRIBUTED_TASK_QUEUE_INSPECT.active is None:
+            if DISTRIBUTED_TASK_QUEUE_INSPECT.active() is None:
                 self.__add_lnl_sequential(index_tuples, threads, use_calculated_freqs)
             else:
                 self.__add_lnl_async(index_tuples, threads, use_calculated_freqs)
@@ -563,9 +563,9 @@ class Scorer(object):
         if isinstance(partitions, Partition):
             partitions = (partitions,)
         index_tuples = set(ix for partition in partitions for ix in partition.get_membership()).difference(
-            self.lnl_cache.keys())
+            self.minsq_cache.keys())
         if len(index_tuples) > 0:
-            if DISTRIBUTED_TASK_QUEUE_INSPECT.active is None:
+            if DISTRIBUTED_TASK_QUEUE_INSPECT.active() is None:
                 self.__add_minsq_sequential(index_tuples)
             else:
                 self.__add_minsq_async(index_tuples)
