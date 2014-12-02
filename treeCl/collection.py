@@ -238,7 +238,7 @@ class Collection(object):
         """ Calculates within-alignment pairwise distances and variances for every
         alignment. Uses fast Jukes-Cantor method.
         :return: void"""
-        pbar = setup_progressbar('Calculating fast approximate distances', len(self))
+        pbar = setup_progressbar('Calculating fast distances (seq)', len(self))
         pbar.start()
         for i, rec in enumerate(self.records):
             rec.fast_compute_distances()
@@ -263,7 +263,7 @@ class Collection(object):
 
         with fileIO.TempFileList(to_delete):
             job_group = group(tasks.fast_calc_distances_task.s(args) for args in jobs)()
-            pbar = setup_progressbar('Calculating fast distances', len(jobs), simple_progress=True)
+            pbar = setup_progressbar('Calculating fast distances (async)', len(jobs), simple_progress=True)
             pbar.start()
             while not job_group.ready():
                 time.sleep(2)
@@ -377,7 +377,7 @@ class Collection(object):
         else:
             indices = indices
 
-        pbar = setup_progressbar('Calculating ML trees', len(indices))
+        pbar = setup_progressbar('Calculating ML trees (seq)', len(indices))
         pbar.start()
 
         to_delete = []
@@ -420,7 +420,7 @@ class Collection(object):
 
         with fileIO.TempFileList(to_delete):
             job_group = group(tasks.pll_task.subtask(args) for args in jobs)()
-            pbar = setup_progressbar('Calculating ML trees', len(jobs))
+            pbar = setup_progressbar('Calculating ML trees (async)', len(jobs))
             pbar.start()
             while not job_group.ready():
                 time.sleep(2)
@@ -510,7 +510,7 @@ class Scorer(object):
                 self.__add_lnl_sequential(index_tuples, threads, use_calculated_freqs)
 
     def __add_lnl_sequential(self, index_tuples, threads=1, use_calculated_freqs=True):
-        pbar = setup_progressbar('Adding ML cluster trees (sequential): ', len(index_tuples))
+        pbar = setup_progressbar('Adding ML cluster trees (seq): ', len(index_tuples))
         pbar.start()
 
         to_delete = []
@@ -577,7 +577,7 @@ class Scorer(object):
                 self.__add_minsq_sequential(index_tuples)
 
     def __add_minsq_sequential(self, index_tuples):
-        pbar = setup_progressbar('Adding MinSq cluster trees (sequential): ', len(index_tuples))
+        pbar = setup_progressbar('Adding MinSq cluster trees (seq): ', len(index_tuples))
         pbar.start()
         for i, ix in enumerate(index_tuples):
             conc = self.concatenate(ix)
@@ -654,11 +654,11 @@ class Scorer(object):
     #     results = self.get_results(partition, 'minsq')
     #     return math.fsum(x['fit'] for x in results)
 
-    def simulate(self, partition, **kwargs):
+    def simulate(self, partition, outdir, **kwargs):
         if async_avail(DISTRIBUTED_TASK_QUEUE_INSPECT):
-            self.__simulate_async(partition, **kwargs)
+            self.__simulate_async(partition, outdir, **kwargs)
         else:
-            self.__simulate_sequential(partition, **kwargs)
+            self.__simulate_sequential(partition, outdir, **kwargs)
 
     def __simulate_async(self, partition, outdir, **kwargs):
         """
@@ -667,7 +667,7 @@ class Scorer(object):
         :return:
         """
         indices = partition.get_membership()
-        self.add_lnl_partitions(partitions, **kwargs)
+        self.add_lnl_partitions(partition, **kwargs)
         results = [self.minsq_cache[ix] for ix in indices]
         places = dict((j,i) for (i,j) in enumerate(rec.name for rec in self.collection.records))
         jobs = [] * len(self.collection)
@@ -695,9 +695,9 @@ class Scorer(object):
             al.write_alignment(outfile, 'phylip', True)
 
 
-    def __simulate_sequential(self, partition):
+    def __simulate_sequential(self, partition, outdir):
         indices = partition.get_membership()
-        self.add_lnl_partitions(partitions, **kwargs)
+        self.add_lnl_partitions(partition, **kwargs)
         results = [self.minsq_cache[ix] for ix in indices]
         places = dict((j,i) for (i,j) in enumerate(rec.name for rec in self.collection.records))
         pbar = setup_progressbar('Simulating: ', len(results))
