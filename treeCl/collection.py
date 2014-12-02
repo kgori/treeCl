@@ -20,7 +20,7 @@ from treeCl.tasks.celery import app
 from distance_matrix import DistanceMatrix
 from alignment import Alignment
 from parameters import PartitionParameters
-from utils import fileIO, setup_progressbar
+from utils import fileIO, setup_progressbar, model_translate
 from errors import optioncheck, directorycheck
 from constants import SORT_KEY, PLL_RANDOM_SEED
 
@@ -666,6 +666,7 @@ class Scorer(object):
         :param partition:
         :return:
         """
+        from celery import group
         indices = partition.get_membership()
         self.add_lnl_partitions(partition, **kwargs)
         results = [self.lnl_cache[ix] for ix in indices]
@@ -675,13 +676,13 @@ class Scorer(object):
             for partition in result['partitions'].values():
                 place = places[partition['name']]
                 jobs[place] = (len(self.collection[place]),
-                               partition['model'],
+                               model_translate(partition['model']),
                                partition['frequencies'],
                                partition['alpha'],
                                result['ml_tree'],
                                partition['rates'] if 'rates' in partition else None)
 
-        job_group = group(tasks.minsq_task.subtask(args) for args in jobs)()
+        job_group = group(tasks.simulate_task.subtask(args) for args in jobs)()
         pbar = setup_progressbar('Simulating: ', len(jobs))
         pbar.start()
         while not job_group.ready():
@@ -705,7 +706,7 @@ class Scorer(object):
             for partition in result['partitions'].values():
                 place = places[partition['name']]
                 sim = tasks.simulate_task(len(self.collection[place]),
-                                          partition['model'],
+                                          model_translate(partition['model']),
                                           partition['frequencies'],
                                           partition['alpha'],
                                           result['ml_tree'],
