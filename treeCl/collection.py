@@ -238,7 +238,7 @@ class Collection(object):
         """ Calculates within-alignment pairwise distances and variances for every
         alignment. Uses fast Jukes-Cantor method.
         :return: void"""
-        pbar = setup_progressbar('Calculating fast distances (seq)', len(self))
+        pbar = setup_progressbar('Calculating fast distances (seq)', len(self), simple_progress=True)
         pbar.start()
         for i, rec in enumerate(self.records):
             rec.fast_compute_distances()
@@ -299,7 +299,7 @@ class Collection(object):
             self.__calc_distances_sequential()
 
     def __calc_distances_sequential(self):
-        pbar = setup_progressbar('Calculating ML distances (seq)', len(self))
+        pbar = setup_progressbar('Calculating ML distances (seq)', len(self), simple_progress=True)
         pbar.start()
         to_delete = []
         for i, rec in enumerate(self.records):
@@ -342,7 +342,7 @@ class Collection(object):
 
         with fileIO.TempFileList(to_delete):
             job_group = group(tasks.calc_distances_task.subtask(args) for args in jobs)()
-            pbar = setup_progressbar('Calculating ML distances (async)', len(jobs))
+            pbar = setup_progressbar('Calculating ML distances (async)', len(jobs), simple_progress=True)
             pbar.start()
             while not job_group.ready():
                 time.sleep(2)
@@ -377,7 +377,7 @@ class Collection(object):
         else:
             indices = indices
 
-        pbar = setup_progressbar('Calculating ML trees (seq)', len(indices))
+        pbar = setup_progressbar('Calculating ML trees (seq)', len(indices), simple_progress=True)
         pbar.start()
 
         to_delete = []
@@ -420,7 +420,7 @@ class Collection(object):
 
         with fileIO.TempFileList(to_delete):
             job_group = group(tasks.pll_task.subtask(args) for args in jobs)()
-            pbar = setup_progressbar('Calculating ML trees (async)', len(jobs))
+            pbar = setup_progressbar('Calculating ML trees (async)', len(jobs), simple_progress=True)
             pbar.start()
             while not job_group.ready():
                 time.sleep(2)
@@ -510,7 +510,7 @@ class Scorer(object):
                 self.__add_lnl_sequential(index_tuples, threads, use_calculated_freqs)
 
     def __add_lnl_sequential(self, index_tuples, threads=1, use_calculated_freqs=True):
-        pbar = setup_progressbar('Adding ML cluster trees (seq): ', len(index_tuples))
+        pbar = setup_progressbar('Adding ML cluster trees (seq): ', len(index_tuples), simple_progress=True)
         pbar.start()
 
         to_delete = []
@@ -551,7 +551,7 @@ class Scorer(object):
 
         with fileIO.TempFileList(to_delete):
             job_group = group(tasks.pll_task.subtask(args) for args in jobs)()
-            pbar = setup_progressbar('Adding ML cluster trees (async)', len(jobs))
+            pbar = setup_progressbar('Adding ML cluster trees (async)', len(jobs), simple_progress=True)
             pbar.start()
             while not job_group.ready():
                 time.sleep(2)
@@ -577,7 +577,7 @@ class Scorer(object):
                 self.__add_minsq_sequential(index_tuples)
 
     def __add_minsq_sequential(self, index_tuples):
-        pbar = setup_progressbar('Adding MinSq cluster trees (seq): ', len(index_tuples))
+        pbar = setup_progressbar('Adding MinSq cluster trees (seq): ', len(index_tuples), simple_progress=True)
         pbar.start()
         for i, ix in enumerate(index_tuples):
             conc = self.concatenate(ix)
@@ -595,7 +595,7 @@ class Scorer(object):
             jobs.append(conc.get_tree_collection_strings())
 
         job_group = group(tasks.minsq_task.subtask(args) for args in jobs)()
-        pbar = setup_progressbar('Adding MinSq cluster trees (async)', len(jobs))
+        pbar = setup_progressbar('Adding MinSq cluster trees (async)', len(jobs), simple_progress=True)
         pbar.start()
         while not job_group.ready():
             time.sleep(2)
@@ -670,7 +670,7 @@ class Scorer(object):
         self.add_lnl_partitions(partition, **kwargs)
         results = [self.lnl_cache[ix] for ix in indices]
         places = dict((j,i) for (i,j) in enumerate(rec.name for rec in self.collection.records))
-        jobs = [] * len(self.collection)
+        jobs = [None] * len(self.collection)
         for result in results:
             for partition in result['partitions'].values():
                 place = places[partition['name']]
@@ -695,7 +695,7 @@ class Scorer(object):
             al.write_alignment(outfile, 'phylip', True)
 
 
-    def __simulate_sequential(self, partition, outdir):
+    def __simulate_sequential(self, partition, outdir, **kwargs):
         indices = partition.get_membership()
         self.add_lnl_partitions(partition, **kwargs)
         results = [self.lnl_cache[ix] for ix in indices]
