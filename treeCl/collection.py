@@ -691,8 +691,10 @@ class Scorer(object):
         pbar.finish()
 
         for i, async_result in enumerate(job_group.results):
-            al = Alignment(async_result.get(), 'protein' if self.collection[i].is_protein() else 'dna')
-            outfile = os.path.join(outdir, self.collection[i].name)
+            orig = self.collection[i]
+            simseqs = gapmask(async_result.get(), orig.get_sequences())
+            al = Alignment(simseqs, 'protein' if orig.is_protein() else 'dna')
+            outfile = os.path.join(outdir, orig.name + '.phy')
             al.write_alignment(outfile, 'phylip', True)
 
 
@@ -702,15 +704,36 @@ class Scorer(object):
         results = [self.lnl_cache[ix] for ix in indices]
         places = dict((j,i) for (i,j) in enumerate(rec.name for rec in self.collection.records))
         pbar = setup_progressbar('Simulating: ', len(results))
-        for result in results:
+        pbar.start()
+        for i, result in enumerate(results):
             for partition in result['partitions'].values():
                 place = places[partition['name']]
-                sim = tasks.simulate_task(len(self.collection[place]),
+                orig = self.collection[place]
+                sim = tasks.simulate_task(len(orig),
                                           model_translate(partition['model']),
                                           partition['frequencies'],
                                           partition['alpha'],
                                           result['ml_tree'],
                                           partition['rates'] if 'rates' in partition else None)
-                al = Alignment(sim, 'protein' if self.collection[place].is_protein() else 'dna')
-                outfile = os.path.join(outdir, partition['name'])
+                sim = gapmask(sim, orig.get_sequences())
+                al = Alignment(sim, 'protein' if orig.is_protein() else 'dna')
+                outfile = os.path.join(outdir, partition['name'] + '.phy')
                 al.write_alignment(outfile, 'phylip', True)
+                pbar.update(i)
+        pbar.finish()
+
+def gapmask(simseqs, origseqs):
+    """
+    :param sims: list of (header, sequence) tuples of simulated sequences [no gaps]
+    :param aln: list of (header, sequence) tuples of original sequences
+    :return:
+    """
+    simdict = dict(simseqs)
+    origdict = dict(origseqs)
+    for k in origdict:
+        origseq = np.array(list(origdict[k]))
+        gap_pos = np.where(origseq=='-')
+        simseq = np.array(list(simdict[k]))
+        simseq[gap_pos] = '-'
+        simdict[k] = ''.join(simseq)
+    return list(simdict.items())

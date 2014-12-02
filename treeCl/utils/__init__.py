@@ -59,4 +59,4 @@ def model_translate(model):
 
     translation = { 'LG' : 'LG08',
                     'WAG': 'WAG01'}
-    return translation(model)
+    return translation[model]
