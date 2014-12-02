@@ -668,7 +668,7 @@ class Scorer(object):
         """
         indices = partition.get_membership()
         self.add_lnl_partitions(partition, **kwargs)
-        results = [self.minsq_cache[ix] for ix in indices]
+        results = [self.lnl_cache[ix] for ix in indices]
         places = dict((j,i) for (i,j) in enumerate(rec.name for rec in self.collection.records))
         jobs = [] * len(self.collection)
         for result in results:
@@ -698,7 +698,7 @@ class Scorer(object):
     def __simulate_sequential(self, partition, outdir):
         indices = partition.get_membership()
         self.add_lnl_partitions(partition, **kwargs)
-        results = [self.minsq_cache[ix] for ix in indices]
+        results = [self.lnl_cache[ix] for ix in indices]
         places = dict((j,i) for (i,j) in enumerate(rec.name for rec in self.collection.records))
         pbar = setup_progressbar('Simulating: ', len(results))
         for result in results:
