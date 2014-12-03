@@ -8,8 +8,12 @@ from printing import print_and_return
 def flatten_list(list_):
     newlist = list()
     x = newlist.extend
+    ap = newlist.append
     for sublist in list_:
-        x(sublist)
+        try:
+            x(sublist)
+        except TypeError: # if the "sublist" is non-iterable, append as a plain element
+            ap(sublist)
     return newlist
 
 

@@ -9,7 +9,7 @@ import sklearn
 
 # treeCl
 import errors
-from celery_runners import eucdist_matrix_task, geodist_matrix_task, rfdist_matrix_task, wrfdist_matrix_task
+from treedist_runners import *
 from treedist import eucdist_matrix, geodist_matrix, rfdist_matrix, wrfdist_matrix
 
 def isconnected(mask):
@@ -63,7 +63,6 @@ class Decomp(object):
         return coords_matrix, varexp
 
 
-
 class DistanceMatrix(np.ndarray):
     # optioncheck(metric, ['euc', 'geo', 'rf', 'wrf'])
     #
@@ -82,9 +81,16 @@ class DistanceMatrix(np.ndarray):
     ):
 
         if distribute_tasks:
-            fns = dict(euc=eucdist_matrix_task, geo=geodist_matrix_task, rf=rfdist_matrix_task, wrf=wrfdist_matrix_task)
+            fns = dict(euc=eucdist_matrix_async,
+                       geo=geodist_matrix_async,
+                       rf=rfdist_matrix_async,
+                       wrf=wrfdist_matrix_async)
         else:
-            fns = dict(euc=eucdist_matrix, geo=geodist_matrix, rf=rfdist_matrix, wrf=wrfdist_matrix)
+            fns = dict(euc=eucdist_matrix_sequential,
+                       geo=geodist_matrix_sequential,
+                       rf=rfdist_matrix_sequential,
+                       wrf=wrfdist_matrix_sequential)
+
         fn = fns[metric]
         input_array = fn(trees, normalise, **kwargs)
         obj = np.asarray(input_array, dtype).view(cls)

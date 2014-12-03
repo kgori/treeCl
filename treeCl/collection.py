@@ -448,34 +448,31 @@ class Collection(object):
         distribute_tasks = async_avail(DISTRIBUTED_TASK_QUEUE_INSPECT)
         return DistanceMatrix(self.trees, metric, distribute_tasks=distribute_tasks, **kwargs)
 
-    def permuted_copy(self):
+    def permuted_copy(self, partition=None):
         """ Return a copy of the collection with all alignment columns permuted
         """
         def take(n, iterable):
             return [iterable.next() for _ in range(n)]
 
-        def items_subset(kys, dct):
-            return [(ky, dct[ky]) for ky in kys]
+        if partition is None:
+            partition = Partition([1] * len(self))
 
-        concat = Concatenation(self, range(len(self)))
-        sites = concat.alignment.get_sites()
-        random.shuffle(sites)
-        d = dict(zip(concat.alignment.get_names(), [iter(x) for x in zip(*sites)]))
+        index_tuples = partition.get_membership()
 
-        new_seqs = []
-        for l in concat.lengths:
-            new_seqs.append(dict([(k, ''.join(take(l, d[k]))) for k in d]))
+        alignments = []
+        for ix in index_tuples:
+            concat = Concatenation(self, ix)
+            sites = concat.alignment.get_sites()
+            random.shuffle(sites)
+            d = dict(zip(concat.alignment.get_names(), [iter(x) for x in zip(*sites)]))
+            new_seqs = [[(k, ''.join(take(l, d[k]))) for k in d] for l in concat.lengths]
 
-        records = []
-        for (k, d) in zip(concat.headers, new_seqs):
-            records.append(items_subset(k, d))
+            for seqs, datatype, name in zip(new_seqs, concat.datatypes, concat.names):
+                alignment = Alignment(seqs, datatype)
+                alignment.name = name
+                alignments.append(alignment)
 
-        permutation = self.__class__(
-            records=[Alignment(seqs, dtype) for (seqs, dtype) in zip(records, concat.datatypes)])
-        for rec, name in zip(permutation, concat.names):
-            rec.name = name
-
-        return permutation
+        return self.__class__(records=sorted(alignments, key=lambda x: SORT_KEY(x.name)))
 
 
 class Scorer(object):
@@ -728,6 +725,7 @@ def gapmask(simseqs, origseqs):
     :param aln: list of (header, sequence) tuples of original sequences
     :return:
     """
+    import numpy as np
     simdict = dict(simseqs)
     origdict = dict(origseqs)
     for k in origdict:
