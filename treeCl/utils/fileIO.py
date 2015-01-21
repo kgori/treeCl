@@ -95,15 +95,21 @@ def freader(filename, gz=False, bz=False):
 
 
 def fwriter(filename, gz=False, bz=False):
-    """ Returns a filewriter object that can write plain or gzipped output"""
+    """ Returns a filewriter object that can write plain or gzipped output.
+    If gzip or bzip2 compression is asked for then the usual filename extension will be added."""
 
     if filename.endswith('gz'):
         gz = True
     elif filename.endswith('bz2'):
         bz = True
+
     if gz:
+        if not filename.endswith('gz'):
+            filename += '.gz'
         return gzip.open(filename, 'wb')
     elif bz:
+        if not filename.endswith('bz2'):
+            filename += '.bz2'
         return bz2.BZ2File(filename, 'w')
     else:
         return open(filename, 'w')

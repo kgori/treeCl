@@ -2,6 +2,7 @@
 from __future__ import print_function
 
 # standard lib
+import glob
 import json
 import math
 import os
@@ -183,36 +184,22 @@ class Collection(object):
         pbar = setup_progressbar("Loading parameters", len(self.records))
         pbar.start()
         for i, rec in enumerate(self.records):
+            hook = os.path.join(input_dir, '{}.json*'.format(rec.name))
+            filename = glob.glob(hook)
             try:
-                with open(os.path.join(input_dir, '{}.json'.format(rec.name))) as infile:
-                    parameters = json.load(infile, parse_int=True)
-                    rec.parameters = parameters
-                    if 'partitions' in rec.parameters:
-                        rec.parameters['partitions'] = {int(k): v for (k, v) in rec.parameters['partitions'].iteritems()}
-                        try:
-                            freqs = rec.parameters['partitions'][0]['frequencies']
-                            alpha = rec.parameters['partitions'][0]['alpha']
-                            rec.set_substitution_model('GTR' if rec.is_dna() else 'LG08')
-                            rec.set_gamma_rate_model(4, alpha)
-                            rec.set_frequencies(freqs)
-                            if rec.is_dna():
-                                rec.set_rates(result['partitions'][0]['rates'], 'ACGT')
-                        except KeyError:
-                            pass
+                with fileIO.freader(filename[0]) as infile:
+                    d = json.load(infile, parse_int=True)
 
-                        try:
-                            dists = rec.parameters['partitions'][0]['distances']
-                            rec.set_distance_matrix(dists)
-                        except KeyError:
-                            pass
+                rec.parameters.construct_from_dict(d)
 
-            except IOError:
+            except IOError, IndexError:
                 continue
+
             finally:
                 pbar.update(i)
         pbar.finish()
 
-    def write_parameters(self, output_dir):
+    def write_parameters(self, output_dir, gz=False):
         if not os.path.exists(output_dir):
             try:
                 os.makedirs(output_dir)

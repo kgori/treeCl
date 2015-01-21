@@ -163,5 +163,9 @@ class Parameters(BaseParameters):
 
     def construct_from_dict(self, dict):
         super(Parameters, self).construct_from_dict(dict)
-        tmp = {int(k): v for (k, v) in self._parameters.items()}
-        self.partitions = [PartitionParameters().construct_from_dict(tmp[k]) for k in k in sorted(tmp)]
+        tmp = {int(k): v for (k, v) in self._partitions.items()}
+        self._partitions = []
+        for k in sorted(tmp):
+            pp = PartitionParameters()
+            pp.construct_from_dict(tmp[k])
+            self.partitions.append(pp)
