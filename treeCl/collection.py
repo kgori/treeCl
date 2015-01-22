@@ -482,7 +482,7 @@ class Scorer(object):
         return self.collection.records
 
     def add_lnl_partitions(self, partitions, threads=1, use_calculated_freqs=True):
-        self.add_minsq_partitions(partitions)
+        self.add_minsq_partitions(partitions)  # TODO: this is a side effect - problem?
         if isinstance(partitions, Partition):
             partitions = (partitions,)
         index_tuples = set(ix for partition in partitions for ix in partition.get_membership()).difference(
@@ -680,7 +680,6 @@ class Scorer(object):
             al = Alignment(simseqs, 'protein' if orig.is_protein() else 'dna')
             outfile = os.path.join(outdir, orig.name + '.phy')
             al.write_alignment(outfile, 'phylip', True)
-
 
     def __simulate_sequential(self, partition, outdir, **kwargs):
         indices = partition.get_membership()
