@@ -124,7 +124,7 @@ class Concatenation(object):
                 if e.head_node == guide_tree.seed_node:
                     e.length = 0.0
                 else:
-                    e.length = 1.0
+                    e.length = np.random.uniform()
 
         if not guide_tree.is_rooted:
             guide_tree.reroot_at_midpoint()

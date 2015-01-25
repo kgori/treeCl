@@ -21,7 +21,7 @@ except ImportError:
     Biopython_Unavailable = True
 
 try:
-    from sklearn.cluster import DBSCAN, KMeans
+    from sklearn.cluster import AffinityPropagation, DBSCAN, KMeans
     from sklearn.mixture import GMM
 except ImportError:
     print("sklearn unavailable: KMeans disabled")
@@ -55,10 +55,18 @@ class Clustering(object):
         return str(self.distance_matrix)
 
     def anosim(self, partition, n_permutations=999):
+        if partition.is_minimal():
+            raise ValueError("ANOSim is not defined for singleton clusters")
+        elif partition.is_maximal():
+            raise ValueError("ANOSim is not defined for maximally divided partitions")
         result = skbio.stats.distance.ANOSIM(skbio.DistanceMatrix(self.distance_matrix), partition.partition_vector)
         return result(n_permutations)
 
     def permanova(self, partition, n_permutations=999):
+        if partition.is_minimal():
+            raise ValueError("PERMANOVA is not defined for singleton clusters")
+        elif partition.is_maximal():
+            raise ValueError("PERMANOVA is not defined for maximally divided partitions")
         result = skbio.stats.distance.PERMANOVA(skbio.DistanceMatrix(self.distance_matrix), partition.partition_vector)
         return result(n_permutations)
 
@@ -77,6 +85,21 @@ class Clustering(object):
              range(nreps)]
         p.sort(key=lambda x: x[1])
         return Partition(p[0][0])
+
+    def affinity_propagation(self, affinity_matrix=None, sigma=1, **kwargs):
+        """
+
+        :param kwargs: damping=0.5, max_iter=200, convergence_iter=15, copy=True, preference=None, verbose=False
+        :return:
+        """
+        if affinity_matrix is None:
+            aff = self.distance_matrix.rbf(sigma)
+        else:
+            aff = affinity_matrix
+
+        est = AffinityPropagation(affinity='precomputed', **kwargs)
+        est.fit(aff.view(np.ndarray))
+        return Partition(est.labels_)
 
     def dbscan(self, eps=0.75, min_samples=3):
         """
@@ -309,6 +332,18 @@ class Partition(object):
     @partition_vector.setter
     def partition_vector(self, vec):
         self._partition_vector = self.order(vec)
+
+    def is_minimal(self):
+        """ The partition describes all members being in the same cluster
+        :return: boolean
+        """
+        return len(self) == 1
+
+    def is_maximal(self):
+        """ The partition describes every member being in its own group
+        :return: boolean
+        """
+        return len(self) == len(self.partition_vector)
 
     @staticmethod
     def order(l):
