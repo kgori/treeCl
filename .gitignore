@@ -69,4 +69,5 @@ makefile
 # IPython Notebooks
 .ipynb_checkpoints/
 
-treeCl/tasks/tasks.py
+# IntelliJ
+*.iml
