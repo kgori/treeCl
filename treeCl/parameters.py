@@ -4,6 +4,18 @@ Data structures to hold model parameters and attributes such as alignment file p
 import json
 import sys
 
+def setter_helper(fn, value):
+    """
+    Some property setters need to call a function on their value -- e.g. str() or float() -- before setting
+    the property. But, they also need to be able to accept None as a value, which throws an error.
+    This helper solves this problem
+
+    :param fn: function to apply to value
+    :param value: value to pass to property setter
+    :return: result of fn(value), or None
+    """
+    return value if value is None else fn(value)
+
 class BaseParameters(object):
     __slots__ = []
 
@@ -101,7 +113,7 @@ class Parameters(BaseParameters):
 
     @filename.setter
     def filename(self, value):
-        self._filename = value
+        self._filename = setter_helper(str, value)
 
     @property
     def likelihood(self):
@@ -109,7 +121,7 @@ class Parameters(BaseParameters):
 
     @likelihood.setter
     def likelihood(self, value):
-        self._likelihood = value
+        self._likelihood = setter_helper(float, value)
 
     @property
     def sse(self):
@@ -117,7 +129,7 @@ class Parameters(BaseParameters):
 
     @sse.setter
     def sse(self, value):
-        self._sse = value
+        self._sse = setter_helper(float, value)
 
     @property
     def ml_tree(self):
@@ -125,7 +137,7 @@ class Parameters(BaseParameters):
 
     @ml_tree.setter
     def ml_tree(self, value):
-        self._ml_tree = value
+        self._ml_tree = setter_helper(str, value)
 
     @property
     def nj_tree(self):
@@ -133,7 +145,7 @@ class Parameters(BaseParameters):
 
     @nj_tree.setter
     def nj_tree(self, value):
-        self._nj_tree = value
+        self._nj_tree = setter_helper(str, value)
 
     @property
     def ms_tree(self):
@@ -141,7 +153,7 @@ class Parameters(BaseParameters):
 
     @ms_tree.setter
     def ms_tree(self, value):
-        self._ms_tree = value
+        self._ms_tree = setter_helper(str, value)
 
     @property
     def partitions(self):

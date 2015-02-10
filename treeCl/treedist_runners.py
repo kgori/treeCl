@@ -24,7 +24,7 @@ def _generic_async_matrix_task(task, trees, normalise, batch_size=100):
 
     jobs = itertools.combinations(trees, 2)
     n_jobs = int(math.ceil(len(trees) * (len(trees)-1) / (2*batch_size)))
-    pbar = setup_progressbar("Getting inter-tree distances (async)", n_jobs)
+    pbar = setup_progressbar("Getting inter-tree distances (async)", n_jobs, simple_progress=True)
     pbar.start()
 
     # Split the work into batches of 'batch_size'. Each batch is executed asynchronously

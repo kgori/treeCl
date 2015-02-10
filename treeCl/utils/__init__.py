@@ -61,6 +61,6 @@ def setup_progressbar(msg, size, format_label=None, simple_progress=False):
 
 def model_translate(model):
 
-    translation = { 'LG' : 'LG08',
-                    'WAG': 'WAG01'}
+    translation = {'LG' : 'LG08',
+                   'WAG': 'WAG01'}
     return translation[model]

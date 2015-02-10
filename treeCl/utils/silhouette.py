@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 from treeCl.clustering import Partition
-from treeCl.errors import InputError
 
 
 class Silhouette(object):
@@ -48,7 +47,7 @@ class Silhouette(object):
 
     def run(self):
         if len(self.groups) == 1:
-            raise InputError("Silhouette is not defined for singleton clusters")
+            raise ValueError("Silhouette is not defined for singleton clusters")
         for ingroup in self.groups:
             ingroup_ix = self.get_indices_for_group(ingroup)
             within, between, outgroups = self.get_mean_dissimilarities_for_group(ingroup)
@@ -114,14 +113,31 @@ if __name__ == '__main__':
              Partition((1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1))]
 
     s = Silhouette(dm)
+    skips = 0
     for p in plist:
-        skips = 0
+
         try:
             neighbours, scores = s(p)
             print("{} clusters: avg score = {}".format(len(p), scores.mean()))
-        except InputError:
+        except ValueError:
             print("{} clusters: skipping".format(len(p)))
             skips += 1
     print ("{} tests, {} skipped".format(len(plist), skips))
 
-    print(s(Partition((1,1,1,4,2,4,2,2,3,3,3,3)))[1].mean())
+    import treeCl
+    cl = treeCl.Clustering(dm)
+    skips = 0
+    for p in plist:
+        try:
+            anosim = cl.anosim(p)
+        except ValueError:
+            skips += 1
+            continue
+        try:
+            permanova = cl.permanova(p)
+        except ValueError:
+            skips += 1
+            continue
+        print ("{} clusters: anosim = {}; permanova = {}".format(len(p), anosim.p_value, permanova.p_value))
+    print ("{} tests, {} skipped".format(2*len(plist), skips))
+
