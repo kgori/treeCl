@@ -1,7 +1,5 @@
 import numpy as np
 from treeCl.alignment import Alignment
-from treeCl.constants import PLL_RANDOM_SEED
-from treeCl.tasks import tasks
 from treeCl.tree import Tree
 from treeCl.utils.decorators import lazyprop
 
