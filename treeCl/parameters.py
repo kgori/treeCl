@@ -36,12 +36,13 @@ class BaseParameters(object):
 
 
 class PartitionParameters(BaseParameters):
-    __slots__ = ['_alpha', '_distances', '_frequencies', '_name', '_rates', '_variances']
+    __slots__ = ['_alpha', '_distances', '_frequencies', '_model', '_name', '_rates', '_variances']
 
     def __init__(self):
         self._alpha = None
         self._distances = None
         self._frequencies = None
+        self._model = None
         self._name = None
         self._rates = None
         self._variances = None
@@ -69,6 +70,14 @@ class PartitionParameters(BaseParameters):
     @frequencies.setter
     def frequencies(self, value):
         self._frequencies = value
+
+    @property
+    def model(self):
+        return self._frequencies
+
+    @model.setter
+    def model(self, value):
+        self._model = setter_helper(str, value)
 
     @property
     def name(self):
