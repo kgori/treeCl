@@ -9,7 +9,6 @@ import os
 import sys
 import random
 import time
-import timeit
 
 # third party
 
@@ -24,6 +23,7 @@ from parameters import PartitionParameters
 from utils import fileIO, setup_progressbar, model_translate
 from errors import optioncheck, directorycheck
 from constants import SORT_KEY, PLL_RANDOM_SEED
+from treeCl.utils.decorators import lazyprop
 
 DISTRIBUTED_TASK_QUEUE_INSPECT = app.control.inspect()
 
@@ -111,7 +111,7 @@ class Collection(object):
         """ Sets a dictionary of records keyed by SORT_KEY order """
         self._records = dict(enumerate(records))
 
-    @property
+    @lazyprop
     def trees(self):
         """ Returns a list of trees in SORT_KEY order """
         try:
