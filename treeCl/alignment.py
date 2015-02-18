@@ -1,13 +1,11 @@
-import bpp
 import collections
 import os
-import shutil
-import sys
 import tempfile
 
 from numpy import log
 
-from interfacing import pll
+import bpp
+from treeCl.utils import pll_helpers
 from parameters import Parameters, PartitionParameters
 from utils import fileIO
 
@@ -73,12 +71,12 @@ class Alignment(bpp.Alignment):
             with open(self.infile):
                 pass
             alignment = self.infile
-            return pll.create_instance(alignment, *args)  # args=(partitions, tree, threads, rns)
+            return pll_helpers.create_instance(alignment, *args)  # args=(partitions, tree, threads, rns)
 
         except (IOError, TypeError):
             with fileIO.TempFile() as tmpfile:
                 self.write_alignment(tmpfile, 'phylip', True)
-                return pll.create_instance(tmpfile, *args)
+                return pll_helpers.create_instance(tmpfile, *args)
 
     def get_unconstrained_likelihood(self):
         weights = collections.Counter()

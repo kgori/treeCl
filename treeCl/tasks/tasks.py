@@ -5,7 +5,7 @@ from treeCl import treedist
 from treeCl.tree import Tree
 from treeCl.alignment import Alignment
 from treeCl.tasks.celery import app
-from treeCl.interfacing.pll import pll_to_dict
+from treeCl.utils.pll_helpers import pll_to_dict
 from treeCl.constants import PLL_RANDOM_SEED
 
 
