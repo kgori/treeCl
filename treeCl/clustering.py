@@ -140,7 +140,7 @@ class Clustering(object):
 
     def spectral_decomp(
             self,
-            prune='estimate',
+            prune=None,
             local_scale=None,
             noise=False,
             verbosity=0,
@@ -148,7 +148,9 @@ class Clustering(object):
             **kwargs):
         """ Use prune to remove links between distant points:
 
-        prune='estimate' searches for the smallest value that retains a fully
+        prune is None: no pruning
+        prune={int > 0}: prunes links beyond `prune` nearest neighbours
+        prune='estimate': searches for the smallest value that retains a fully
         connected graph
 
         """
@@ -161,20 +163,21 @@ class Clustering(object):
         kp, mask, est_scale = matrix.binsearch_mask(logic=logic)  # prune anyway,
 
         # get local scale estimate
-        ks = kp  # ks and kp log the scaling and pruning parameters
+        ks = kp  # ks and kp are the scaling and pruning parameters
         est_ks = ks
 
         # ADJUST MASK
-        if prune == -1:  # change mask to all
+        if prune is None:  # change mask to all
             kp = len(matrix) - 1
             mask = np.ones(matrix.shape, dtype=bool)
         elif isinstance(prune, int) and prune > 0:
             kp = prune
             mask = matrix.kmask(prune, logic=logic)
+        else:
+            if not prune=='estimate':
+                raise ValueError("'prune' should be None, a positive integer value, or 'estimate', not {}".format(prune))
 
         # ADJUST SCALE
-        if local_scale == 'estimate':  # deprecated option
-            local_scale = None
         if local_scale is not None:
             if local_scale == 'median':
                 ks = 'median'
@@ -200,7 +203,7 @@ class Clustering(object):
 
         # ZeroDivisionError triggers pickle dump
         try:
-            laplace = matrix.laplace(aff, **kwargs)
+            laplace = aff.laplace(**kwargs)
         except ZeroDivisionError:
             dump = str(uuid.uuid4()).split('-')[0]
             home = os.getenv('HOME')
@@ -229,7 +232,12 @@ class Clustering(object):
         if nclusters == 1:
             return Partition([1] * len(self.distance_matrix))
 
-        (coords, cve) = decomp.coords_by_dimension(nclusters)
+        pos = 0
+        for val in decomp.vals:
+            if val > 0:
+                pos += 1
+
+        (coords, cve) = decomp.coords_by_dimension(min(max(nclusters, 3), pos))
         if verbosity > 0:
             print('{0} dimensions explain {1:.2f}% of '
                   'the variance'.format(nclusters, cve * 100))
