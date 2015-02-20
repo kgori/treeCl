@@ -4,12 +4,10 @@ import tree_collection
 from treeCl import treedist
 from treeCl.tree import Tree
 from treeCl.alignment import Alignment
-from treeCl.tasks.celery import app
-from treeCl.interfacing.pll import pll_to_dict
+from treeCl.utils.pll_helpers import pll_to_dict
 from treeCl.constants import PLL_RANDOM_SEED
 
 
-@app.task()
 def eucdist_task(newick_string_a, newick_string_b, normalise):
     """
     Celery-distributed version of tree_distance.eucdist
@@ -23,7 +21,6 @@ def eucdist_task(newick_string_a, newick_string_b, normalise):
         eucdist_task.retry(exc=exc, countdown=1, max_retries=5)
 
 
-@app.task()
 def geodist_task(newick_string_a, newick_string_b, normalise):
     """
     Celery-distributed version of tree_distance.geodist
@@ -37,7 +34,6 @@ def geodist_task(newick_string_a, newick_string_b, normalise):
         geodist_task.retry(exc=exc, countdown=1, max_retries=5)
 
 
-@app.task()
 def rfdist_task(newick_string_a, newick_string_b, normalise):
     """
     Celery-distributed version of tree_distance.rfdist
@@ -51,7 +47,6 @@ def rfdist_task(newick_string_a, newick_string_b, normalise):
         rfdist_task.retry(exc=exc, countdown=1, max_retries=5)
 
 
-@app.task()
 def wrfdist_task(newick_string_a, newick_string_b, normalise):
     """
     Celery-distributed version of tree_distance.rfdist
@@ -65,7 +60,6 @@ def wrfdist_task(newick_string_a, newick_string_b, normalise):
         wrfdist_task.retry(exc=exc, countdown=1, max_retries=5)
 
 
-@app.task()
 def pll_task(alignment_file, partition_string, guidetree=None, threads=1, seed=PLL_RANDOM_SEED, frequencies=None):
     guidetree = True if guidetree is None else guidetree
     instance = pll(alignment_file, partition_string, guidetree, threads, seed)
@@ -76,7 +70,6 @@ def pll_task(alignment_file, partition_string, guidetree=None, threads=1, seed=P
     return pll_to_dict(instance)
 
 
-@app.task()
 def fast_calc_distances_task(alignment_file):
     rec = Alignment(alignment_file, 'phylip', True)
     rec.fast_compute_distances()
@@ -86,7 +79,6 @@ def fast_calc_distances_task(alignment_file):
     return result
 
 
-@app.task()
 def calc_distances_task(pll_dict, alignment_file):
     rec = Alignment(alignment_file, 'phylip', True)
     freqs = pll_dict['partitions'][0]['frequencies']
@@ -103,7 +95,7 @@ def calc_distances_task(pll_dict, alignment_file):
     pll_dict['nj_tree'] = rec.get_bionj_tree()
     return pll_dict
 
-@app.task()
+
 def simulate_task(n, model, frequencies, alpha, tree, rates=None):
     rec = Alignment()
     rec.set_substitution_model(model)
@@ -117,7 +109,7 @@ def simulate_task(n, model, frequencies, alpha, tree, rates=None):
     rec.set_simulator(tree)
     return rec.simulate(n)
 
-@app.task()
+
 def minsq_task(dv, gm, lab, tree, niters=10):
     tree, sse = tree_collection.compute(dv, gm, lab, tree, niters, False, True)
     tree = Tree(tree)

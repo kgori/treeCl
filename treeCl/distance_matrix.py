@@ -417,7 +417,7 @@ class DistanceMatrix(np.ndarray):
         scale = dists.dot(dists.T)
         return scale
 
-    def laplace(self, affinity_matrix, shi_malik_type=False):
+    def laplace(self, shi_malik_type=False):
         """ Converts affinity matrix into normalised graph Laplacian,
         for spectral clustering.
         (At least) two forms exist:
@@ -426,16 +426,16 @@ class DistanceMatrix(np.ndarray):
 
         L = (D^-1).A - `Shi-Malik` type, from Shi Malik paper"""
 
-        diagonal = affinity_matrix.sum(axis=1) - affinity_matrix.diagonal()
+        diagonal = self.sum(axis=1) - self.diagonal()
         zeros = diagonal <= 1e-10
         diagonal[zeros] = 1
         if (diagonal <= 1e-10).any():  # arbitrarily small value
             raise ZeroDivisionError
         if shi_malik_type:
             inv_d = np.diag(1 / diagonal).view(type(self))
-            return inv_d.dot(affinity_matrix)
+            return inv_d.dot(self)
         diagonal = np.sqrt(diagonal)
-        return affinity_matrix / diagonal / diagonal[:, np.newaxis]
+        return self / diagonal / diagonal[:, np.newaxis]
 
     def normalise(self):
         """ Shift and scale matrix to [0,1] interval """

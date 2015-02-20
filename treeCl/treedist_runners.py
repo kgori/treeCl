@@ -6,7 +6,7 @@ import itertools
 import math
 import scipy.spatial
 import time
-from treeCl.tasks.tasks import eucdist_task, geodist_task, rfdist_task, wrfdist_task
+from treeCl.parallel.tasks import eucdist_task, geodist_task, rfdist_task, wrfdist_task
 from treeCl.utils import flatten_list, setup_progressbar
 
 __all__ = [
