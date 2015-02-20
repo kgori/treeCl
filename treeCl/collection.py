@@ -415,7 +415,7 @@ class Scorer(object):
     def records(self):
         return self.collection.records
 
-    def add_lnl_partitions(self, partitions, threads=1, use_calculated_freqs=True):
+    def add_lnl_partitions(self, partitions, threads=1, use_calculated_freqs=True, batchsize=1):
         self.add_minsq_partitions(partitions)
         if isinstance(partitions, Partition):
             partitions = (partitions,)
@@ -497,14 +497,14 @@ class Scorer(object):
         """ Gets records by their index, contained in the index_tuple """
         return [self.records[n] for n in index_tuple]
 
-    def get_likelihood(self, partition, **kwargs):
+    def get_likelihood(self, partition, batchsize=1, **kwargs):
         """
         Return the sum of log-likelihoods for a partition.
         :param partition: Partition object
         :return: score (float)
         """
         indices = partition.get_membership()
-        self.add_lnl_partitions(partition, **kwargs)
+        self.add_lnl_partitions(partition, batchsize=batchsize, **kwargs)
         results = [self.lnl_cache[ix] for ix in indices]
         return math.fsum(x['likelihood'] for x in results)
 
