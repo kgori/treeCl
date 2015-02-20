@@ -15,24 +15,25 @@ import time
 # treeCl
 from treeCl.concatenation import Concatenation
 from treeCl.clustering import Partition
-from treeCl.tasks import tasks
-from treeCl.tasks.celery import app
+from treeCl.parallel import tasks
 from distance_matrix import DistanceMatrix
 from alignment import Alignment
 from parameters import PartitionParameters
 from utils import fileIO, setup_progressbar, model_translate
 from errors import optioncheck, directorycheck
-from constants import SORT_KEY, PLL_RANDOM_SEED
+from constants import SORT_KEY, PLL_RANDOM_SEED, PARALLEL_PROFILE
 from treeCl.utils.decorators import lazyprop
 
-DISTRIBUTED_TASK_QUEUE_INSPECT = app.control.inspect()
-
-def async_avail(inspect):
+def async_avail():
+    from IPython import parallel
     try:
-        response = inspect.active()
-        return response is not None
-    except:
+        client = parallel.Client(PARALLEL_PROFILE)
+        return len(client) > 0
+    except IOError:
         return False
+    except Exception:
+        return False
+
 
 class NoRecordsError(Exception):
     def __init__(self, file_format, input_dir, compression):
@@ -215,7 +216,7 @@ class Collection(object):
 ####### TASKS ##########################################################################################################
 
     def fast_calc_distances(self):
-        if async_avail(DISTRIBUTED_TASK_QUEUE_INSPECT):
+        if async_avail():
             self.__fast_calc_distances_async()
         else:
             self.__fast_calc_distances_sequential()
@@ -280,7 +281,7 @@ class Collection(object):
         having had appropriate ML parametric models set up in advance.
         :return: void
         """
-        if async_avail(DISTRIBUTED_TASK_QUEUE_INSPECT):
+        if async_avail():
             self.__calc_distances_async()
         else:
             self.__calc_distances_sequential()
@@ -349,7 +350,7 @@ class Collection(object):
             j += 1
 
     def calc_trees(self, threads=1, indices=None):
-        if async_avail(DISTRIBUTED_TASK_QUEUE_INSPECT):
+        if async_avail():
             self.__calc_trees_async(threads, indices)
         else:
             self.__calc_trees_sequential(threads, indices)
@@ -432,7 +433,7 @@ class Collection(object):
 
     def get_inter_tree_distances(self, metric, **kwargs):
         """ Generate a distance matrix from a fully-populated Collection """
-        distribute_tasks = async_avail(DISTRIBUTED_TASK_QUEUE_INSPECT)
+        distribute_tasks = async_avail()
         return DistanceMatrix(self.trees, metric, distribute_tasks=distribute_tasks, **kwargs)
 
     def permuted_copy(self, partition=None):
@@ -488,7 +489,7 @@ class Scorer(object):
         index_tuples = set(ix for partition in partitions for ix in partition.get_membership()).difference(
             self.lnl_cache.keys())
         if len(index_tuples) > 0:
-            if async_avail(DISTRIBUTED_TASK_QUEUE_INSPECT):
+            if async_avail():
                 self.__add_lnl_async(index_tuples, threads, use_calculated_freqs)
             else:
                 self.__add_lnl_sequential(index_tuples, threads, use_calculated_freqs)
@@ -555,7 +556,7 @@ class Scorer(object):
         index_tuples = set(ix for partition in partitions for ix in partition.get_membership()).difference(
             self.minsq_cache.keys())
         if len(index_tuples) > 0:
-            if async_avail(DISTRIBUTED_TASK_QUEUE_INSPECT):
+            if async_avail():
                 self.__add_minsq_async(index_tuples)
             else:
                 self.__add_minsq_sequential(index_tuples)
@@ -639,7 +640,7 @@ class Scorer(object):
     #     return math.fsum(x['fit'] for x in results)
 
     def simulate(self, partition, outdir, **kwargs):
-        if async_avail(DISTRIBUTED_TASK_QUEUE_INSPECT):
+        if async_avail():
             self.__simulate_async(partition, outdir, **kwargs)
         else:
             self.__simulate_sequential(partition, outdir, **kwargs)
