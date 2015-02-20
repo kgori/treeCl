@@ -3,14 +3,15 @@ from __future__ import print_function
 
 # standard lib
 import glob
+import itertools
 import json
 import math
 import os
 import sys
 import random
-import time
 
 # third party
+from scipy.spatial.distance import squareform
 
 # treeCl
 from treeCl.concatenation import Concatenation
@@ -19,20 +20,29 @@ from treeCl.parallel import tasks
 from distance_matrix import DistanceMatrix
 from alignment import Alignment
 from parameters import PartitionParameters
+from treeCl.parallel.utils import async_avail, get_client, parallel_map, sequential_map
 from utils import fileIO, setup_progressbar, model_translate
 from errors import optioncheck, directorycheck
-from constants import SORT_KEY, PLL_RANDOM_SEED, PARALLEL_PROFILE
+from constants import SORT_KEY, PLL_RANDOM_SEED
 from treeCl.utils.decorators import lazyprop
 
-def async_avail():
-    from IPython import parallel
-    try:
-        client = parallel.Client(PARALLEL_PROFILE)
-        return len(client) > 0
-    except IOError:
-        return False
-    except Exception:
-        return False
+
+def gapmask(simseqs, origseqs):
+    """
+    :param sims: list of (header, sequence) tuples of simulated sequences [no gaps]
+    :param aln: list of (header, sequence) tuples of original sequences
+    :return:
+    """
+    import numpy as np
+    simdict = dict(simseqs)
+    origdict = dict(origseqs)
+    for k in origdict:
+        origseq = np.array(list(origdict[k]))
+        gap_pos = np.where(origseq=='-')
+        simseq = np.array(list(simdict[k]))
+        simseq[gap_pos] = '-'
+        simdict[k] = ''.join(simseq)
+    return list(simdict.items())
 
 
 class NoRecordsError(Exception):
@@ -212,230 +222,6 @@ class Collection(object):
             with fileIO.fwriter(os.path.join(output_dir, '{}.json'.format(rec.name)), gz=True) as outfile:
                 rec.parameters.write(outfile, indent=4)
 
-
-####### TASKS ##########################################################################################################
-
-    def fast_calc_distances(self):
-        if async_avail():
-            self.__fast_calc_distances_async()
-        else:
-            self.__fast_calc_distances_sequential()
-
-    # noinspection PyUnresolvedReferences
-    def __fast_calc_distances_sequential(self):
-        """ Calculates within-alignment pairwise distances and variances for every
-        alignment. Uses fast Jukes-Cantor method.
-        :return: void"""
-        pbar = setup_progressbar('Calculating fast distances (seq)', len(self), simple_progress=True)
-        pbar.start()
-        for i, rec in enumerate(self.records):
-            rec.fast_compute_distances()
-            pbar.update(i)
-            params = PartitionParameters()
-            params.distances = rec.get_distances().tolist()
-            params.variances = rec.get_variances().tolist()
-            rec.parameters.partitions.append(params)
-            rec.parameters.nj_tree = rec.get_bionj_tree()
-        pbar.finish()
-
-    # noinspection PyUnresolvedReferences
-    def __fast_calc_distances_async(self):
-        from celery import group
-        jobs = []
-        to_delete = []
-        for rec in self:
-            filename, delete = rec.get_alignment_file(as_phylip=True)
-            if delete:
-                to_delete.append(filename)
-            jobs.append((filename))
-
-        with fileIO.TempFileList(to_delete):
-            job_group = group(tasks.fast_calc_distances_task.s(args) for args in jobs)()
-            pbar = setup_progressbar('Calculating fast distances (async)', len(jobs), simple_progress=True)
-            pbar.start()
-            while not job_group.ready():
-                time.sleep(2)
-                pbar.update(job_group.completed_count())
-            pbar.finish()
-
-        pbar = setup_progressbar('Processing results', len(jobs))
-        j = 0
-        pbar.start()
-        for i, async_result in enumerate(job_group.results):
-            rec = self[i]
-            result = async_result.get()
-            distances = result['distances']
-            variances = result['variances']
-            tree = result['tree']
-            rec.parameters.nj_tree = tree
-            params = PartitionParameters()
-            params.distances = distances
-            params.variances = variances
-            rec.parameters.partitions = [params]
-            pbar.update(i)
-        pbar.finish()
-
-    def calc_distances(self):
-        """ Calculates within-alignment pairwise distances and variances for every
-        alignment. Uses slow ML optimisation, and depends on the Alignment record
-        having had appropriate ML parametric models set up in advance.
-        :return: void
-        """
-        if async_avail():
-            self.__calc_distances_async()
-        else:
-            self.__calc_distances_sequential()
-
-    def __calc_distances_sequential(self):
-        pbar = setup_progressbar('Calculating ML distances (seq)', len(self), simple_progress=True)
-        pbar.start()
-        to_delete = []
-        for i, rec in enumerate(self.records):
-            # Get file
-            filename, delete = rec.get_alignment_file()
-            if delete:
-                to_delete.append(filename)
-            # Get input dict
-            model = {'partitions': {}}
-            data = {'alpha': rec.parameters.partitions.alpha, 'frequencies': rec.parameters.partitions.frequencies}
-            if rec.is_dna():
-                data['rates'] = rec.parameters.partitions.rates
-            model['partitions'][0] = data
-            # Launch local task
-            result = tasks.calc_distances_task(model, filename)
-            rec.parameters.partitions.distances = result['partitions'][0]['distances']
-            rec.parameters.partitions.variances = result['partitions'][0]['variances']
-            rec.parameters.nj_tree = result['nj_tree']
-            pbar.update(i)
-        with fileIO.TempFileList(to_delete):
-            pbar.finish()
-
-    def __calc_distances_async(self):
-        from celery import group
-
-        jobs = []
-        to_delete = []
-
-        for rec in self:
-            filename, delete = rec.get_alignment_file(as_phylip=True)
-            if delete:
-                to_delete.append(filename)
-            # Get input dict
-            model = {'partitions': {}}
-            data = {'alpha': rec.parameters.partitions.alpha, 'frequencies': rec.parameters.partitions.frequencies}
-            if rec.is_dna():
-                data['rates'] = rec.parameters.partitions.rates
-            model['partitions'][0] = data
-            jobs.append((model, filename))
-
-        with fileIO.TempFileList(to_delete):
-            job_group = group(tasks.calc_distances_task.subtask(args) for args in jobs)()
-            pbar = setup_progressbar('Calculating ML distances (async)', len(jobs), simple_progress=True)
-            pbar.start()
-            while not job_group.ready():
-                time.sleep(2)
-                pbar.update(job_group.completed_count())
-            pbar.finish()
-
-        pbar = setup_progressbar('Processing results', len(jobs))
-        j = 0
-        pbar.start()
-        for i, async_result in enumerate(job_group.results):
-            result = async_result.get(timeout=20)
-            rec = self[i]
-            rec.parameters.partitions.distances = result['partitions'][0]['distances']
-            rec.parameters.partitions.variances = result['partitions'][0]['variances']
-            rec.parameters.nj_tree = result['nj_tree']
-            pbar.update(j+1)
-            j += 1
-
-    def calc_trees(self, threads=1, indices=None):
-        if async_avail():
-            self.__calc_trees_async(threads, indices)
-        else:
-            self.__calc_trees_sequential(threads, indices)
-
-    def __calc_trees_sequential(self, threads=1, indices=None):
-        """ Use pllpy to calculate maximum-likelihood trees
-        :return: void
-        """
-
-        if indices is None:
-            indices = list(range(len(self)))
-        else:
-            indices = indices
-
-        pbar = setup_progressbar('Calculating ML trees (seq)', len(indices), simple_progress=True)
-        pbar.start()
-
-        to_delete = []
-        for i, rec in enumerate(self[i] for i in indices):
-            filename, delete = rec.get_alignment_file(as_phylip=True)
-            if delete:
-                to_delete.append(filename)
-            partition = '{}, {} = 1 - {}'.format('DNA' if rec.is_dna() else 'LGX', rec.name, len(rec))
-            try:
-                tree = rec.tree
-            except AttributeError:
-                tree = True
-            result = tasks.pll_task(filename, partition, tree, threads, PLL_RANDOM_SEED)
-            rec.set_params_from_pll_result(result)
-            pbar.update(i)
-
-        with fileIO.TempFileList(to_delete):
-            pbar.finish()
-
-    # noinspection PyUnresolvedReferences
-    def __calc_trees_async(self, threads=1, indices=None, allow_retry=True):
-        """ Use pllpy to calculate maximum-likelihood trees, and use celery to distribute
-        the computation across cores
-        :return: void
-        """
-        from celery import group
-        from celery.exceptions import TimeoutError
-        if indices is None:
-            indices = list(range(len(self)))
-        jobs = []
-        to_delete = []
-        for i in indices:
-            rec = self[i]
-            filename, delete = rec.get_alignment_file(as_phylip=True)
-            if delete:
-                to_delete.append(filename)
-            partition = '{}, {} = 1 - {}'.format('DNA' if rec.is_dna() else 'LGX', rec.name, len(rec))
-            tree = rec.parameters.nj_tree if rec.parameters.nj_tree is not None else True
-            jobs.append((filename, partition, tree, threads, PLL_RANDOM_SEED))
-
-        with fileIO.TempFileList(to_delete):
-            job_group = group(tasks.pll_task.subtask(args) for args in jobs)()
-            pbar = setup_progressbar('Calculating ML trees (async)', len(jobs), simple_progress=True)
-            pbar.start()
-            while not job_group.ready():
-                time.sleep(2)
-                pbar.update(job_group.completed_count())
-            pbar.finish()
-
-        pbar = setup_progressbar('Processing results', len(jobs))
-        j = 0
-        pbar.start()
-        retries = []
-        for i, async_result in zip(indices, job_group.results):
-            try:
-                result = async_result.get(timeout=20)
-            except TimeoutError:
-                retries.append(i)
-            rec = self[i]
-            rec.set_params_from_pll_result(result)
-            pbar.update(j+1)
-            j += 1
-        if retries > [] and allow_retry:
-            self.__calc_trees_async(1, retries, False)
-
-    def get_inter_tree_distances(self, metric, **kwargs):
-        """ Generate a distance matrix from a fully-populated Collection """
-        distribute_tasks = async_avail()
-        return DistanceMatrix(self.trees, metric, distribute_tasks=distribute_tasks, **kwargs)
-
     def permuted_copy(self, partition=None):
         """ Return a copy of the collection with all alignment columns permuted
         """
@@ -462,6 +248,153 @@ class Collection(object):
 
         return self.__class__(records=sorted(alignments, key=lambda x: SORT_KEY(x.name)))
 
+    def fast_calc_distances(self, batchsize=1):
+        """
+        Calculate fast approximate intra-alignment pairwise distances and variances using
+        Jukes-Cantor closed formulae.
+        :return: None (all side effects)
+        """
+        # Assemble argument lists
+        args = []
+        to_delete = []
+        for rec in self:
+            filename, delete = rec.get_alignment_file(as_phylip=True)
+            if delete:
+                to_delete.append(filename)
+            args.append((filename,))
+
+        # Dispatch work (either sequentially or in parallel)
+        msg = 'Calculating fast distances'
+        with fileIO.TempFileList(to_delete):
+            client = get_client()
+            if client is None:
+                map_result = sequential_map(tasks.fast_calc_distances_task, args, msg)
+            else:
+                map_result = parallel_map(client, tasks.fast_calc_distances_task, args, msg, batchsize)
+
+        # Process results
+        pbar = setup_progressbar('Processing results', len(map_result))
+        j = 0
+        pbar.start()
+        for i, result in enumerate(map_result):
+            rec = self[i]
+            distances = result['distances']
+            variances = result['variances']
+            tree = result['tree']
+            rec.parameters.nj_tree = tree
+            params = rec.parameters.partitions
+            if params is None:
+                params = PartitionParameters()
+                rec.parameters.partitions = [params]
+            params.distances = distances
+            params.variances = variances
+            pbar.update(i)
+        pbar.finish()
+
+    def calc_distances(self, batchsize=1):
+        """
+        Calculate fast approximate intra-alignment pairwise distances and variances using
+        ML (requires ML models to have been set up using `calc_trees`).
+        :return: None (all side effects)
+        """
+        # Assemble argument lists
+        args = []
+        to_delete = []
+        for rec in self:
+            filename, delete = rec.get_alignment_file(as_phylip=True)
+            if delete:
+                to_delete.append(filename)
+            # Get input dict
+            model = {'partitions': {}}
+            data = {'alpha': rec.parameters.partitions.alpha, 'frequencies': rec.parameters.partitions.frequencies}
+            if rec.is_dna():
+                data['rates'] = rec.parameters.partitions.rates
+            model['partitions'][0] = data
+            args.append((model, filename))
+
+        # Dispatch
+        msg = 'Calculating ML distances'
+        with fileIO.TempFileList(to_delete):
+            client = get_client()
+            if client is None:
+                map_result = sequential_map(tasks.calc_distances_task, args, msg)
+            else:
+                map_result = parallel_map(client, tasks.calc_distances_task, args, msg, batchsize)
+
+        # Process results
+        pbar = setup_progressbar('Processing results', len(map_result))
+        j = 0
+        pbar.start()
+        for i, result in enumerate(map_result):
+            rec = self[i]
+            rec.parameters.partitions.distances = result['partitions'][0]['distances']
+            rec.parameters.partitions.variances = result['partitions'][0]['variances']
+            rec.parameters.nj_tree = result['nj_tree']
+            pbar.update(j+1)
+            j += 1
+
+    def calc_trees(self, threads=1, indices=None, batchsize=1):
+        """
+        Use pllpy to calculate maximum-likelihood trees
+        :return: None (all side effects)
+        """
+        # Assemble argument lists
+        if indices is None:
+            indices = list(range(len(self)))
+        args = []
+        to_delete = []
+        for i in indices:
+            rec = self[i]
+            filename, delete = rec.get_alignment_file(as_phylip=True)
+            if delete:
+                to_delete.append(filename)
+            partition = '{}, {} = 1 - {}'.format('DNA' if rec.is_dna() else 'LGX', rec.name, len(rec))
+            tree = rec.parameters.nj_tree if rec.parameters.nj_tree is not None else True
+            args.append((filename, partition, tree, threads, PLL_RANDOM_SEED))
+
+        # Dispatch work
+        msg = 'Calculating ML trees'
+        with fileIO.TempFileList(to_delete):
+            client = get_client()
+            if client is None:
+                map_result = sequential_map(tasks.pll_task, args, msg)
+            else:
+                map_result = parallel_map(client, tasks.pll_task, args, msg, batchsize)
+
+        # Process results
+        pbar = setup_progressbar('Processing results', len(map_result))
+        j = 0
+        pbar.start()
+        for i, result in zip(indices, map_result):
+            rec = self[i]
+            rec.set_params_from_pll_result(result)
+            pbar.update(j+1)
+            j += 1
+
+    def get_inter_tree_distances(self, metric, normalise=False, batchsize=100):
+        """ Generate a distance matrix from a fully-populated Collection """
+        return get_inter_trees_distances(metric, self.trees, normalise, batchsize)
+
+
+def get_inter_trees_distances(metric, trees, normalise=False, batchsize=100):
+    # Assemble argument lists
+    args = [(t1, t2, normalise) for (t1, t2) in itertools.combinations(trees, 2)]
+
+    # Get task
+    tasks_dict = dict(zip(['euc', 'geo', 'rf', 'wrf'],
+                          [tasks.eucdist_task, tasks.geodist_task, tasks.rfdist_task, tasks.wrfdist_task]))
+    task = tasks_dict[metric]
+
+    # Dispatch
+    msg = 'Inter-tree distances ({})'.format(metric)
+    client = get_client()
+    if client is None:
+        map_result = sequential_map(task, args, msg)
+    else:
+        map_result = list(parallel_map(client, task, args, msg, batchsize))
+
+    return squareform(map_result)
+
 
 class Scorer(object):
     """ Takes an index list, generates a concatenated SequenceRecord, calculates
@@ -483,43 +416,16 @@ class Scorer(object):
         return self.collection.records
 
     def add_lnl_partitions(self, partitions, threads=1, use_calculated_freqs=True):
-        self.add_minsq_partitions(partitions)  # TODO: this is a side effect - problem?
+        self.add_minsq_partitions(partitions)
         if isinstance(partitions, Partition):
             partitions = (partitions,)
         index_tuples = set(ix for partition in partitions for ix in partition.get_membership()).difference(
             self.lnl_cache.keys())
-        if len(index_tuples) > 0:
-            if async_avail():
-                self.__add_lnl_async(index_tuples, threads, use_calculated_freqs)
-            else:
-                self.__add_lnl_sequential(index_tuples, threads, use_calculated_freqs)
+        if len(index_tuples) == 0:
+            return
 
-    def __add_lnl_sequential(self, index_tuples, threads=1, use_calculated_freqs=True):
-        pbar = setup_progressbar('Adding ML cluster trees (seq): ', len(index_tuples), simple_progress=True)
-        pbar.start()
-
-        to_delete = []
-        for i, ix in enumerate(index_tuples):
-            conc = self.concatenate(ix)
-            al = conc.alignment
-            filename, delete = al.get_alignment_file(as_phylip=True)
-            if delete:
-                to_delete.append(filename)
-            partition = conc.qfile(dna_model="GTR", protein_model="LG", ml_freqs=True)
-            tree = self.minsq_cache[ix]['tree']
-            if use_calculated_freqs:
-                self.lnl_cache[ix] = tasks.pll_task(filename, partition, tree, threads, PLL_RANDOM_SEED, conc.frequencies)
-            else:
-                self.lnl_cache[ix] = tasks.pll_task(filename, partition, tree, threads, PLL_RANDOM_SEED)
-            pbar.update(i)
-
-        with fileIO.TempFileList(to_delete):
-            pbar.finish()
-
-    def __add_lnl_async(self, index_tuples, threads=1, use_calculated_freqs=True):
-        from celery import group
-
-        jobs = []
+        # Collect argument list
+        args = []
         to_delete = []
         for ix in index_tuples:
             conc = self.concatenate(ix)
@@ -530,67 +436,55 @@ class Scorer(object):
             partition = conc.qfile(dna_model="GTR", protein_model="LG", ml_freqs=True)
             tree = self.minsq_cache[ix]['tree']
             if use_calculated_freqs:
-                jobs.append((filename, partition, tree, threads, PLL_RANDOM_SEED, conc.frequencies))
+                args.append((filename, partition, tree, threads, PLL_RANDOM_SEED, conc.frequencies))
             else:
-                jobs.append((filename, partition, tree, threads, PLL_RANDOM_SEED))
+                args.append((filename, partition, tree, threads, PLL_RANDOM_SEED))
 
+        # Distribute work
         with fileIO.TempFileList(to_delete):
-            job_group = group(tasks.pll_task.subtask(args) for args in jobs)()
-            pbar = setup_progressbar('Adding ML cluster trees (async)', len(jobs), simple_progress=True)
-            pbar.start()
-            while not job_group.ready():
-                time.sleep(2)
-                pbar.update(job_group.completed_count())
-            pbar.finish()
+            msg = 'Adding ML cluster trees'
+            client = get_client()
+            if client is None:
+                map_result = sequential_map(tasks.pll_task, args, msg)
+            else:
+                map_result = parallel_map(client, tasks.pll_task, args, msg, batchsize)
 
-        pbar = setup_progressbar('Processing results', len(jobs))
+        # Process results
+        pbar = setup_progressbar('Processing results', len(map_result))
         pbar.start()
-        for i, (ix, async_result) in enumerate(zip(index_tuples, job_group.results)):
-            self.lnl_cache[ix] = async_result.get(timeout=20)
+        for i, (ix, result) in enumerate(zip(index_tuples, map_result)):
+            self.lnl_cache[ix] = result
             pbar.update(i)
         pbar.finish()
 
-    def add_minsq_partitions(self, partitions):
+    def add_minsq_partitions(self, partitions, batchsize=1):
         if isinstance(partitions, Partition):
             partitions = (partitions,)
         index_tuples = set(ix for partition in partitions for ix in partition.get_membership()).difference(
             self.minsq_cache.keys())
-        if len(index_tuples) > 0:
-            if async_avail():
-                self.__add_minsq_async(index_tuples)
-            else:
-                self.__add_minsq_sequential(index_tuples)
 
-    def __add_minsq_sequential(self, index_tuples):
-        pbar = setup_progressbar('Adding MinSq cluster trees (seq): ', len(index_tuples), simple_progress=True)
-        pbar.start()
-        for i, ix in enumerate(index_tuples):
-            conc = self.concatenate(ix)
-            dv, lab, gm, tree = conc.get_tree_collection_strings()
-            self.minsq_cache[ix] = tasks.minsq_task(dv, lab, gm, tree)
-            pbar.update(i)
-        pbar.finish()
+        if len(index_tuples) == 0:
+            return
 
-    def __add_minsq_async(self, index_tuples):
-        from celery import group
-
-        jobs = []
+        # Collect argument list
+        args = []
         for ix in index_tuples:
             conc = self.concatenate(ix)
-            jobs.append(conc.get_tree_collection_strings())
+            args.append(conc.get_tree_collection_strings())
 
-        job_group = group(tasks.minsq_task.subtask(args) for args in jobs)()
-        pbar = setup_progressbar('Adding MinSq cluster trees (async)', len(jobs), simple_progress=True)
-        pbar.start()
-        while not job_group.ready():
-            time.sleep(2)
-            pbar.update(job_group.completed_count())
-        pbar.finish()
+        # Distribute work
+        msg = 'Adding MinSq cluster trees'
+        client = get_client()
+        if client is None:
+            map_result = sequential_map(tasks.minsq_task, args, msg)
+        else:
+            map_result = parallel_map(client, tasks.minsq_task, args, msg, batchsize)
 
-        pbar = setup_progressbar('Processing results', len(jobs))
+        # Process results
+        pbar = setup_progressbar('Processing results', len(map_result))
         pbar.start()
-        for i, (ix, async_result) in enumerate(zip(index_tuples, job_group.results)):
-            self.minsq_cache[ix] = async_result.get(timeout=20)
+        for i, (ix, result) in enumerate(zip(index_tuples, map_result)):
+            self.minsq_cache[ix] = result
             pbar.update(i)
         pbar.finish()
 
@@ -639,86 +533,41 @@ class Scorer(object):
     #     results = self.get_results(partition, 'minsq')
     #     return math.fsum(x['fit'] for x in results)
 
-    def simulate(self, partition, outdir, **kwargs):
-        if async_avail():
-            self.__simulate_async(partition, outdir, **kwargs)
-        else:
-            self.__simulate_sequential(partition, outdir, **kwargs)
-
-    def __simulate_async(self, partition, outdir, **kwargs):
+    def simulate(self, partition, outdir, batchsize=1, **kwargs):
         """
         Simulate a set of alignments from the parameters inferred on a partition
         :param partition:
         :return:
         """
-        from celery import group
         indices = partition.get_membership()
         self.add_lnl_partitions(partition, **kwargs)
         results = [self.lnl_cache[ix] for ix in indices]
         places = dict((j,i) for (i,j) in enumerate(rec.name for rec in self.collection.records))
-        jobs = [None] * len(self.collection)
+
+        # Collect argument list
+        args = [None] * len(self.collection)
         for result in results:
             for partition in result['partitions'].values():
                 place = places[partition['name']]
-                jobs[place] = (len(self.collection[place]),
+                args[place] = (len(self.collection[place]),
                                model_translate(partition['model']),
                                partition['frequencies'],
                                partition['alpha'],
                                result['ml_tree'],
                                partition['rates'] if 'rates' in partition else None)
 
-        job_group = group(tasks.simulate_task.subtask(args) for args in jobs)()
-        pbar = setup_progressbar('Simulating: ', len(jobs))
-        pbar.start()
-        while not job_group.ready():
-            time.sleep(2)
-            pbar.update(job_group.completed_count())
-        pbar.finish()
+        # Distribute work
+        msg = 'Simulating'
+        client = get_client()
+        if client is None:
+            map_result = sequential_map(client, tasks.simulate_task, args, msg)
+        else:
+            map_result = parallel_map(client, tasks.simulate_task, args, msg, batchsize)
 
-        for i, async_result in enumerate(job_group.results):
+        # Process results
+        for i, result in enumerate(map_result):
             orig = self.collection[i]
-            simseqs = gapmask(async_result.get(), orig.get_sequences())
+            simseqs = gapmask(result, orig.get_sequences())
             al = Alignment(simseqs, 'protein' if orig.is_protein() else 'dna')
             outfile = os.path.join(outdir, orig.name + '.phy')
             al.write_alignment(outfile, 'phylip', True)
-
-    def __simulate_sequential(self, partition, outdir, **kwargs):
-        indices = partition.get_membership()
-        self.add_lnl_partitions(partition, **kwargs)
-        results = [self.lnl_cache[ix] for ix in indices]
-        places = dict((j,i) for (i,j) in enumerate(rec.name for rec in self.collection.records))
-        pbar = setup_progressbar('Simulating: ', len(results))
-        pbar.start()
-        for i, result in enumerate(results):
-            for partition in result['partitions'].values():
-                place = places[partition['name']]
-                orig = self.collection[place]
-                sim = tasks.simulate_task(len(orig),
-                                          model_translate(partition['model']),
-                                          partition['frequencies'],
-                                          partition['alpha'],
-                                          result['ml_tree'],
-                                          partition['rates'] if 'rates' in partition else None)
-                sim = gapmask(sim, orig.get_sequences())
-                al = Alignment(sim, 'protein' if orig.is_protein() else 'dna')
-                outfile = os.path.join(outdir, partition['name'] + '.phy')
-                al.write_alignment(outfile, 'phylip', True)
-                pbar.update(i)
-        pbar.finish()
-
-def gapmask(simseqs, origseqs):
-    """
-    :param sims: list of (header, sequence) tuples of simulated sequences [no gaps]
-    :param aln: list of (header, sequence) tuples of original sequences
-    :return:
-    """
-    import numpy as np
-    simdict = dict(simseqs)
-    origdict = dict(origseqs)
-    for k in origdict:
-        origseq = np.array(list(origdict[k]))
-        gap_pos = np.where(origseq=='-')
-        simseq = np.array(list(simdict[k]))
-        simseq[gap_pos] = '-'
-        simdict[k] = ''.join(simseq)
-    return list(simdict.items())
