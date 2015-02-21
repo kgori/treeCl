@@ -5,7 +5,9 @@ from __future__ import print_function
 
 # third party
 import numpy as np
+import pandas as pd
 import sklearn
+from scipy.spatial.distance import squareform
 
 # treeCl
 import errors
@@ -61,6 +63,43 @@ class Decomp(object):
         coords_matrix = self.vecs[:, :dimensions]
         varexp = self.cve[dimensions - 1]
         return coords_matrix, varexp
+
+
+class PandasDM(object):
+
+    def __init__(self, array, names=None):
+        s = array.shape
+        if len(s) == 1:
+            try:
+                array = squareform(array)
+            except ValueError, e:
+                message = '{} elements don\'t fit into the upper triangle of a square matrix'.format(len(array))
+                raise ValueError(message)
+
+        if names is not None and len(names) != array.shape[0]:
+            raise ValueError('Names array and square matrix has different dimensions ({},{})'.format(len(names),
+                                                                                                     array.shape[0]))
+        self.df = pd.DataFrame(array, index=names, columns=names)
+
+    def __repr__(self):
+        return repr(self.df)
+
+    def __eq__(self, other):
+        if (np.abs(self.sort().values - other.sort().values) < 1e-10).all():
+            return True
+
+    @property
+    def values(self):
+        return self.df.values
+
+    def reorder(self, new_order):
+        reordered_df = self.df[new_order].ix[new_order]
+        reordered_names = reordered_df.columns
+        return self.__class__(reordered_df.values, reordered_names)
+
+    def sort(self):
+        order = self.df.index.argsort()
+        return self.reorder(order)
 
 
 class DistanceMatrix(np.ndarray):
@@ -417,7 +456,7 @@ class DistanceMatrix(np.ndarray):
         scale = dists.dot(dists.T)
         return scale
 
-    def laplace(self, shi_malik_type=False):
+    def laplace(self, affinity_matrix, shi_malik_type=False):
         """ Converts affinity matrix into normalised graph Laplacian,
         for spectral clustering.
         (At least) two forms exist:
@@ -426,16 +465,16 @@ class DistanceMatrix(np.ndarray):
 
         L = (D^-1).A - `Shi-Malik` type, from Shi Malik paper"""
 
-        diagonal = self.sum(axis=1) - self.diagonal()
+        diagonal = affinity_matrix.sum(axis=1) - affinity_matrix.diagonal()
         zeros = diagonal <= 1e-10
         diagonal[zeros] = 1
         if (diagonal <= 1e-10).any():  # arbitrarily small value
             raise ZeroDivisionError
         if shi_malik_type:
             inv_d = np.diag(1 / diagonal).view(type(self))
-            return inv_d.dot(self)
+            return inv_d.dot(affinity_matrix)
         diagonal = np.sqrt(diagonal)
-        return self / diagonal / diagonal[:, np.newaxis]
+        return affinity_matrix / diagonal / diagonal[:, np.newaxis]
 
     def normalise(self):
         """ Shift and scale matrix to [0,1] interval """
