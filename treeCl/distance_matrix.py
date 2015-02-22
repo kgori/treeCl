@@ -379,6 +379,13 @@ class CoordinateMatrix(object):
 
         self.df = pd.DataFrame(array, index=names)
 
+    def __repr__(self):
+        return repr(self.df)
+
+    @property
+    def values(self):
+        return self.df.values
+
 
 class DistanceMatrix(object):
     def __init__(self, array, names=None):
@@ -413,7 +420,7 @@ class DistanceMatrix(object):
         noisy[ix] += noise
         noisy[rev_ix] += noise
         noisy[noisy < 0] = np.abs(noisy[noisy < 0])
-        return noisy
+        return self.__class__(noisy, self.df.index)
 
     def affinity(self, mask=None, scale=None):
         return affinity(self.df.values, mask, scale)
