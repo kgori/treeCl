@@ -20,7 +20,7 @@ from treeCl.parallel import tasks
 from distance_matrix import DistanceMatrix
 from alignment import Alignment
 from parameters import PartitionParameters
-from treeCl.parallel.utils import async_avail, get_client, parallel_map, sequential_map
+from treeCl.parallel.utils import get_client, parallel_map, sequential_map
 from utils import fileIO, setup_progressbar, model_translate
 from errors import optioncheck, directorycheck
 from constants import SORT_KEY, PLL_RANDOM_SEED
@@ -129,6 +129,17 @@ class Collection(object):
             return [rec.tree for rec in self]
         except ValueError:
             return []
+
+    @lazyprop
+    def names(self):
+        """
+        Returns a list of sequence record names in SORT_KEY order
+        """
+        try:
+            return [rec.name for rec in self]
+        except ValueError:
+            return []
+
 
     def num_species(self):
         """ Returns the number of species found over all records
@@ -373,10 +384,11 @@ class Collection(object):
 
     def get_inter_tree_distances(self, metric, normalise=False, batchsize=100):
         """ Generate a distance matrix from a fully-populated Collection """
-        return get_inter_trees_distances(metric, self.trees, normalise, batchsize)
+        array = _get_inter_tree_distances(metric, self.trees, normalise, batchsize)
+        return DistanceMatrix(array, self.names)
 
 
-def get_inter_trees_distances(metric, trees, normalise=False, batchsize=100):
+def _get_inter_tree_distances(metric, trees, normalise=False, batchsize=100):
     # Assemble argument lists
     args = [(t1, t2, normalise) for (t1, t2) in itertools.combinations(trees, 2)]
 
