@@ -20,15 +20,13 @@ except ImportError:
     print("Biopython unavailable - kmedoids clustering disabled")
     Biopython_Unavailable = True
 
-try:
-    from sklearn.cluster import DBSCAN, KMeans
-    from sklearn.mixture import GMM
-except ImportError:
-    print("sklearn unavailable: KMeans disabled")
+from sklearn.cluster import AffinityPropagation, DBSCAN, KMeans
+from sklearn.mixture import GMM
 
 # treeCl
 from utils import fileIO, flatten_list
-from distance_matrix import DistanceMatrix
+from distance_matrix import DistanceMatrix, rbf, binsearch_mask, kmask, kscale, affinity, laplace, eigen, double_centre, \
+    normalise_rows
 
 
 class Clustering(object):
@@ -47,19 +45,31 @@ class Clustering(object):
 
     """
 
-    def __init__(self, distance_matrix):
+    def __init__(self, dm):
+        if isinstance(dm, np.ndarray):
+            dm = DistanceMatrix(dm)
 
-        self.distance_matrix = distance_matrix.view(DistanceMatrix)
+        if not isinstance(dm, DistanceMatrix):
+            raise ValueError('Distance matrix should be a numpy array or treeCl.DistanceMatrix')
+        self.dm = dm
 
     def __str__(self):
-        return str(self.distance_matrix)
+        return str(self.dm)
 
     def anosim(self, partition, n_permutations=999):
-        result = skbio.stats.distance.ANOSIM(skbio.DistanceMatrix(self.distance_matrix), partition.partition_vector)
+        if partition.is_minimal():
+            raise ValueError("ANOSim is not defined for singleton clusters")
+        elif partition.is_maximal():
+            raise ValueError("ANOSim is not defined for maximally divided partitions")
+        result = skbio.stats.distance.ANOSIM(skbio.DistanceMatrix(self.get_dm(False)), partition.partition_vector)
         return result(n_permutations)
 
     def permanova(self, partition, n_permutations=999):
-        result = skbio.stats.distance.PERMANOVA(skbio.DistanceMatrix(self.distance_matrix), partition.partition_vector)
+        if partition.is_minimal():
+            raise ValueError("PERMANOVA is not defined for singleton clusters")
+        elif partition.is_maximal():
+            raise ValueError("PERMANOVA is not defined for maximally divided partitions")
+        result = skbio.stats.distance.PERMANOVA(skbio.DistanceMatrix(self.get_dm(False)), partition.partition_vector)
         return result(n_permutations)
 
     def kmedoids(self, nclusters, noise=False, npass=100, nreps=1):
@@ -68,15 +78,27 @@ class Clustering(object):
             print('kmedoids not available without Biopython')
             return
 
-        if noise:
-            matrix = self.distance_matrix.add_noise()
-        else:
-            matrix = self.distance_matrix
+        matrix = self.get_dm(noise)
 
         p = [kmedoids(matrix, nclusters=nclusters, npass=npass) for _ in
              range(nreps)]
         p.sort(key=lambda x: x[1])
         return Partition(p[0][0])
+
+    def affinity_propagation(self, affinity_matrix=None, sigma=1, **kwargs):
+        """
+
+        :param kwargs: damping=0.5, max_iter=200, convergence_iter=15, copy=True, preference=None, verbose=False
+        :return:
+        """
+        if affinity_matrix is None:
+            aff = rbf(self.dm.values, sigma)
+        else:
+            aff = affinity_matrix
+
+        est = AffinityPropagation(affinity='precomputed', **kwargs)
+        est.fit(aff.view(np.ndarray))
+        return Partition(est.labels_)
 
     def dbscan(self, eps=0.75, min_samples=3):
         """
@@ -86,20 +108,22 @@ class Clustering(object):
         :return:
         """
         est = DBSCAN(metric='precomputed', eps=eps, min_samples=min_samples)
-        est.fit(self.distance_matrix)
+        est.fit(self.get_dm(False))
         return Partition(est.labels_)
 
-    def hierarchical(
-            self,
-            nclusters,
-            linkage_method,
-            noise=False,
-    ):
+    def get_dm(self, noise):
+        return self.dm.add_noise().values if noise else self.dm.values
 
-        if noise:
-            matrix = self.distance_matrix.add_noise()
-        else:
-            matrix = self.distance_matrix
+    def hierarchical(self, nclusters, linkage_method, noise=False):
+        """
+
+        :param nclusters: Number of clusters to return
+        :param linkage_method: single, complete, average, ward, weighted, centroid or median
+                               (http://docs.scipy.org/doc/scipy/reference/cluster.hierarchy.html)
+        :param noise: Add Gaussian noise to the distance matrix prior to clustering (bool, default=False)
+        :return: Partition object describing clustering
+        """
+        matrix = self.get_dm(noise)
 
         linkmat = linkage(squareform(matrix), linkage_method)
         linkmat_size = len(linkmat)
@@ -117,7 +141,7 @@ class Clustering(object):
 
     def spectral_decomp(
             self,
-            prune='estimate',
+            prune=None,
             local_scale=None,
             noise=False,
             verbosity=0,
@@ -125,33 +149,33 @@ class Clustering(object):
             **kwargs):
         """ Use prune to remove links between distant points:
 
-        prune='estimate' searches for the smallest value that retains a fully
+        prune is None: no pruning
+        prune={int > 0}: prunes links beyond `prune` nearest neighbours
+        prune='estimate': searches for the smallest value that retains a fully
         connected graph
 
         """
 
-        if noise:
-            matrix = self.distance_matrix.add_noise()
-        else:
-            matrix = self.distance_matrix
+        matrix = self.get_dm(noise)
 
-        kp, mask, est_scale = matrix.binsearch_mask(logic=logic)  # prune anyway,
+        kp, mask, est_scale = binsearch_mask(matrix, logic=logic)  # prune anyway,
 
         # get local scale estimate
-        ks = kp  # ks and kp log the scaling and pruning parameters
+        ks = kp  # ks and kp are the scaling and pruning parameters
         est_ks = ks
 
         # ADJUST MASK
-        if prune == -1:  # change mask to all
+        if prune is None:  # change mask to all
             kp = len(matrix) - 1
             mask = np.ones(matrix.shape, dtype=bool)
         elif isinstance(prune, int) and prune > 0:
             kp = prune
-            mask = matrix.kmask(prune, logic=logic)
+            mask = kmask(matrix, prune, logic=logic)
+        else:
+            if not prune=='estimate':
+                raise ValueError("'prune' should be None, a positive integer value, or 'estimate', not {}".format(prune))
 
         # ADJUST SCALE
-        if local_scale == 'estimate':  # deprecated option
-            local_scale = None
         if local_scale is not None:
             if local_scale == 'median':
                 ks = 'median'
@@ -159,7 +183,7 @@ class Clustering(object):
                 scale = np.outer(dist, dist)
             elif isinstance(local_scale, int):
                 ks = local_scale
-                scale = matrix.kscale(local_scale)
+                scale = kscale(matrix, local_scale)
             else:
                 scale = est_scale
         else:
@@ -173,22 +197,8 @@ class Clustering(object):
             ks = est_ks
             assert (scale > 1e-5).all()
 
-        aff = matrix.affinity(mask, scale)
-
-        # ZeroDivisionError triggers pickle dump
-        try:
-            laplace = matrix.laplace(aff, **kwargs)
-        except ZeroDivisionError:
-            dump = str(uuid.uuid4()).split('-')[0]
-            home = os.getenv('HOME')
-            if home:
-                dumpfile = '{0}/dm_{1}.pkl.gz'.format(home, dump)
-                fileIO.gpickle(self.distance_matrix, dumpfile)
-                print('ZeroDivisionError detected on constructing laplacian.')
-                print('Distance matrix dumped to {0}'.format(dumpfile))
-                print('prune and local scale arguments: {0}, {1}'.format(
-                    prune, local_scale))
-            raise
+        aff = affinity(matrix, mask, scale)
+        laplacian = laplace(aff, **kwargs)
 
         if verbosity > 0:
             print('Pruning parameter: {0}'.format(kp))
@@ -199,30 +209,32 @@ class Clustering(object):
             print(aff)
             print(laplace)
 
-        return laplace.eigen()  # vectors are in columns
+        return eigen(laplacian)  # vectors are in columns
 
     def spectral_cluster(self, nclusters, decomp, verbosity=0):
 
         if nclusters == 1:
-            return Partition([1] * len(self.distance_matrix))
+            return Partition([1] * len(self.dm))
 
-        (coords, cve) = decomp.coords_by_dimension(nclusters)
+        pos = 0
+        for val in decomp.vals:
+            if val > 0:
+                pos += 1
+
+        (coords, cve) = decomp.coords_by_dimension(min(max(nclusters, 3), pos))
         if verbosity > 0:
             print('{0} dimensions explain {1:.2f}% of '
                   'the variance'.format(nclusters, cve * 100))
-        coords = coords.normalise_rows()  # scale all rows to unit length
+        coords = normalise_rows(coords)  # scale all rows to unit length
         p = self.kmeans(nclusters, coords)
         return p
 
     def mds_decomp(self, noise=False):
 
-        if noise:
-            matrix = self.distance_matrix.add_noise()
-        else:
-            matrix = self.distance_matrix
+        matrix = self.get_dm(noise)
 
-        dbc = matrix.double_centre()
-        return dbc.eigen()
+        dbc = double_centre(matrix)
+        return eigen(dbc)
 
     def mds_cluster(
             self,
@@ -242,17 +254,13 @@ class Clustering(object):
         return p
 
     @staticmethod
-    def kmeans(nclusters, coords, noise=False):
-        if noise:
-            coords.add_noise()
+    def kmeans(nclusters, coords):
         est = KMeans(n_clusters=nclusters, n_init=50, max_iter=500)
         est.fit(coords)
         return Partition(est.labels_)
 
     @staticmethod
-    def gmm(nclusters, coords, noise=False, n_init=50, n_iter=500):
-        if noise:
-            coords.add_noise()
+    def gmm(nclusters, coords, n_init=50, n_iter=500):
         est = GMM(n_components=nclusters, n_init=n_init, n_iter=n_iter)
         est.fit(coords)
         return Partition(est.predict(coords))
@@ -309,6 +317,18 @@ class Partition(object):
     @partition_vector.setter
     def partition_vector(self, vec):
         self._partition_vector = self.order(vec)
+
+    def is_minimal(self):
+        """ The partition describes all members being in the same cluster
+        :return: boolean
+        """
+        return len(self) == 1
+
+    def is_maximal(self):
+        """ The partition describes every member being in its own group
+        :return: boolean
+        """
+        return len(self) == len(self.partition_vector)
 
     @staticmethod
     def order(l):

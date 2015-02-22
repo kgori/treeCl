@@ -12,7 +12,6 @@ import numpy as np
 # treeCl
 from collection import Collection
 from clustering import Clustering, Partition
-from distance_matrix import DistanceMatrix
 from errors import optioncheck
 
 
@@ -35,8 +34,8 @@ class Plotter(object):
 
         if dm is not None:
             self.dm = dm
-        else:
-            self.dm = self.calc_dm(metric)
+        # else:
+        #     self.dm = self.calc_dm(metric)
 
         self._warnings()
 
@@ -50,11 +49,11 @@ class Plotter(object):
             if any([(r.tree is None) for r in self.collection.records]):
                 print('No trees have been calculated for these records')
 
-    def calc_dm(self, method='geo'):
-
-        return (self.collection.distance_matrix(method)
-                if self.collection
-                else None)
+    # def calc_dm(self, method='geo'):
+    #
+    #     return (self.collection.distance_matrix(method)
+    #             if self.collection
+    #             else None)
 
     def get_decomp(self, method='MDS', **kwargs):
         optioncheck(method, ['MDS', 'spectral'])
@@ -99,11 +98,9 @@ class Plotter(object):
         ticks_at = [0, 0.5 * datamax, datamax]
         if partition:
             sorting = partition.get_membership(flatten=True)
-            p = self.dm.get_permutation_matrix(range(len(sorting)),
-                                               sorting)
-            self.dm = np.dot(p.T, np.dot(self.dm, p)).view(DistanceMatrix)
+            self.dm = self.dm.reorder(sorting)
         cax = ax.imshow(
-            self.dm,
+            self.dm.values,
             interpolation='nearest',
             origin='lower',
             extent=[0., length, 0., length],

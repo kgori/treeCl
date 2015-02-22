@@ -72,7 +72,6 @@ class RangeError(Exception):
         return '\'{0}\' is outside the valid range {1} - {2}'.format(self.value,
                                                                      self.lower, self.upper)
 
-
 class TreeBuildingError(Exception):
     """ Raise exception when tree-building program fails """
 

@@ -6,12 +6,14 @@ import cPickle
 import glob
 import gzip
 import os
+import tempfile
 from subprocess import Popen, PIPE
 
 # treeCl
 from ..errors import filecheck, directorycheck
 
 __all__ = [
+    'TempFile',
     'basename',
     'can_locate',
     'can_open',
@@ -28,6 +30,28 @@ __all__ = [
     'syscall',
     'verify',
 ]
+
+
+class TempFile(object):
+
+    def __enter__(self):
+        self._wrapped_tmp = tempfile.mkstemp()[1]
+        return os.path.abspath(self._wrapped_tmp)
+
+    def __exit__(self, type, value, tb):
+        os.remove(self._wrapped_tmp)
+
+
+class TempFileList(object):
+
+    def __init__(self, filelist):
+        self._filelist = filelist
+
+    def __enter__(self):
+        return self._filelist
+
+    def __exit__(self, type, value, tb):
+        [os.remove(fl) for fl in self._filelist]
 
 
 def basename(filename):
@@ -71,15 +95,21 @@ def freader(filename, gz=False, bz=False):
 
 
 def fwriter(filename, gz=False, bz=False):
-    """ Returns a filewriter object that can write plain or gzipped output"""
+    """ Returns a filewriter object that can write plain or gzipped output.
+    If gzip or bzip2 compression is asked for then the usual filename extension will be added."""
 
     if filename.endswith('gz'):
         gz = True
     elif filename.endswith('bz2'):
         bz = True
+
     if gz:
+        if not filename.endswith('gz'):
+            filename += '.gz'
         return gzip.open(filename, 'wb')
     elif bz:
+        if not filename.endswith('bz2'):
+            filename += '.bz2'
         return bz2.BZ2File(filename, 'w')
     else:
         return open(filename, 'w')

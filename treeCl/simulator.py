@@ -34,8 +34,8 @@ class Simulator(object):
             class_list,
             permutations_list,
             nspecies,
-            tmpdir,
-            datatype='protein',
+            subst_model,
+            rate_model,
             master_tree_generator_method='yule',
             master_tree=None,
             class_tree_permuter='nni',
@@ -52,8 +52,7 @@ class Simulator(object):
         # default
         errors.optioncheck(master_tree_generator_method, ['yule', 'coal',
                                                           'rtree', 'custom'])
-        errors.optioncheck(class_tree_permuter, ['nni', 'spr', 'lgt', 'genetree'
-        ])
+        errors.optioncheck(class_tree_permuter, ['nni', 'spr', 'lgt', 'genetree'])
         if master_tree is None and master_tree_generator_method == 'custom':
             raise Exception('No custom tree was specified')
         self.num_classes = len(class_list)

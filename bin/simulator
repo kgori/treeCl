@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # treeCl
-from treeCl import Simulator
+from treeCl.simulator import Simulator
 from treeCl.utils import fileIO
 
 

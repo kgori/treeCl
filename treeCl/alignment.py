@@ -1,16 +1,13 @@
-import bpp
 import collections
 import os
-import shutil
-import sys
 import tempfile
 
 from numpy import log
 
-from tree import Tree
-from interfacing import pll
+import bpp
+from treeCl.utils import pll_helpers
+from parameters import Parameters, PartitionParameters
 from utils import fileIO
-from constants import PLL_RANDOM_SEED
 
 
 class Alignment(bpp.Alignment):
@@ -18,9 +15,10 @@ class Alignment(bpp.Alignment):
         super(Alignment, self).__init__(*args)
         self.infile = None
         self.name = None
+        self.parameters = Parameters()
         if len(args) > 0 and isinstance(args[0], basestring) and fileIO.can_locate(args[0]):
             self.infile = args[0]
-        self._parameters = {}
+            self.parameters.filename = args[0]
 
     def __add__(self, other):
         return self.__class__([self, other])
@@ -43,76 +41,42 @@ class Alignment(bpp.Alignment):
 
     @property
     def tree(self):
-        try:
-            return Tree(self.get_tree())
-        except:
-            return Tree(self.get_bionj_tree())
+        if self.parameters.ml_tree is not None:
+            return self.parameters.ml_tree
+        elif self.parameters.nj_tree is not None:
+            return self.parameters.nj_tree
+        else:
+            raise AttributeError('No tree')
 
     def read_alignment(self, *args, **kwargs):
         super(Alignment, self).read_alignment(*args, **kwargs)
         self.infile = args[0]
 
-    def get_alignment_file(self):
+    def get_alignment_file(self, as_phylip=False):
         try:
-            with open(self.infile):
-                pass
+            with open(self.infile) as fl:
+                if as_phylip:
+                    header = fl.readline().strip().split()
+                    assert len(header) == 2 and header[0].isdigit() and header[1].isdigit()
             alignment = self.infile
             return os.path.abspath(alignment), False
 
-        except (IOError, TypeError):
-            _, tmpfile = tempfile.mkstemp()
+        except (IOError, TypeError, AssertionError):
+            tmpfile = os.path.abspath(tempfile.mkstemp()[1])
             self.write_alignment(tmpfile, "phylip", interleaved=True)
-            return os.path.abspath(tmpfile), True
+            return tmpfile, True
 
     def pll_get_instance(self, *args):
-        tmpdir = None
         try:
             with open(self.infile):
                 pass
             alignment = self.infile
-            instance = pll.create_instance(alignment, *args)  # args=(partitions, tree, threads, rns)
-            return instance
+            return pll_helpers.create_instance(alignment, *args)  # args=(partitions, tree, threads, rns)
 
         except (IOError, TypeError):
-            tmpdir = tempfile.mkdtemp()
-            _, tmpfile = tempfile.mkstemp(dir=tmpdir)
-            self.write_alignment(tmpfile, "phylip", interleaved=True)
-            instance = pll.create_instance(tmpfile, *args)
-            return instance
-
-        finally:
-            try:
-                if tmpdir is not None:
-                    shutil.rmtree(tmpdir)
-            except OSError:
-                if os.path.exists(tmpdir):
-                    sys.stderr.write("Could not delete {}\n".format(tmpdir))
-
-    def pll_optimise(self, partitions, tree, model=None, nthreads=1, opt_subst=True, seed=PLL_RANDOM_SEED):
-        """
-        Runs the full raxml search algorithm. Model parameters are set using a combination of partitions and model.
-        Optimisation of substitution model parameters is enabled with opt_subst=True.
-        :param partitions: Links substitution models to alignment sites. Format is the same as the file RAxML uses
-         with the -q flag (e.g. DNA, gene1codon1 = 1-500/3 - see RAxML manual)
-        :param model: Dictionary to set model parameters--rates, frequencies and gamma alpha parameters--for each
-         partition.
-        :param opt_subst: bool: optimise substitution model parameters (T/F).
-        :return: Dictionary of optimisation results.
-        """
-
-        instance = None
-        try:
-            instance = self.pll_get_instance(partitions, tree, nthreads, seed)
-            if model is not None:
-                pll.set_params_from_dict(instance, model)
-            instance.optimise_tree_search(opt_subst)
-            return pll.pll_to_dict(instance)
-        except ValueError as exc:
-            raise exc
-        except Exception as exc:
-            raise pll.PLLException(exc.message)
-        finally:
-            del instance
+            with fileIO.TempFile() as tmpfile:
+                self.write_alignment(tmpfile, 'phylip', True)
+                return pll_helpers.create_instance(tmpfile, *args)
 
     def get_unconstrained_likelihood(self):
         weights = collections.Counter()
@@ -127,3 +91,16 @@ class Alignment(bpp.Alignment):
             if v > 1:
                 ucl += v * log(v)
         return ucl - n * log(n)
+
+    def set_params_from_pll_result(self, result):
+        self.parameters.ml_tree = result['ml_tree']
+        self.parameters.likelihood = result['likelihood']
+        params = PartitionParameters()
+        params.alpha = result['partitions'][0]['alpha']
+        params.frequencies = result['partitions'][0]['frequencies']
+        try:
+            params.rates = result['partitions'][0]['rates']
+        except KeyError:
+            pass
+        params.name = result['partitions'][0]['name']
+        self.parameters.partitions = [params]

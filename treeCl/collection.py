@@ -2,26 +2,47 @@
 from __future__ import print_function
 
 # standard lib
+import glob
+import itertools
 import json
 import math
 import os
 import sys
 import random
-import tempfile
-import timeit
 
 # third party
-import numpy as np
+from scipy.spatial.distance import squareform
 
 # treeCl
-from tree import Tree
-from treeCl.tasks import tasks
+from treeCl.concatenation import Concatenation
+from treeCl.clustering import Partition
+from treeCl.parallel import tasks
 from distance_matrix import DistanceMatrix
 from alignment import Alignment
-from utils import fileIO, setup_progressbar
-from utils.decorators import lazyprop
+from parameters import PartitionParameters
+from treeCl.parallel.utils import get_client, parallel_map, sequential_map
+from utils import fileIO, setup_progressbar, model_translate
 from errors import optioncheck, directorycheck
 from constants import SORT_KEY, PLL_RANDOM_SEED
+from treeCl.utils.decorators import lazyprop
+
+
+def gapmask(simseqs, origseqs):
+    """
+    :param sims: list of (header, sequence) tuples of simulated sequences [no gaps]
+    :param aln: list of (header, sequence) tuples of original sequences
+    :return:
+    """
+    import numpy as np
+    simdict = dict(simseqs)
+    origdict = dict(origseqs)
+    for k in origdict:
+        origseq = np.array(list(origdict[k]))
+        gap_pos = np.where(origseq=='-')
+        simseq = np.array(list(simdict[k]))
+        simseq[gap_pos] = '-'
+        simdict[k] = ''.join(simseq)
+    return list(simdict.items())
 
 
 class NoRecordsError(Exception):
@@ -36,8 +57,6 @@ class NoRecordsError(Exception):
                '\tcompression = {2}'.format(self.input_dir,
                                             self.file_format, self.compression))
         return msg
-
-
 
 
 class Collection(object):
@@ -103,13 +122,24 @@ class Collection(object):
         """ Sets a dictionary of records keyed by SORT_KEY order """
         self._records = dict(enumerate(records))
 
-    @property
+    @lazyprop
     def trees(self):
         """ Returns a list of trees in SORT_KEY order """
         try:
             return [rec.tree for rec in self]
         except ValueError:
             return []
+
+    @lazyprop
+    def names(self):
+        """
+        Returns a list of sequence record names in SORT_KEY order
+        """
+        try:
+            return [rec.name for rec in self]
+        except ValueError:
+            return []
+
 
     def num_species(self):
         """ Returns the number of species found over all records
@@ -143,21 +173,20 @@ class Collection(object):
         self._input_files = files
         records = []
 
-        for f in files:
+        pbar = setup_progressbar("Loading files", len(files), simple_progress=True)
+        pbar.start()
+
+        for i, f in enumerate(files):
             if compression is not None:
-                tmpdir = tempfile.mkdtemp()
-                _, tmpfile = tempfile.mkstemp(dir=tmpdir)
-                with fileIO.freader(f, compression) as reader:
-                    with fileIO.fwriter(tmpfile) as writer:
+                with fileIO.TempFile() as tmpfile:
+                    with fileIO.freader(f, compression) as reader, fileIO.fwriter(tmpfile) as writer:
                         for line in reader:
                             writer.write(line)
-                try:
-                    record = Alignment(tmpfile, file_format, True)
-                except RuntimeError:
-                    record = Alignment(tmpfile, file_format, False)
-                finally:
-                    os.remove(tmpfile)
-                    os.rmdir(tmpdir)
+                    try:
+                        record = Alignment(tmpfile, file_format, True)
+                    except RuntimeError:
+                        record = Alignment(tmpfile, file_format, False)
+
             else:
                 try:
                     record = Alignment(f, file_format, True)
@@ -165,47 +194,34 @@ class Collection(object):
                     record = Alignment(f, file_format, False)
 
             record.name = (fileIO.strip_extensions(f))
-            record.fast_compute_distances()
-            record.parameters = dict(tree=record.tree.newick, name=record.name,
-                                     partitions={0:dict(distances=record.get_distance_variance_matrix().tolist())})
             records.append(record)
-
+            pbar.update(i)
+        pbar.finish()
         return records
 
     def read_parameters(self, input_dir):
         """ Read a directory full of tree files, matching them up to the
         already loaded alignments """
 
-        for rec in self.records:
+        pbar = setup_progressbar("Loading parameters", len(self.records))
+        pbar.start()
+        for i, rec in enumerate(self.records):
+            hook = os.path.join(input_dir, '{}.json*'.format(rec.name))
+            filename = glob.glob(hook)
             try:
-                with open(os.path.join(input_dir, '{}.json'.format(rec.name))) as infile:
-                    parameters = json.load(infile, parse_int=True)
-                    rec.parameters = parameters
-                    if 'partitions' in rec.parameters:
-                        rec.parameters['partitions'] = {int(k): v for (k, v) in rec.parameters['partitions'].iteritems()}
-                        try:
-                            freqs = rec.parameters['partitions'][0]['frequencies']
-                            alpha = rec.parameters['partitions'][0]['alpha']
-                            tree = rec.parameters['tree']
-                            rec.set_substitution_model('GTR' if rec.is_dna() else 'LG08')
-                            rec.set_gamma_rate_model(4, alpha)
-                            rec.set_frequencies(freqs)
-                            if rec.is_dna():
-                                rec.set_rates(result['partitions'][0]['rates'], 'ACGT')
-                            rec.initialise_likelihood(str(tree))
-                        except KeyError:
-                            pass
+                with fileIO.freader(filename[0]) as infile:
+                    d = json.load(infile, parse_int=True)
 
-                        try:
-                            dists = rec.parameters['partitions'][0]['distances']
-                            rec.set_distance_matrix(dists)
-                        except KeyError:
-                            pass
+                rec.parameters.construct_from_dict(d)
 
-            except IOError:
+            except IOError, IndexError:
                 continue
 
-    def write_parameters(self, output_dir):
+            finally:
+                pbar.update(i)
+        pbar.finish()
+
+    def write_parameters(self, output_dir, gz=False):
         if not os.path.exists(output_dir):
             try:
                 os.makedirs(output_dir)
@@ -214,320 +230,182 @@ class Collection(object):
                 raise err
 
         for rec in self.records:
-            with open(os.path.join(output_dir, '{}.json'.format(rec.name)), 'w') as outfile:
-                json.dump(rec.parameters, outfile, indent=4, separators=(',', ': '))
+            with fileIO.fwriter(os.path.join(output_dir, '{}.json'.format(rec.name)), gz=True) as outfile:
+                rec.parameters.write(outfile, indent=4)
 
-    def fast_calc_distances(self):
-        """ Calculates within-alignment pairwise distances and variances for every
-        alignment. Uses fast Jukes-Cantor method.
-        :return: void"""
-        pbar = setup_progressbar('Calculating fast approximate distances', len(self))
-        pbar.start()
-        for i, rec in enumerate(self.records):
-            rec.fast_compute_distances()
-            pbar.update(i)
-        pbar.finish()
-
-    def calc_distances(self):
-        """ Calculates within-alignment pairwise distances and variances for every
-        alignment. Uses slow ML optimisation, and depends on the Alignment record
-        having had appropriate ML parametric models set up in advance.
-        :return: void
-        """
-        pbar = setup_progressbar('Calculating distances', len(self))
-        pbar.start()
-        for i, rec in enumerate(self.records):
-            rec.compute_distances()
-            pbar.update(i)
-        pbar.finish()
-
-    def calc_trees(self, threads=1, indices=None, use_celery=False):
-        if use_celery:
-            self._calc_trees_celery(threads, indices)
-        else:
-            self._calc_trees_sequential(threads, indices)
-
-    def _calc_trees_sequential(self, threads=1, indices=None):
-        """ Use pllpy to calculate maximum-likelihood trees
-        :return: void
-        """
-
-        if indices is None:
-            indices = list(range(len(self)))
-        else:
-            indices = indices
-
-        pbar = setup_progressbar('Calculating ML trees', len(indices))
-        pbar.start()
-
-        for i, rec in enumerate(self[i] for i in indices):
-            if rec.is_dna():
-                model = 'GTR'
-            else:
-                model = 'LGX'
-            result = rec.pll_optimise('{}, {} = 1 - {}'.format(model, rec.name, len(rec)), rec.tree.newick,
-                                      nthreads=threads, seed=PLL_RANDOM_SEED)
-            freqs = result['partitions'][0]['frequencies']
-            tree = result['tree']
-            alpha = result['partitions'][0]['alpha']
-            rec.set_substitution_model('GTR' if rec.is_dna() else 'LG08')
-            rec.set_gamma_rate_model(4, alpha)
-            rec.set_frequencies(freqs)
-            if rec.is_dna():
-                rec.set_rates(result['partitions'][0]['rates'], 'ACGT')
-            rec.initialise_likelihood(tree)
-            rec.compute_distances()
-            result['partitions'][0]['distances'] = rec.get_distance_variance_matrix().tolist()
-            result['name'] = rec.name
-            rec.parameters = result
-            pbar.update(i)
-        pbar.finish()
-
-    def _calc_trees_celery(self, threads=1, indices=None):
-        """ Use pllpy to calculate maximum-likelihood trees, and use celery to distribute
-        the computation across cores
-        :return: void
-        """
-        from celery import group
-        if indices is None:
-            indices = list(range(len(self)))
-        jobs = []
-        to_delete = []
-        results = []
-        for i in indices:
-            rec = self[i]
-            filename, delete = rec.get_alignment_file()
-            if delete:
-                to_delete.append(filename)
-            partition = '{}, {} = 1 - {}'.format('GTR' if rec.is_dna() else 'LGX', rec.name, len(rec))
-            jobs.append((filename, partition, rec.tree.newick, threads, PLL_RANDOM_SEED))
-
-        try:
-            job_group = group(tasks.pll_unpartitioned_task.s(*args) for args in jobs)()
-            print("Waiting for computation...")
-            results = job_group.get()
-        except Exception, err:
-            print("ERROR:", err.message)
-            for fname in to_delete:
-                os.remove(fname)
-
-        for i, result in zip(indices, results):
-            rec = self[i]
-            freqs = result['partitions'][0]['frequencies']
-            tree = result['tree']
-            alpha = result['partitions'][0]['alpha']
-            rec.set_substitution_model('GTR' if rec.is_dna() else 'LG08')
-            rec.set_gamma_rate_model(4, alpha)
-            rec.set_frequencies(freqs)
-            if rec.is_dna():
-                rec.set_rates(result['partitions'][0]['rates'], 'ACGT')
-            rec.initialise_likelihood(tree)
-            rec.compute_distances()
-            result['partitions'][0]['distances'] = rec.get_distance_variance_matrix().tolist()
-            result['name'] = rec.name
-            rec.parameters = result
-
-    def get_inter_tree_distances(self, metric, **kwargs):
-        """ Generate a distance matrix from a fully-populated Collection """
-        return DistanceMatrix(self.trees, metric, **kwargs)
-
-    def permuted_copy(self):
+    def permuted_copy(self, partition=None):
         """ Return a copy of the collection with all alignment columns permuted
         """
-
         def take(n, iterable):
             return [iterable.next() for _ in range(n)]
 
-        def items_subset(kys, dct):
-            return [(ky, dct[ky]) for ky in kys]
+        if partition is None:
+            partition = Partition([1] * len(self))
 
-        concat = Concatenation(self, range(len(self)))
-        sites = concat.alignment.get_sites()
-        random.shuffle(sites)
-        d = dict(zip(concat.alignment.get_names(), [iter(x) for x in zip(*sites)]))
+        index_tuples = partition.get_membership()
 
-        new_seqs = []
-        for l in concat.lengths:
-            new_seqs.append(dict([(k, ''.join(take(l, d[k]))) for k in d]))
+        alignments = []
+        for ix in index_tuples:
+            concat = Concatenation(self, ix)
+            sites = concat.alignment.get_sites()
+            random.shuffle(sites)
+            d = dict(zip(concat.alignment.get_names(), [iter(x) for x in zip(*sites)]))
+            new_seqs = [[(k, ''.join(take(l, d[k]))) for k in d] for l in concat.lengths]
 
-        records = []
-        for (k, d) in zip(concat.headers, new_seqs):
-            records.append(items_subset(k, d))
+            for seqs, datatype, name in zip(new_seqs, concat.datatypes, concat.names):
+                alignment = Alignment(seqs, datatype)
+                alignment.name = name
+                alignments.append(alignment)
 
-        permutation = self.__class__(
-            records=[Alignment(seqs, dtype) for (seqs, dtype) in zip(records, concat.datatypes)])
-        for rec, name in zip(permutation, concat.names):
-            rec.name = name
+        return self.__class__(records=sorted(alignments, key=lambda x: SORT_KEY(x.name)))
 
-        return permutation
-
-
-class Concatenation(object):
-    """docstring for Concatenation"""
-
-    def __init__(self, collection, indices):
-        super(Concatenation, self).__init__()
-        if any((x > len(collection)) for x in indices):
-            raise ValueError('Index out of bounds in {}'.format(indices))
-        if any((x < 0) for x in indices) < 0:
-            raise ValueError('Index out of bounds in {}'.format(indices))
-        if any((not isinstance(x, int)) for x in indices):
-            raise ValueError('Integers only in indices, please: {}'
-                             .format(indices))
-        self.collection = collection
-        self.indices = sorted(indices)
-
-    @lazyprop
-    def distances(self):
-        return [self.collection.records[i].get_distance_variance_matrix() for i in self.indices]
-
-    @lazyprop
-    def datatypes(self):
-        return ['dna' if self.collection.records[i].is_dna() else 'protein' for i in self.indices]
-
-    @lazyprop
-    def alignment(self):
-        al = Alignment([self.collection[i] for i in self.indices])
-        al.fast_compute_distances()
-        return al
-
-    @lazyprop
-    def names(self):
-        return [self.collection.records[i].name for i in self.indices]
-
-    @lazyprop
-    def lengths(self):
-        return [len(self.collection.records[i]) for i in self.indices]
-
-    @lazyprop
-    def headers(self):
-        return [self.collection.records[i].get_names() for i in self.indices]
-
-    @lazyprop
-    def coverage(self):
-        total = float(self.collection.num_species())
-        return [len(self.collection.records[i]) / total for i in self.indices]
-
-    @lazyprop
-    def trees(self):
-        return [self.collection.records[i].tree for i in self.indices]
-
-    @lazyprop
-    def mrp_tree(self):
-        trees = [tree.newick for tree in self.trees]
-        return Tree(Alignment().get_mrp_supertree(trees))
-
-    def _get_tree_collection_strings(self, scale=1):
-        """ Function to get input strings for tree_collection
-        tree_collection needs distvar, genome_map and labels -
-        these are returned in the order above
+    def fast_calc_distances(self, batchsize=1):
         """
+        Calculate fast approximate intra-alignment pairwise distances and variances using
+        Jukes-Cantor closed formulae.
+        :return: None (all side effects)
+        """
+        # Assemble argument lists
+        args = []
+        to_delete = []
+        for rec in self:
+            filename, delete = rec.get_alignment_file(as_phylip=True)
+            if delete:
+                to_delete.append(filename)
+            args.append((filename,))
 
-        # aliases
-        num_matrices = len(self.distances)
-        label_set = reduce(lambda x, y: x.union(y), (set(l) for l in self.headers))
-        labels_len = len(label_set)
-
-        # labels string can be built straight away
-        labels_string = '{0}\n{1}\n'.format(labels_len, ' '.join(label_set))
-
-        # distvar and genome_map need to be built up
-        distvar_list = [str(num_matrices)]
-        genome_map_list = ['{0} {1}'.format(num_matrices, labels_len)]
-
-        # build up lists to turn into strings
-        for i in range(num_matrices):
-            labels = self.headers[i]
-            dim = len(labels)
-            matrix = self.distances[i].copy()
-            if scale:
-                matrix[np.triu_indices(dim, 1)] *= scale
-                matrix[np.tril_indices(dim, -1)] *= scale * scale
-
-            if isinstance(matrix, np.ndarray):
-                matrix_string = '\n'.join([' '.join(str(x) for x in row)
-                                           for row in matrix]) + '\n'
+        # Dispatch work (either sequentially or in parallel)
+        msg = 'Calculating fast distances'
+        with fileIO.TempFileList(to_delete):
+            client = get_client()
+            if client is None:
+                map_result = sequential_map(tasks.fast_calc_distances_task, args, msg)
             else:
-                matrix_string = matrix
-            distvar_list.append('{0} {0} {1}\n{2}'.format(dim, i + 1,
-                                                          matrix_string))
-            genome_map_entry = ' '.join((str(labels.index(lab) + 1)
-                                         if lab in labels else '-1')
-                                        for lab in label_set)
-            genome_map_list.append(genome_map_entry)
+                map_result = parallel_map(client, tasks.fast_calc_distances_task, args, msg, batchsize)
 
-        distvar_string = '\n'.join(distvar_list)
-        genome_map_string = '\n'.join(genome_map_list)
+        # Process results
+        pbar = setup_progressbar('Processing results', len(map_result))
+        j = 0
+        pbar.start()
+        for i, result in enumerate(map_result):
+            rec = self[i]
+            distances = result['distances']
+            variances = result['variances']
+            tree = result['tree']
+            rec.parameters.nj_tree = tree
+            params = rec.parameters.partitions
+            if params is None:
+                params = PartitionParameters()
+                rec.parameters.partitions = [params]
+            params.distances = distances
+            params.variances = variances
+            pbar.update(i)
+        pbar.finish()
 
-        guide_tree = self.alignment.tree
+    def calc_distances(self, batchsize=1):
+        """
+        Calculate fast approximate intra-alignment pairwise distances and variances using
+        ML (requires ML models to have been set up using `calc_trees`).
+        :return: None (all side effects)
+        """
+        # Assemble argument lists
+        args = []
+        to_delete = []
+        for rec in self:
+            filename, delete = rec.get_alignment_file(as_phylip=True)
+            if delete:
+                to_delete.append(filename)
+            # Get input dict
+            model = {'partitions': {}}
+            data = {'alpha': rec.parameters.partitions.alpha, 'frequencies': rec.parameters.partitions.frequencies}
+            if rec.is_dna():
+                data['rates'] = rec.parameters.partitions.rates
+            model['partitions'][0] = data
+            args.append((model, filename))
 
-        for e in guide_tree.postorder_edge_iter():
-            if e.length is None:
-                if e.head_node == guide_tree.seed_node:
-                    e.length = 0.0
-                else:
-                    e.length = 1.0
-
-        if not guide_tree.is_rooted:
-            guide_tree.reroot_at_midpoint()
-        if not guide_tree.is_rooted:
-            raise Exception('Couldn\'t root the guide tree')
-        tree_string = guide_tree.scale(scale).newick
-
-        return distvar_string, genome_map_string, labels_string, tree_string
-
-    def minsq_tree(self,
-                   niters=5,
-                   keep_topology=False,
-                   quiet=True,
-                   scale=1):
-
-        dv, gm, lab, tree_string = self._get_tree_collection_strings(scale)
-
-        import tree_collection
-
-        output_tree, score = tree_collection.compute(dv, gm, lab, tree_string,
-                                                     niters, keep_topology,
-                                                     quiet)
-
-        return Tree(output_tree), score
-
-    def qfile(self, dna_model='DNA', protein_model='LG', sep_codon_pos=False,
-              ml_freqs=False, eq_freqs=False):
-        from_ = 1
-        to_ = 0
-        qs = list()
-        if ml_freqs:
-            dna_model += 'X'
-            protein_model += 'X'
-        if eq_freqs and not ml_freqs:
-            protein_model += 'F'
-
-        models = dict(dna=dna_model, protein=protein_model)
-        for length, name, datatype in zip(self.lengths, self.names,
-                                          self.datatypes):
-            to_ += length
-            if datatype == 'dna' and sep_codon_pos:
-                qs.append('{}, {} = {}-{}/3'.format(models[datatype], name, from_,
-                                                    to_))
-                qs.append('{}, {} = {}-{}/3'.format(models[datatype], name, from_ + 1,
-                                                    to_))
-                qs.append('{}, {} = {}-{}/3'.format(models[datatype], name, from_ + 2,
-                                                    to_))
+        # Dispatch
+        msg = 'Calculating ML distances'
+        with fileIO.TempFileList(to_delete):
+            client = get_client()
+            if client is None:
+                map_result = sequential_map(tasks.calc_distances_task, args, msg)
             else:
-                qs.append('{}, {} = {}-{}'.format(models[datatype], name, from_,
-                                                  to_))
-            from_ += length
-        return '\n'.join(qs)
+                map_result = parallel_map(client, tasks.calc_distances_task, args, msg, batchsize)
 
-    def pll_optimise(self, partitions, tree=None, model=None, nthreads=1, **kwargs):
-        if tree is None:
-            tree = self.alignment.tree.newick
-        return self.alignment.pll_optimise(partitions, tree, model, nthreads, **kwargs)
+        # Process results
+        pbar = setup_progressbar('Processing results', len(map_result))
+        j = 0
+        pbar.start()
+        for i, result in enumerate(map_result):
+            rec = self[i]
+            rec.parameters.partitions.distances = result['partitions'][0]['distances']
+            rec.parameters.partitions.variances = result['partitions'][0]['variances']
+            rec.parameters.nj_tree = result['nj_tree']
+            pbar.update(j+1)
+            j += 1
 
-    def paml_partitions(self):
-        return 'G {} {}'.format(len(self.lengths),
-                                ' '.join(str(x) for x in self.lengths))
+    def calc_trees(self, threads=1, indices=None, batchsize=1):
+        """
+        Use pllpy to calculate maximum-likelihood trees
+        :return: None (all side effects)
+        """
+        # Assemble argument lists
+        if indices is None:
+            indices = list(range(len(self)))
+        args = []
+        to_delete = []
+        for i in indices:
+            rec = self[i]
+            filename, delete = rec.get_alignment_file(as_phylip=True)
+            if delete:
+                to_delete.append(filename)
+            partition = '{}, {} = 1 - {}'.format('DNA' if rec.is_dna() else 'LGX', rec.name, len(rec))
+            tree = rec.parameters.nj_tree if rec.parameters.nj_tree is not None else True
+            args.append((filename, partition, tree, threads, PLL_RANDOM_SEED))
+
+        # Dispatch work
+        msg = 'Calculating ML trees'
+        with fileIO.TempFileList(to_delete):
+            client = get_client()
+            if client is None:
+                map_result = sequential_map(tasks.pll_task, args, msg)
+            else:
+                map_result = parallel_map(client, tasks.pll_task, args, msg, batchsize)
+
+        # Process results
+        pbar = setup_progressbar('Processing results', len(map_result))
+        j = 0
+        pbar.start()
+        for i, result in zip(indices, map_result):
+            rec = self[i]
+            rec.set_params_from_pll_result(result)
+            pbar.update(j+1)
+            j += 1
+
+    def get_inter_tree_distances(self, metric, normalise=False, batchsize=100):
+        """ Generate a distance matrix from a fully-populated Collection """
+        array = _get_inter_tree_distances(metric, self.trees, normalise, batchsize)
+        return DistanceMatrix(array, self.names)
+
+
+def _get_inter_tree_distances(metric, trees, normalise=False, batchsize=100):
+    # Assemble argument lists
+    args = [(t1, t2, normalise) for (t1, t2) in itertools.combinations(trees, 2)]
+
+    # Get task
+    tasks_dict = dict(zip(['euc', 'geo', 'rf', 'wrf'],
+                          [tasks.eucdist_task, tasks.geodist_task, tasks.rfdist_task, tasks.wrfdist_task]))
+    task = tasks_dict[metric]
+
+    # Dispatch
+    msg = 'Inter-tree distances ({})'.format(metric)
+    client = get_client()
+    if client is None:
+        map_result = sequential_map(task, args, msg)
+    else:
+        map_result = list(parallel_map(client, task, args, msg, batchsize))
+
+    return squareform(map_result)
 
 
 class Scorer(object):
@@ -535,140 +413,122 @@ class Scorer(object):
     a tree and score """
 
     def __init__(
-            self,
-            collection,
-            verbosity=0,
+        self,
+        collection,
+        verbosity=0,
     ):
 
         self.collection = collection
         self.verbosity = verbosity
         self.minsq_cache = {}
         self.lnl_cache = {}
-        self.history = []
 
     @property
     def records(self):
         return self.collection.records
 
-    def get_minsq_partition(self, partition):
-        """ Calculates concatenated trees for a list of Partitions """
-        index_tuples = partition.get_membership()
-        return self._get_minsq_index_tuple_list(index_tuples)
+    def add_lnl_partitions(self, partitions, threads=1, use_calculated_freqs=True, batchsize=1):
+        self.add_minsq_partitions(partitions)
+        if isinstance(partitions, Partition):
+            partitions = (partitions,)
+        index_tuples = set(ix for partition in partitions for ix in partition.get_membership()).difference(
+            self.lnl_cache.keys())
+        if len(index_tuples) == 0:
+            return
 
+        # Collect argument list
+        args = []
+        to_delete = []
+        for ix in index_tuples:
+            conc = self.concatenate(ix)
+            al = conc.alignment
+            filename, delete = al.get_alignment_file(as_phylip=True)
+            if delete:
+                to_delete.append(filename)
+            partition = conc.qfile(dna_model="GTR", protein_model="LG", ml_freqs=True)
+            tree = self.minsq_cache[ix]['tree']
+            if use_calculated_freqs:
+                args.append((filename, partition, tree, threads, PLL_RANDOM_SEED, conc.frequencies))
+            else:
+                args.append((filename, partition, tree, threads, PLL_RANDOM_SEED))
 
-    def get_lnl_partition(self, partition):
-        """ Calculates concatenated trees for a list of Partitions """
-        index_tuples = partition.get_membership()
-        return self._get_lnl_index_tuple_list(index_tuples)
+        # Distribute work
+        with fileIO.TempFileList(to_delete):
+            msg = 'Adding ML cluster trees'
+            client = get_client()
+            if client is None:
+                map_result = sequential_map(tasks.pll_task, args, msg)
+            else:
+                map_result = parallel_map(client, tasks.pll_task, args, msg, batchsize)
 
-    def _get_lnl_index_tuple_list(self, index_tuple_list):
-        """
-        Does maximum-likelihood tree optimisation for the alignments specified
-        by the tuple list.
-        :param index_tuple_list:
-        :return:
-        """
-        return [self._get_lnl(index_tuple) for index_tuple in index_tuple_list]
+        # Process results
+        pbar = setup_progressbar('Processing results', len(map_result))
+        pbar.start()
+        for i, (ix, result) in enumerate(zip(index_tuples, map_result)):
+            self.lnl_cache[ix] = result
+            pbar.update(i)
+        pbar.finish()
 
-    def _get_minsq_index_tuple_list(self, index_tuple_list):
-        """
-        Does tree estimation by minimum squared distance for the alignments
-        specified by the tuple list.
-        :param index_tuple_list:
-        :return:
-        """
-        return [self._get_minsq(index_tuple) for index_tuple in index_tuple_list]
+    def add_minsq_partitions(self, partitions, batchsize=1):
+        if isinstance(partitions, Partition):
+            partitions = (partitions,)
+        index_tuples = set(ix for partition in partitions for ix in partition.get_membership()).difference(
+            self.minsq_cache.keys())
 
-    def _get_lnl(self, index_tuple):
-        """
-        Takes a tuple of indices. Concatenates the records in the record
-        list at these indices, and builds a tree. Returns the tree
-        :param index_tuple: tuple of indexes at which to find the alignments.
-        :return:
-        """
-        try:
-            return self.lnl_cache[index_tuple]
-        except KeyError:
-            conc = self.concatenate(index_tuple)
-            partitions = conc.qfile(dna_model="GTR", protein_model="LGX")
-            result = self.lnl_cache[index_tuple] = conc.pll_optimise(partitions)
-            return result
+        if len(index_tuples) == 0:
+            return
 
-    def _get_minsq(self, index_tuple):
-        """
-        Takes a tuple of indices. Concatenates the records in the record
-        list at these indices, and builds a tree. Returns the tree
-        :param index_tuple: tuple of indexes at which to find the alignments.
-        :return:
-        """
-        try:
-            return self.minsq_cache[index_tuple]
-        except KeyError:
-            conc = self.concatenate(index_tuple)
-            tree, sse = conc.minsq_tree()
-            n_tips = len(tree)
-            result = dict(tree=tree, sse=sse, fit=sse / (2 * (n_tips - 2) * (n_tips - 3)), names=conc.names)
-            self.minsq_cache[index_tuple] = result
-            return result
+        # Collect argument list
+        args = []
+        for ix in index_tuples:
+            conc = self.concatenate(ix)
+            args.append(conc.get_tree_collection_strings())
+
+        # Distribute work
+        msg = 'Adding MinSq cluster trees'
+        client = get_client()
+        if client is None:
+            map_result = sequential_map(tasks.minsq_task, args, msg)
+        else:
+            map_result = parallel_map(client, tasks.minsq_task, args, msg, batchsize)
+
+        # Process results
+        pbar = setup_progressbar('Processing results', len(map_result))
+        pbar.start()
+        for i, (ix, result) in enumerate(zip(index_tuples, map_result)):
+            self.minsq_cache[ix] = result
+            pbar.update(i)
+        pbar.finish()
 
     def concatenate(self, index_tuple):
         """ Returns a Concatenation object that stitches together
         the alignments picked out by the index tuple """
         return Concatenation(self.collection, index_tuple)
 
-    def update_history(self, score, index_tuple):
-        """ Used for logging the optimiser """
-        time = timeit.default_timer()
-        self.history.append([time, score, index_tuple, len(index_tuple)])
-
-    def print_history(self, fh=sys.stdout):
-        """ Used for logging the optimiser """
-        for iteration, (time, score, index_tuple, nclusters) in enumerate(
-                self.history):
-            fh.write(str(iteration) + "\t")
-            fh.write(str(time) + "\t")
-            fh.write(str(score) + "\t")
-            fh.write(str(index_tuple) + "\t")
-            fh.write(str(nclusters) + "\n")
-
-    def clear_history(self):
-        """ Used for logging the optimiser: clears the log """
-        self.history = []
-
     def members(self, index_tuple):
         """ Gets records by their index, contained in the index_tuple """
         return [self.records[n] for n in index_tuple]
 
-    def get_results(self, partition, criterion):
-        """
-        Return the results for scoring a partition - either the sum of log likelihoods,
-        or the total min squares dimensionless fit index
-        :param partition: Partition object
-        :param criterion: either 'minsq' or 'lnl'
-        :return: score (float)
-        """
-        optioncheck(criterion, ['lnl', 'minsq'])
-        results = (self.get_lnl_partition(partition) if criterion == 'lnl'
-                   else self.get_minsq_partition(partition))
-        return results
-
-    def get_likelihood(self, partition):
+    def get_likelihood(self, partition, batchsize=1, **kwargs):
         """
         Return the sum of log-likelihoods for a partition.
         :param partition: Partition object
         :return: score (float)
-
         """
-        results = self.get_results(partition, 'lnl')
+        indices = partition.get_membership()
+        self.add_lnl_partitions(partition, batchsize=batchsize, **kwargs)
+        results = [self.lnl_cache[ix] for ix in indices]
         return math.fsum(x['likelihood'] for x in results)
 
-    def get_sse(self, partition):
+    def get_sse(self, partition, **kwargs):
         """
         Return the sum of squared errors score for a partition
         :param partition: Partition object
         :return: score (float)
         """
-        results = self.get_results(partition, 'minsq')
+        indices = partition.get_membership()
+        self.add_minsq_partitions(partition, **kwargs)
+        results = [self.minsq_cache[ix] for ix in indices]
         return math.fsum(x['sse'] for x in results)
 
     # def get_fit(self, partition):
@@ -684,3 +544,42 @@ class Scorer(object):
     #     """
     #     results = self.get_results(partition, 'minsq')
     #     return math.fsum(x['fit'] for x in results)
+
+    def simulate(self, partition, outdir, batchsize=1, **kwargs):
+        """
+        Simulate a set of alignments from the parameters inferred on a partition
+        :param partition:
+        :return:
+        """
+        indices = partition.get_membership()
+        self.add_lnl_partitions(partition, **kwargs)
+        results = [self.lnl_cache[ix] for ix in indices]
+        places = dict((j,i) for (i,j) in enumerate(rec.name for rec in self.collection.records))
+
+        # Collect argument list
+        args = [None] * len(self.collection)
+        for result in results:
+            for partition in result['partitions'].values():
+                place = places[partition['name']]
+                args[place] = (len(self.collection[place]),
+                               model_translate(partition['model']),
+                               partition['frequencies'],
+                               partition['alpha'],
+                               result['ml_tree'],
+                               partition['rates'] if 'rates' in partition else None)
+
+        # Distribute work
+        msg = 'Simulating'
+        client = get_client()
+        if client is None:
+            map_result = sequential_map(client, tasks.simulate_task, args, msg)
+        else:
+            map_result = parallel_map(client, tasks.simulate_task, args, msg, batchsize)
+
+        # Process results
+        for i, result in enumerate(map_result):
+            orig = self.collection[i]
+            simseqs = gapmask(result, orig.get_sequences())
+            al = Alignment(simseqs, 'protein' if orig.is_protein() else 'dna')
+            outfile = os.path.join(outdir, orig.name + '.phy')
+            al.write_alignment(outfile, 'phylip', True)

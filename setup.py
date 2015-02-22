@@ -34,7 +34,7 @@ except ImportError:
 
 import pkg_resources
 
-VERSION = '0.0.5'
+VERSION = '0.0.6'
 
 logo = """
 ═══════════ ╔═╗┬
@@ -47,7 +47,6 @@ logo = """
 """.format(VERSION)
 
 print(logo)
-print(find_packages())
 data_dir = pkg_resources.resource_filename("autowrap", "data_files")
 extensions = [
     Extension(name='tree_collection',
@@ -82,10 +81,10 @@ setup(name="treeCl",
       install_requires=[
           'biopython',
           'bpp',
-          'celery',
           'cython',
           'dendropy',
           'fastcluster',
+          'ipython',
           'matplotlib',
           'numpy',
           'pandas',

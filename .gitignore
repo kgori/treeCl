@@ -68,3 +68,6 @@ makefile
 
 # IPython Notebooks
 .ipynb_checkpoints/
+
+# IntelliJ
+*.iml
