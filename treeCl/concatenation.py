@@ -21,6 +21,9 @@ class Concatenation(object):
         self.collection = collection
         self.indices = sorted(indices)
 
+    def __len__(self):
+        return len(self.indices)
+
     @lazyprop
     def distances(self):
         return [self.collection.records[i].parameters.partitions.distances for i in self.indices]
@@ -132,30 +135,31 @@ class Concatenation(object):
 
         return distvar_string, genome_map_string, labels_string, tree_string
 
-    def qfile(self, dna_model='DNA', protein_model='LG', sep_codon_pos=False,
+    def qfile(self, models=None, default_dna='DNA', default_protein='LG', sep_codon_pos=False,
               ml_freqs=False, eq_freqs=False):
         from_ = 1
         to_ = 0
         qs = list()
-        if ml_freqs:
-            dna_model += 'X'
-            protein_model += 'X'
-        if eq_freqs and not ml_freqs:
-            protein_model += 'F'
+        if models is None:
+            if ml_freqs:
+                default_dna += 'X'
+                default_protein += 'X'
+            if eq_freqs and not ml_freqs:
+                default_protein += 'F'
+            default_models = dict(dna=default_dna, protein=default_protein)
+            models = [default_models[m] for m in self.datatypes]
 
-        models = dict(dna=dna_model, protein=protein_model)
-        for length, name, datatype in zip(self.lengths, self.names,
-                                          self.datatypes):
+        for (length, name, model) in zip(self.lengths, self.names, models):
             to_ += length
             if datatype == 'dna' and sep_codon_pos:
-                qs.append('{}, {} = {}-{}/3'.format(models[datatype], name, from_,
+                qs.append('{}, {} = {}-{}/3'.format(model, name, from_,
                                                     to_))
-                qs.append('{}, {} = {}-{}/3'.format(models[datatype], name, from_ + 1,
+                qs.append('{}, {} = {}-{}/3'.format(model, name, from_ + 1,
                                                     to_))
-                qs.append('{}, {} = {}-{}/3'.format(models[datatype], name, from_ + 2,
+                qs.append('{}, {} = {}-{}/3'.format(model, name, from_ + 2,
                                                     to_))
             else:
-                qs.append('{}, {} = {}-{}'.format(models[datatype], name, from_,
+                qs.append('{}, {} = {}-{}'.format(model, name, from_,
                                                   to_))
             from_ += length
         return '\n'.join(qs)

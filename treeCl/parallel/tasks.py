@@ -79,11 +79,14 @@ def fast_calc_distances_task(alignment_file):
     return result
 
 
-def calc_distances_task(pll_dict, alignment_file):
+def calc_distances_task(pll_dict, alignment_file, model=None):
     rec = Alignment(alignment_file, 'phylip', True)
     freqs = pll_dict['partitions'][0]['frequencies']
     alpha = pll_dict['partitions'][0]['alpha']
-    rec.set_substitution_model('GTR' if rec.is_dna() else 'LG08+F')
+    if model is None:
+        rec.set_substitution_model('GTR' if rec.is_dna() else 'LG08+F')
+    else:
+        rec.set_substitution_model(model)
     rec.set_gamma_rate_model(4, alpha)
     rec.set_frequencies(freqs)
     if rec.is_dna():
