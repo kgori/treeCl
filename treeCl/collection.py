@@ -344,7 +344,7 @@ class Collection(object):
             pbar.update(j+1)
             j += 1
 
-    def calc_trees(self, threads=1, indices=None, batchsize=1):
+    def calc_trees(self, model=None, threads=1, indices=None, batchsize=1):
         """
         Use pllpy to calculate maximum-likelihood trees
         :return: None (all side effects)
@@ -359,7 +359,11 @@ class Collection(object):
             filename, delete = rec.get_alignment_file(as_phylip=True)
             if delete:
                 to_delete.append(filename)
-            partition = '{}, {} = 1 - {}'.format('DNA' if rec.is_dna() else 'LGX', rec.name, len(rec))
+            if model is None:
+                model = ('DNA' if rec.is_dna() else 'LGX')
+            if model == 'AUTOX':
+                model = 'AUTO'
+            partition = '{}, {} = 1 - {}'.format(model, rec.name, len(rec))
             tree = rec.parameters.nj_tree if rec.parameters.nj_tree is not None else True
             args.append((filename, partition, tree, threads, PLL_RANDOM_SEED))
 
@@ -378,7 +382,7 @@ class Collection(object):
         pbar.start()
         for i, result in zip(indices, map_result):
             rec = self[i]
-            rec.set_params_from_pll_result(result)
+            rec.parameters.construct_from_dict(result)
             pbar.update(j+1)
             j += 1
 
