@@ -5,6 +5,8 @@ from treeCl import treedist
 from treeCl.tree import Tree
 from treeCl.alignment import Alignment
 from treeCl.utils.pll_helpers import pll_to_dict
+from treeCl.parameters import Parameters
+from treeCl.utils import fileIO
 from treeCl.constants import PLL_RANDOM_SEED
 
 
@@ -60,14 +62,24 @@ def wrfdist_task(newick_string_a, newick_string_b, normalise):
         wrfdist_task.retry(exc=exc, countdown=1, max_retries=5)
 
 
-def pll_task(alignment_file, partition_string, guidetree=None, threads=1, seed=PLL_RANDOM_SEED, frequencies=None):
+def pll_task(alignment_file, partition_string, guidetree=None, threads=1, seed=PLL_RANDOM_SEED, frequencies=None,
+             write_to_file=None):
     guidetree = True if guidetree is None else guidetree
     instance = pll(alignment_file, partition_string, guidetree, threads, seed)
     if frequencies is not None and len(frequencies) == instance.get_number_of_partitions():
         for i in range(len(frequencies)):
             instance.set_frequencies(frequencies[i], i, False)
     instance.optimise_tree_search(True)
-    return pll_to_dict(instance)
+    result = pll_to_dict(instance)
+    if write_to_file is not None: # attempt to write to file specified by write_to_file
+        try:
+            parameters = Parameters()
+            parameters.construct_from_dict(result)
+            with fileIO.fwriter(write_to_file, gz=True) as fl:
+                parameters.write(fl)
+        except:
+            pass  # fail silently
+    return result
 
 
 def fast_calc_distances_task(alignment_file):

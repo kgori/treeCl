@@ -76,6 +76,7 @@ class Collection(object):
             param_dir=None,
             file_format='fasta',
             compression=None,
+            header_grep=None,
     ):
 
         self._records = None
@@ -90,6 +91,7 @@ class Collection(object):
             optioncheck(file_format, ['fasta', 'phylip'])
             self.records = self.read_alignments(input_dir,
                                                 file_format,
+                                                header_grep,
                                                 compression)
 
         else:
@@ -148,7 +150,7 @@ class Collection(object):
                              (rec.get_names() for rec in self.records))
         return len(all_headers)
 
-    def read_alignments(self, input_dir, file_format, compression=None):
+    def read_alignments(self, input_dir, file_format, header_grep=None, compression=None):
         """ Get list of alignment files from an input directory *.fa, *.fas and
         *.phy files only
 
@@ -192,6 +194,19 @@ class Collection(object):
                     record = Alignment(f, file_format, True)
                 except RuntimeError:
                     record = Alignment(f, file_format, False)
+
+            if header_grep:
+                try:
+                    datatype = 'dna' if record.is_dna() else 'protein'
+                    record = Alignment([(header_grep(x), y) for (x, y) in record.get_sequences()], datatype)
+                except TypeError:
+                    raise TypeError("Couldn't apply header_grep to header\n"
+                                    "alignment number={}, name={}\n"
+                                    "header_grep={}".format(i, fileIO.strip_extensions(f), header_grep))
+                except RuntimeError:
+                    print('RuntimeError occurred processing alignment number={}, name={}'
+                          .format(i, fileIO.strip_extensions(f)))
+                    raise
 
             record.name = (fileIO.strip_extensions(f))
             records.append(record)
@@ -259,7 +274,7 @@ class Collection(object):
 
         return self.__class__(records=sorted(alignments, key=lambda x: SORT_KEY(x.name)))
 
-    def fast_calc_distances(self, batchsize=1):
+    def fast_calc_distances(self, batchsize=1, background=False):
         """
         Calculate fast approximate intra-alignment pairwise distances and variances using
         Jukes-Cantor closed formulae.
@@ -281,7 +296,9 @@ class Collection(object):
             if client is None:
                 map_result = sequential_map(tasks.fast_calc_distances_task, args, msg)
             else:
-                map_result = parallel_map(client, tasks.fast_calc_distances_task, args, msg, batchsize)
+                map_result = parallel_map(client, tasks.fast_calc_distances_task, args, msg, batchsize, background)
+                if background:
+                    return map_result
 
         # Process results
         pbar = setup_progressbar('Processing results', len(map_result))
@@ -302,7 +319,7 @@ class Collection(object):
             pbar.update(i)
         pbar.finish()
 
-    def calc_distances(self, batchsize=1):
+    def calc_distances(self, batchsize=1, background=False):
         """
         Calculate fast approximate intra-alignment pairwise distances and variances using
         ML (requires ML models to have been set up using `calc_trees`).
@@ -330,7 +347,9 @@ class Collection(object):
             if client is None:
                 map_result = sequential_map(tasks.calc_distances_task, args, msg)
             else:
-                map_result = parallel_map(client, tasks.calc_distances_task, args, msg, batchsize)
+                map_result = parallel_map(client, tasks.calc_distances_task, args, msg, batchsize, background)
+                if background:
+                    return map_result
 
         # Process results
         pbar = setup_progressbar('Processing results', len(map_result))
@@ -344,7 +363,7 @@ class Collection(object):
             pbar.update(j+1)
             j += 1
 
-    def calc_trees(self, model=None, threads=1, indices=None, batchsize=1):
+    def calc_trees(self, model=None, threads=1, indices=None, batchsize=1, output_dir=None, background=False):
         """
         Use pllpy to calculate maximum-likelihood trees
         :return: None (all side effects)
@@ -365,7 +384,12 @@ class Collection(object):
                 model = 'AUTO'
             partition = '{}, {} = 1 - {}'.format(model, rec.name, len(rec))
             tree = rec.parameters.nj_tree if rec.parameters.nj_tree is not None else True
-            args.append((filename, partition, tree, threads, PLL_RANDOM_SEED))
+            if output_dir is not None and os.path.isdir(output_dir):
+                output_file = os.path.join(output_dir, '{}.json'.format(rec.name))
+                curr_args = (filename, partition, tree, threads, PLL_RANDOM_SEED, output_file)
+            else:
+                curr_args = (filename, partition, tree, threads, PLL_RANDOM_SEED, None)
+            args.append(curr_args)
 
         # Dispatch work
         msg = 'Calculating ML trees'
@@ -374,7 +398,9 @@ class Collection(object):
             if client is None:
                 map_result = sequential_map(tasks.pll_task, args, msg)
             else:
-                map_result = parallel_map(client, tasks.pll_task, args, msg, batchsize)
+                map_result = parallel_map(client, tasks.pll_task, args, msg, batchsize, background)
+                if background:
+                    return map_result
 
         # Process results
         pbar = setup_progressbar('Processing results', len(map_result))
@@ -386,13 +412,15 @@ class Collection(object):
             pbar.update(j+1)
             j += 1
 
-    def get_inter_tree_distances(self, metric, normalise=False, batchsize=100):
+    def get_inter_tree_distances(self, metric, normalise=False, batchsize=100, background=False):
         """ Generate a distance matrix from a fully-populated Collection """
-        array = _get_inter_tree_distances(metric, self.trees, normalise, batchsize)
+        array = _get_inter_tree_distances(metric, self.trees, normalise, batchsize, background)
+        if background:  # return IPython.parallel map result object to the user before jobs are finished
+            return array
         return DistanceMatrix(array, self.names)
 
 
-def _get_inter_tree_distances(metric, trees, normalise=False, batchsize=100):
+def _get_inter_tree_distances(metric, trees, normalise=False, batchsize=100, background=False):
     # Assemble argument lists
     args = [(t1, t2, normalise) for (t1, t2) in itertools.combinations(trees, 2)]
 
@@ -407,7 +435,10 @@ def _get_inter_tree_distances(metric, trees, normalise=False, batchsize=100):
     if client is None:
         map_result = sequential_map(task, args, msg)
     else:
-        map_result = list(parallel_map(client, task, args, msg, batchsize))
+        map_result = parallel_map(client, task, args, msg, batchsize, background)
+        if background:
+            return map_result
+        map_result = list(map_result)
 
     return squareform(map_result)
 
@@ -431,7 +462,7 @@ class Scorer(object):
     def records(self):
         return self.collection.records
 
-    def add_lnl_partitions(self, partitions, threads=1, use_calculated_freqs=True, batchsize=1):
+    def add_lnl_partitions(self, partitions, threads=1, use_calculated_freqs=True, batchsize=1, background=False):
         self.add_minsq_partitions(partitions)
         if isinstance(partitions, Partition):
             partitions = (partitions,)
@@ -463,7 +494,9 @@ class Scorer(object):
             if client is None:
                 map_result = sequential_map(tasks.pll_task, args, msg)
             else:
-                map_result = parallel_map(client, tasks.pll_task, args, msg, batchsize)
+                map_result = parallel_map(client, tasks.pll_task, args, msg, batchsize, background)
+                if background:
+                    return map_result
 
         # Process results
         pbar = setup_progressbar('Processing results', len(map_result))
@@ -473,7 +506,7 @@ class Scorer(object):
             pbar.update(i)
         pbar.finish()
 
-    def add_minsq_partitions(self, partitions, batchsize=1):
+    def add_minsq_partitions(self, partitions, batchsize=1, background=False):
         if isinstance(partitions, Partition):
             partitions = (partitions,)
         index_tuples = set(ix for partition in partitions for ix in partition.get_membership()).difference(
@@ -494,8 +527,9 @@ class Scorer(object):
         if client is None:
             map_result = sequential_map(tasks.minsq_task, args, msg)
         else:
-            map_result = parallel_map(client, tasks.minsq_task, args, msg, batchsize)
-
+            map_result = parallel_map(client, tasks.minsq_task, args, msg, batchsize, background)
+            if background:
+                return map_result
         # Process results
         pbar = setup_progressbar('Processing results', len(map_result))
         pbar.start()
@@ -578,7 +612,9 @@ class Scorer(object):
         if client is None:
             map_result = sequential_map(client, tasks.simulate_task, args, msg)
         else:
-            map_result = parallel_map(client, tasks.simulate_task, args, msg, batchsize)
+            map_result = parallel_map(client, tasks.simulate_task, args, msg, batchsize, background)
+            if background:
+                return map_result
 
         # Process results
         for i, result in enumerate(map_result):
