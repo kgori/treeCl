@@ -91,16 +91,3 @@ class Alignment(bpp.Alignment):
             if v > 1:
                 ucl += v * log(v)
         return ucl - n * log(n)
-
-    def set_params_from_pll_result(self, result):
-        self.parameters.ml_tree = result['ml_tree']
-        self.parameters.likelihood = result['likelihood']
-        params = PartitionParameters()
-        params.alpha = result['partitions'][0]['alpha']
-        params.frequencies = result['partitions'][0]['frequencies']
-        try:
-            params.rates = result['partitions'][0]['rates']
-        except KeyError:
-            pass
-        params.name = result['partitions'][0]['name']
-        self.parameters.partitions = [params]

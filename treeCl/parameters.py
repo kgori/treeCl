@@ -73,7 +73,7 @@ class PartitionParameters(BaseParameters):
 
     @property
     def model(self):
-        return self._frequencies
+        return self._model
 
     @model.setter
     def model(self, value):

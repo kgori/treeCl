@@ -26,7 +26,7 @@ def get_client():
         return None
 
 
-def parallel_map(client, task, args, message, batchsize=1):
+def parallel_map(client, task, args, message, batchsize=1, background=False):
     """
     Helper to map a function over a sequence of inputs, in parallel, with progress meter.
     :param client: IPython.parallel.Client instance
@@ -43,11 +43,14 @@ def parallel_map(client, task, args, message, batchsize=1):
     view = client.load_balanced_view()
     message += ' ({} proc)'.format(nproc)
     pbar = setup_progressbar(message, njobs, simple_progress=True)
-    pbar.start()
+    if not background:
+        pbar.start()
     map_result = view.map(task, *list(zip(*args)), chunksize=batchsize)
+    if background:
+        return map_result, client
     while not map_result.ready():
         map_result.wait(1)
-        pbar.update(map_result.progress)
+        pbar.update(map_result.progress * batchsize)
     pbar.finish()
     return map_result
 
