@@ -198,7 +198,9 @@ class Collection(object):
             if header_grep:
                 try:
                     datatype = 'dna' if record.is_dna() else 'protein'
+
                     record = Alignment([(header_grep(x), y) for (x, y) in record.get_sequences()], datatype)
+
                 except TypeError:
                     raise TypeError("Couldn't apply header_grep to header\n"
                                     "alignment number={}, name={}\n"
@@ -342,26 +344,26 @@ class Collection(object):
 
         # Dispatch
         msg = 'Calculating ML distances'
-        with fileIO.TempFileList(to_delete):
-            client = get_client()
-            if client is None:
-                map_result = sequential_map(tasks.calc_distances_task, args, msg)
-            else:
-                map_result = parallel_map(client, tasks.calc_distances_task, args, msg, batchsize, background)
-                if background:
-                    return map_result
+        client = get_client()
+        if client is None:
+            map_result = sequential_map(tasks.calc_distances_task, args, msg)
+        else:
+            map_result = parallel_map(client, tasks.calc_distances_task, args, msg, batchsize, background)
+            if background:
+                return map_result
 
         # Process results
-        pbar = setup_progressbar('Processing results', len(map_result))
-        j = 0
-        pbar.start()
-        for i, result in enumerate(map_result):
-            rec = self[i]
-            rec.parameters.partitions.distances = result['partitions'][0]['distances']
-            rec.parameters.partitions.variances = result['partitions'][0]['variances']
-            rec.parameters.nj_tree = result['nj_tree']
-            pbar.update(j+1)
-            j += 1
+        with fileIO.TempFileList(to_delete):
+            pbar = setup_progressbar('Processing results', len(map_result))
+            j = 0
+            pbar.start()
+            for i, result in enumerate(map_result):
+                rec = self[i]
+                rec.parameters.partitions.distances = result['partitions'][0]['distances']
+                rec.parameters.partitions.variances = result['partitions'][0]['variances']
+                rec.parameters.nj_tree = result['nj_tree']
+                pbar.update(j+1)
+                j += 1
 
     def calc_trees(self, model=None, threads=1, indices=None, batchsize=1, output_dir=None, background=False):
         """
@@ -386,31 +388,31 @@ class Collection(object):
             tree = rec.parameters.nj_tree if rec.parameters.nj_tree is not None else True
             if output_dir is not None and os.path.isdir(output_dir):
                 output_file = os.path.join(output_dir, '{}.json'.format(rec.name))
-                curr_args = (filename, partition, tree, threads, PLL_RANDOM_SEED, output_file)
+                curr_args = (filename, partition, tree, threads, PLL_RANDOM_SEED, None, output_file)
             else:
-                curr_args = (filename, partition, tree, threads, PLL_RANDOM_SEED, None)
+                curr_args = (filename, partition, tree, threads, PLL_RANDOM_SEED)
             args.append(curr_args)
 
         # Dispatch work
         msg = 'Calculating ML trees'
-        with fileIO.TempFileList(to_delete):
-            client = get_client()
-            if client is None:
-                map_result = sequential_map(tasks.pll_task, args, msg)
-            else:
-                map_result = parallel_map(client, tasks.pll_task, args, msg, batchsize, background)
-                if background:
-                    return map_result
+        client = get_client()
+        if client is None:
+            map_result = sequential_map(tasks.pll_task, args, msg)
+        else:
+            map_result = parallel_map(client, tasks.pll_task, args, msg, batchsize, background)
+            if background:
+                return map_result
 
         # Process results
-        pbar = setup_progressbar('Processing results', len(map_result))
-        j = 0
-        pbar.start()
-        for i, result in zip(indices, map_result):
-            rec = self[i]
-            rec.parameters.construct_from_dict(result)
-            pbar.update(j+1)
-            j += 1
+        with fileIO.TempFileList(to_delete):
+            pbar = setup_progressbar('Processing results', len(map_result))
+            j = 0
+            pbar.start()
+            for i, result in zip(indices, map_result):
+                rec = self[i]
+                rec.parameters.construct_from_dict(result)
+                pbar.update(j+1)
+                j += 1
 
     def get_inter_tree_distances(self, metric, normalise=False, batchsize=100, background=False):
         """ Generate a distance matrix from a fully-populated Collection """
@@ -485,7 +487,7 @@ class Scorer(object):
             if use_calculated_freqs:
                 args.append((filename, partition, tree, threads, PLL_RANDOM_SEED, conc.frequencies))
             else:
-                args.append((filename, partition, tree, threads, PLL_RANDOM_SEED))
+                args.append((filename, partition, tree, threads, PLL_RANDOM_SEED, None))
 
         # Distribute work
         with fileIO.TempFileList(to_delete):

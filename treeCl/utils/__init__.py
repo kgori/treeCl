@@ -64,3 +64,12 @@ def model_translate(model):
     translation = {'LG' : 'LG08',
                    'WAG': 'WAG01'}
     return translation[model]
+
+def smooth_freqs(freqs):
+    """
+    Smooths freqs vector, guarantees sum == 1
+    :param freqs: vector of frequencies
+    :return: vector of frequencies guaranteed to sum to 1
+    """
+    s = sum(freqs)
+    return [f/s for f in freqs]

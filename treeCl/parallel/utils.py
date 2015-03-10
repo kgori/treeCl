@@ -47,7 +47,7 @@ def parallel_map(client, task, args, message, batchsize=1, background=False):
         pbar.start()
     map_result = view.map(task, *list(zip(*args)), chunksize=batchsize)
     if background:
-        return map_result
+        return map_result, client
     while not map_result.ready():
         map_result.wait(1)
         pbar.update(map_result.progress)

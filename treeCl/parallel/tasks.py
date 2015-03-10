@@ -6,9 +6,9 @@ from treeCl.tree import Tree
 from treeCl.alignment import Alignment
 from treeCl.utils.pll_helpers import pll_to_dict
 from treeCl.parameters import Parameters
-from treeCl.utils import fileIO
+from treeCl.utils import fileIO, smooth_freqs
 from treeCl.constants import PLL_RANDOM_SEED
-
+import sys
 
 def eucdist_task(newick_string_a, newick_string_b, normalise):
     """
@@ -93,7 +93,7 @@ def fast_calc_distances_task(alignment_file):
 
 def calc_distances_task(pll_dict, alignment_file, model=None):
     rec = Alignment(alignment_file, 'phylip', True)
-    freqs = pll_dict['partitions'][0]['frequencies']
+    freqs = smooth_freqs(pll_dict['partitions'][0]['frequencies'])
     alpha = pll_dict['partitions'][0]['alpha']
     if model is None:
         rec.set_substitution_model('GTR' if rec.is_dna() else 'LG08+F')
