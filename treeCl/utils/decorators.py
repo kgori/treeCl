@@ -3,8 +3,12 @@ def lazyprop(fn):
 
     @property
     def _lazyprop(self):
-        if not hasattr(self, attr_name):
-            setattr(self, attr_name, fn(self))
-        return getattr(self, attr_name)
+        if hasattr(self, attr_name):
+            return getattr(self, attr_name)
+        else:
+            value = fn(self)
+            if value:
+                setattr(self, attr_name, value)
+                return value
 
     return _lazyprop
