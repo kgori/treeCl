@@ -50,7 +50,7 @@ def parallel_map(client, task, args, message, batchsize=1, background=False):
         return map_result, client
     while not map_result.ready():
         map_result.wait(1)
-        pbar.update(map_result.progress * batchsize)
+        pbar.update(min(njobs, map_result.progress * batchsize))
     pbar.finish()
     return map_result
 

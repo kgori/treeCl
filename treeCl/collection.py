@@ -142,6 +142,52 @@ class Collection(object):
         except ValueError:
             return []
 
+    @lazyprop
+    def distances(self):
+        try:
+            return [rec.parameters.partitions.distances for rec in self]
+        except ValueError:
+            return []
+
+    @lazyprop
+    def variances(self):
+        try:
+            return [rec.parameters.partitions.variances for rec in self]
+        except ValueError:
+            return []
+
+    @lazyprop
+    def frequencies(self):
+        try:
+            return [rec.parameters.partitions.frequencies for rec in self]
+        except ValueError:
+            return []
+
+    @lazyprop
+    def datatypes(self):
+        try:
+            return ['dna' if rec.is_dna() else 'protein' for rec in self]
+        except ValueError:
+            return []
+
+    @lazyprop
+    def lengths(self):
+        try:
+            return [len(rec) for rec in self]
+        except ValueError:
+            return []
+
+    @lazyprop
+    def headers(self):
+        try:
+            return [rec.get_names() for rec in self]
+        except ValueError:
+            return []
+
+    @lazyprop
+    def mrp_tree(self):
+        trees = [tree.newick if hasattr('newick', tree) else tree for tree in self.trees]
+        return Alignment().get_mrp_supertree(trees)
 
     def num_species(self):
         """ Returns the number of species found over all records
@@ -508,7 +554,7 @@ class Scorer(object):
             pbar.update(i)
         pbar.finish()
 
-    def add_minsq_partitions(self, partitions, batchsize=1, background=False):
+    def add_minsq_partitions(self, partitions, batchsize=1, background=False, **kwargs):
         if isinstance(partitions, Partition):
             partitions = (partitions,)
         index_tuples = set(ix for partition in partitions for ix in partition.get_membership()).difference(
@@ -521,7 +567,7 @@ class Scorer(object):
         args = []
         for ix in index_tuples:
             conc = self.concatenate(ix)
-            args.append(conc.get_tree_collection_strings())
+            args.append(conc.get_tree_collection_strings(**kwargs))
 
         # Distribute work
         msg = 'Adding MinSq cluster trees'

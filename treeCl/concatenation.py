@@ -2,6 +2,7 @@ import numpy as np
 from treeCl.alignment import Alignment
 from treeCl.tree import Tree
 from treeCl.utils.decorators import lazyprop
+from treeCl.utils import flatten_list
 
 __author__ = 'kgori'
 
@@ -26,53 +27,53 @@ class Concatenation(object):
 
     @lazyprop
     def distances(self):
-        return [self.collection.records[i].parameters.partitions.distances for i in self.indices]
+        return [self.collection.distances[i] for i in self.indices]
 
     @lazyprop
     def variances(self):
-        return [self.collection.records[i].parameters.partitions.variances for i in self.indices]
+        return [self.collection.variances[i] for i in self.indices]
 
     @lazyprop
     def frequencies(self):
-        return [self.collection.records[i].parameters.partitions.frequencies for i in self.indices]
+        return [self.collection.frequencies[i] for i in self.indices]
 
     @lazyprop
     def datatypes(self):
-        return ['dna' if self.collection.records[i].is_dna() else 'protein' for i in self.indices]
+        return [self.collection.datatypes[i] for i in self.indices]
 
     @lazyprop
     def alignment(self):
         al = Alignment([self.collection[i] for i in self.indices])
-        al.fast_compute_distances()
+        # al.fast_compute_distances()
         return al
 
     @lazyprop
     def names(self):
-        return [self.collection.records[i].name for i in self.indices]
+        return [self.collection.names[i] for i in self.indices]
 
     @lazyprop
     def lengths(self):
-        return [len(self.collection.records[i]) for i in self.indices]
+        return [self.collection.lengths[i] for i in self.indices]
 
     @lazyprop
     def headers(self):
-        return [self.collection.records[i].get_names() for i in self.indices]
+        return [self.collection.headers[i] for i in self.indices]
 
     @lazyprop
     def coverage(self):
         total = float(self.collection.num_species())
-        return [len(self.collection.records[i]) / total for i in self.indices]
+        return [self.collection.lengths[i] / total for i in self.indices]
 
     @lazyprop
     def trees(self):
-        return [self.collection.records[i].tree for i in self.indices]
+        return [self.collection.trees[i] for i in self.indices]
 
     @lazyprop
     def mrp_tree(self):
         trees = [tree.newick if hasattr('newick', tree) else tree for tree in self.trees]
         return Alignment().get_mrp_supertree(trees)
 
-    def get_tree_collection_strings(self, scale=1):
+    def get_tree_collection_strings(self, scale=1, guide_tree=None):
         """ Function to get input strings for tree_collection
         tree_collection needs distvar, genome_map and labels -
         these are returned in the order above
@@ -118,7 +119,11 @@ class Concatenation(object):
         distvar_string = '\n'.join(distvar_list)
         genome_map_string = '\n'.join(genome_map_list)
 
-        guide_tree = Tree(self.mrp_tree)
+        if guide_tree is None:
+            guide_tree = Tree(self.collection.mrp_tree)
+
+        name_set = set(flatten_list(self.headers))
+        guide_tree.prune_to_subset(name_set, inplace=True)
 
         for e in guide_tree.postorder_edge_iter():
             if e.length is None:

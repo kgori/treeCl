@@ -785,6 +785,18 @@ class Tree(dendropy.Tree):
     #
     #     return tree
 
+    def translate(self, dct):
+        """
+        Translate leaf names using a dictionary of names
+        :param dct: Dictionary of current names -> updated names
+        :return: Copy of tree with names changed
+        """
+        new_tree = self.copy()
+        for leaf in new_tree.leaf_iter():
+            curr_name = leaf.taxon.label
+            leaf.taxon.label = dct.get(curr_name, curr_name)
+        return new_tree
+
     def write_to_file(
             self,
             outfile,
