@@ -8,6 +8,7 @@ cdef extern from "wrapper.cpp":
                                                     libcpp_string labels,
                                                     libcpp_string tree,
                                                     int iter,
+                                                    bool loglik,
                                                     bool keep_topology,
                                                     bool quiet) except +
     cdef double fit(libcpp_string matrices,

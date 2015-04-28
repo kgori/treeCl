@@ -110,6 +110,7 @@ private:
     void MS_ShortestPathCollection( int from, int ExcludedEdge, int label );
     void MS_ShortestPathOne( int from, int ExcludedEdge, int k, int label );
     double DistanceFitCollection();
+    double LogLikelihoodFitCollection();
     void IncidencesC();
     void getSons(int e0, int n, int* e1, int* e2);
     void LabelNonExistEdgesR(int e0, int n_papa);
@@ -148,6 +149,7 @@ public:
     double getQual() { return this->MST_Qual; };
     PhyTree::TreePtr getPhyTree();
     double getScore();
+    double getLogLikelihood();
     std::string newick = "";
 };
 

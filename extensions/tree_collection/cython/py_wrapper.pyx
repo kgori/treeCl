@@ -8,7 +8,7 @@ from wrapper cimport fit as _fit_wrapper
 # cdef extern from "autowrap_tools.hpp":
 #     char * _cast_const_away(char *)
 
-def compute(bytes matrices, bytes mapping, bytes labels, bytes tree, iter=5, keep_topology=False, quiet=True):
+def compute(bytes matrices, bytes mapping, bytes labels, bytes tree, iter=5, loglik=True, keep_topology=False, quiet=True):
     """ This is a wrapper to the MinSquareTreeCollection::compute function
 
     :param matrices: Matrix of distances (upper triangle) and variances (lower triangle)
@@ -34,11 +34,12 @@ def compute(bytes matrices, bytes mapping, bytes labels, bytes tree, iter=5, kee
     assert isinstance(labels, bytes), 'arg labels wrong type'
     assert isinstance(tree, bytes), 'arg tree wrong type'
     assert isinstance(iter, (int, long)), 'arg iter wrong type'
+    assert isinstance(loglik, (int, long)), 'arg loglik wrong type'
     assert isinstance(keep_topology, (int, long)), 'arg keep_topology wrong type'
     assert isinstance(quiet, (int, long)), 'arg quiet wrong type'
 
     _r = _compute_wrapper((<libcpp_string> matrices), (<libcpp_string> mapping), (<libcpp_string> labels),
-                          (<libcpp_string> tree), (<int> iter), (<bool> keep_topology), (<bool> quiet))
+                          (<libcpp_string> tree), (<int> iter), (<bool> loglik), (<bool> keep_topology), (<bool> quiet))
     cdef list py_result = [_r.first, _r.second]
     return py_result
 
