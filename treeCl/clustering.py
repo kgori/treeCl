@@ -3,6 +3,7 @@ from __future__ import print_function
 
 # standard library
 from collections import defaultdict
+from operator import itemgetter
 import os
 import uuid
 
@@ -289,6 +290,55 @@ class Clustering(object):
     #     plt.ylabel('Distance')
     #     return fig
 
+def entropies(partition_1, partition_2):
+    """ parameters: partition_1 (list / array) - a partitioning of a dataset
+    according to some clustering method. Cluster labels are arbitrary.
+    partition_2 (list / array) - another partitioning of the same dataset.
+    Labels don't need to match, nor do the number of clusters.
+
+    subfunctions: get_membership( parameter partition (list / array) )
+    returns a list of length equal to the number of clusters found in the
+    partition. Each element is the set of members of the cluster. Ordering
+    is arbitrary.
+
+    variables used: t = total number of points in the dataset m1 = cluster
+    memberships from partition_1 m2 = cluster memberships from partition_2
+    l1 = length (i.e. number of clusters) of m1 l2 = length of m2 entropy_1
+    = Shannon entropy of partition_1 entropy_2 = Shannon entropy of
+    partition_2 mut_inf = mutual information of partitions prob1 =
+    probability distribution of partition 1 - i.e. the probability that a
+    randomly chosen datapoint belongs to each cluster (size of cluster /
+    size of dataset) prob2 = as above, for partition 2 intersect = number of
+    common elements in partition 1 [i] and partition 2 [j] """
+
+    if partition_1.num_elements() != partition_2.num_elements():
+        print('Partition lists are not the same length')
+        return 0
+    else:
+        total = float(partition_1.num_elements())  # Ensure float division later
+
+    m1 = partition_1.get_membership()
+    m2 = partition_2.get_membership()
+    l1 = len(m1)
+    l2 = len(m2)
+    entropy_1 = 0
+    entropy_2 = 0
+    mut_inf = 0
+    for i in range(l1):
+        prob1 = len(m1[i]) / total
+        entropy_1 -= prob1 * np.log2(prob1)
+        for j in range(l2):
+            if i == 0:  # only calculate these once
+                prob2 = len(m2[j]) / total
+                entropy_2 -= prob2 * np.log2(prob2)
+            intersect = len(set(m1[i]) & set(m2[j]))
+            if intersect == 0:
+                continue  # because 0 * log(0) = 0 (lim x->0: xlog(x)->0)
+            else:
+                mut_inf += intersect / total * np.log2(total * intersect
+                                                       / (len(m1[i]) * len(m2[j])))
+
+    return entropy_1, entropy_2, mut_inf
 
 class Partition(object):
     """ Class to store clustering information """
@@ -308,7 +358,7 @@ class Partition(object):
         This gives the number of groups in the partition, rather than
         the number of elements in the data
         """
-        return max(self.partition_vector)
+        return max(self.partition_vector) + 1
 
     @property
     def partition_vector(self):
@@ -316,7 +366,7 @@ class Partition(object):
 
     @partition_vector.setter
     def partition_vector(self, vec):
-        self._partition_vector = self.order(vec)
+        self._partition_vector = self._restricted_growth_notation(vec)
 
     def is_minimal(self):
         """ The partition describes all members being in the same cluster
@@ -331,7 +381,7 @@ class Partition(object):
         return len(self) == len(self.partition_vector)
 
     @staticmethod
-    def order(l):
+    def _restricted_growth_notation(l):
         """ The clustering returned by the hcluster module gives group
         membership without regard for numerical order This function preserves
         the group membership, but sorts the labelling into numerical order """
@@ -344,72 +394,34 @@ class Partition(object):
 
         l2 = [None] * list_length
 
-        for (name, index_list) in enumerate(sorted(d.values(), key=min),
-                                            start=1):
+        for (name, index_list) in enumerate(sorted(d.values(), key=min)):
             for index in index_list:
                 l2[index] = name
 
         return tuple(l2)
 
-    def entropies(self, partition_1, partition_2):
-        """ parameters: partition_1 (list / array) - a partitioning of a dataset
-        according to some clustering method. Cluster labels are arbitrary.
-        partition_2 (list / array) - another partitioning of the same dataset.
-        Labels don't need to match, nor do the number of clusters.
+    def num_elements(self):
+        return len(self.partition_vector)
 
-        subfunctions: get_membership( parameter partition (list / array) )
-        returns a list of length equal to the number of clusters found in the
-        partition. Each element is the set of members of the cluster. Ordering
-        is arbitrary.
+    def num_groups(self):
+        return max(self.partition_vector) + 1
 
-        variables used: t = total number of points in the dataset m1 = cluster
-        memberships from partition_1 m2 = cluster memberships from partition_2
-        l1 = length (i.e. number of clusters) of m1 l2 = length of m2 entropy_1
-        = Shannon entropy of partition_1 entropy_2 = Shannon entropy of
-        partition_2 mut_inf = mutual information of partitions prob1 =
-        probability distribution of partition 1 - i.e. the probability that a
-        randomly chosen datapoint belongs to each cluster (size of cluster /
-        size of dataset) prob2 = as above, for partition 2 intersect = number of
-        common elements in partition 1 [i] and partition 2 [j] """
+    def get_membership(self):
+        """
+        Alternative representation of group membership -
+        creates a list with one tuple per group; each tuple contains
+        the indices of its members
 
-        if len(partition_1) != len(partition_2):
-            print('Partition lists are not the same length')
-            return 0
-        else:
-            total = float(len(partition_1))  # Ensure float division later
+        Example:
+        partition  = (0,0,0,1,0,1,2,2)
+        membership = [(0,1,2,4), (3,5), (6,7)]
 
-        m1 = self.get_membership(partition_1)
-        m2 = self.get_membership(partition_2)
-        l1 = len(m1)
-        l2 = len(m2)
-        entropy_1 = 0
-        entropy_2 = 0
-        mut_inf = 0
-        for i in range(l1):
-            prob1 = len(m1[i]) / total
-            entropy_1 -= prob1 * np.log2(prob1)
-            for j in range(l2):
-                if i == 0:  # only calculate these once
-                    prob2 = len(m2[j]) / total
-                    entropy_2 -= prob2 * np.log2(prob2)
-                intersect = len(set(m1[i]) & set(m2[j]))
-                if intersect == 0:
-                    continue  # because 0 * log(0) = 0 (lim x->0: xlog(x)->0)
-                else:
-                    mut_inf += intersect / total * np.log2(total * intersect
-                                                           / (len(m1[i]) * len(m2[j])))
-
-        return entropy_1, entropy_2, mut_inf
-
-    def get_membership(self, partition_vector=None, flatten=False):
-
-        pvec = partition_vector or self.partition_vector
+        :return: list of tuples giving group memberships by index
+        """
         result = defaultdict(list)
-        for (position, value) in enumerate(pvec):
+        for (position, value) in enumerate(self.partition_vector):
             result[value].append(position)
-        result = [tuple(x) for x in sorted(result.values(), key=len,
-                                           reverse=True)]
-        return flatten_list(result) if flatten else result
+        return sorted([tuple(x) for x in result.values()])
 
     @classmethod
     def read(cls, filename):
@@ -419,11 +431,7 @@ class Partition(object):
         return cls(t)
 
     def normalised_mutual_information(self, other):
-        partition_1 = self.partition_vector
-        partition_2 = other.partition_vector
-
-        (entropy_1, entropy_2, mut_inf) = self.entropies(partition_1,
-                                                         partition_2)
+        (entropy_1, entropy_2, mut_inf) = entropies(self, other)
 
         return 2 * mut_inf / (entropy_1 + entropy_2)
 
@@ -432,11 +440,7 @@ class Partition(object):
         of the same data - SEE Meila, M. (2007). Comparing clusterings: an
         information based distance. Journal of Multivariate Analysis, 98(5),
         873-895. doi:10.1016/j.jmva.2006.11.013"""
-        partition_1 = self.partition_vector
-        partition_2 = other.partition_vector
-
-        (entropy_1, entropy_2, mut_inf) = self.entropies(partition_1,
-                                                         partition_2)
+        (entropy_1, entropy_2, mut_inf) = entropies(self, other)
 
         return entropy_1 + entropy_2 - 2 * mut_inf
 

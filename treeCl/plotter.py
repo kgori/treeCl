@@ -13,6 +13,7 @@ import numpy as np
 from collection import Collection
 from clustering import Clustering, Partition
 from errors import optioncheck
+from utils import flatten_list
 
 
 class Plotter(object):
@@ -97,7 +98,7 @@ class Plotter(object):
         ax = fig.add_subplot(111)
         ticks_at = [0, 0.5 * datamax, datamax]
         if partition:
-            sorting = partition.get_membership(flatten=True)
+            sorting = flatten_list(partition.get_membership())
             self.dm = self.dm.reorder(sorting)
         cax = ax.imshow(
             self.dm.values,

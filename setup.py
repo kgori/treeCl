@@ -97,4 +97,5 @@ setup(name="treeCl",
       ],
       cmdclass={'build_ext': build_ext},
       ext_modules=extensions,
+      test_suite='tests',
 )

@@ -154,7 +154,8 @@ class Concatenation(object):
             default_models = dict(dna=default_dna, protein=default_protein)
             models = [default_models[m] for m in self.datatypes]
 
-        for (length, name, model) in zip(self.lengths, self.names, models):
+        for (length, name, datatype, model) in zip(self.lengths, self.names,
+                                                   self.datatypes, models):
             to_ += length
             if datatype == 'dna' and sep_codon_pos:
                 qs.append('{}, {} = {}-{}/3'.format(model, name, from_,

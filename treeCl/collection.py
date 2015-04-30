@@ -528,7 +528,7 @@ class Scorer(object):
             filename, delete = al.get_alignment_file(as_phylip=True)
             if delete:
                 to_delete.append(filename)
-            partition = conc.qfile(dna_model="GTR", protein_model="LG", ml_freqs=True)
+            partition = conc.qfile(default_dna="GTR", default_protein="LG", ml_freqs=True)
             tree = self.minsq_cache[ix]['tree']
             if use_calculated_freqs:
                 args.append((filename, partition, tree, threads, PLL_RANDOM_SEED, conc.frequencies))
