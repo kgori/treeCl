@@ -11,7 +11,8 @@ import numpy as np
 
 # treeCl
 from collection import Collection
-from clustering import Clustering, Partition
+from clustering import Clustering
+from treeCl import Partition
 from errors import optioncheck
 from utils import flatten_list
 

@@ -125,8 +125,8 @@ def simulate_task(n, model, frequencies, alpha, tree, rates=None):
     return rec.simulate(n)
 
 
-def minsq_task(dv, gm, lab, tree, niters=10):
-    tree, sse = tree_collection.compute(dv, gm, lab, tree, niters, False, True)
+def minsq_task(dv, gm, lab, tree, niters=10, keep_topology=False):
+    tree, lk = tree_collection.compute(dv, gm, lab, tree, niters, True, keep_topology, False)
     tree = Tree(tree)
     tree.deroot()
-    return dict(tree=tree.newick, sse=sse)
+    return dict(tree=tree.newick, score=lk)

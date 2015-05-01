@@ -13,9 +13,10 @@ import numpy as np
 
 # treeCl
 from collection import Collection, Scorer
-from clustering import Partition
+from treeCl import Partition
 from constants import EPS, NEGINF, TMPDIR, ANALYSES
 from errors import optioncheck
+from utils import fileIO, pll_helpers
 
 
 def get_clusters(assignment):
@@ -24,6 +25,184 @@ def get_clusters(assignment):
     for (position, value) in enumerate(pvec):
         index_dict[value].append(position)
     return index_dict
+
+def tr2dst(nwk):
+    t = treeCl.Tree(nwk)
+    taxa = t.patristic._pat_dists.keys()
+    dm = np.zeros((len(taxa), len(taxa)))
+    for i in range(len(taxa)):
+        for j in range(i+1, len(taxa)):
+            try:
+                dst = t.patristic._pat_dists[taxa[i]][taxa[j]]
+            except KeyError:
+                dst = t.patristic._pat_dists[taxa[j]][taxa[i]]
+            dm[i,j]=dm[j,i]=dst
+    return treeCl.DistanceMatrix(dm, names=[taxon.label for taxon in taxa])
+
+def read_model(al):
+    model = al.parameters.partitions.model
+    if model is None:
+        if al.is_dna():
+            model = 'DNA'
+        else:
+            model = 'LG'
+    return model
+
+def get_distance_based_likelihood(al, nwk):
+    seqnames = al.get_names()
+    al_dists = treeCl.DistanceMatrix(np.array(al.parameters.partitions.distances), names=seqnames)
+    al_vars = treeCl.DistanceMatrix(np.array(al.parameters.partitions.variances), names=seqnames)
+    tree_dists = tr2dst(nwk)
+    lnl = 0
+    for (seq1, seq2) in itertools.combinations(seqnames, 2):
+        err = tree_dists.df[seq1][seq2] - al_dists.df[seq1][seq2]
+        sdev = np.sqrt(al_vars.df[seq1][seq2])
+        lnl += ss.norm.logpdf(err, scale=sdev)
+    return lnl
+
+def get_markov_based_likelihood(al, nwk):
+    model = al.parameters.partitions.model
+    if model is None and al.is_protein():
+        model = 'LG08'
+    al.set_substitution_model(model)
+    freqs = al.parameters.partitions.frequencies
+    al.set_frequencies(freqs)
+    alpha = al.parameters.partitions.alpha
+    if alpha:
+        al.set_gamma_rate_model(4, alpha)
+    else:
+        al.set_constant_rate_model()
+    if al.is_dna():
+        rates = al.parameters.partitions.rates
+        al.set_rates(rates, 'acgt')
+    al.initialise_likelihood(nwk)
+    lk = al.get_likelihood()
+    # Hack to clear likelihood and free memory
+    al.set_substitution_model(model)
+    return lk
+
+def get_markov_based_likelihood2(al, nwk):
+    alignment_file, to_delete = al.get_alignment_file(as_phylip=True)
+    if to_delete:
+        filelist = [alignment_file]
+    else:
+        filelist = []
+    model = read_model(al)
+    partitions = '{}, al = 1 - {}'.format(model, len(al))
+    freqs = al.parameters.partitions.frequencies
+    alpha = al.parameters.partitions.alpha
+    rates = al.parameters.partitions.rates if al.is_dna() else None
+    with treeCl.utils.fileIO.TempFileList(filelist):
+        inst = pllpy.pll(alignment_file, qfile, nwk, 1, 12345)
+        inst.set_frequencies(freqs, 0, False)
+        inst.set_alpha(alpha, 0, False)
+        if rates: inst.set_rates(rates, 0, False)
+    return inst.get_likelihood()
+
+def get_markov_based_likelihood3(al, treelist):
+    alignment_file, to_delete = al.get_alignment_file(as_phylip=True)
+    if to_delete:
+        filelist = [alignment_file]
+    else:
+        filelist = []
+    model = al.parameters.partitions.model
+    if model is None and al.is_protein():
+        model = 'LG'
+    partitions = '{}, al = 1 - {}'.format(model, len(al))
+    with treeCl.utils.fileIO.TempFileList(filelist):
+        inst = pllpy.pll(alignment_file, partitions, treelist[0], 1, 12345)
+        freqs = al.parameters.partitions.frequencies
+        alpha = al.parameters.partitions.alpha
+        inst.set_frequencies(freqs, 0, False)
+        inst.set_alpha(1, 0, False)
+        results = [inst.get_likelihood()]
+        for nwk in treelist[1:]:
+            inst.set_tree(nwk)
+            results.append(inst.get_likelihood())
+    return results
+
+class EM(object):
+
+    def __init__(self, collection):
+        """
+        Sets data
+        """
+        self.instances = self.load_instances(collection) # may take a lot of memory
+        # self.collection = collection
+
+    def load_instances(self, collection):
+        self._check_for_required_info(collection)
+        lst = []
+        for al in collection:
+            alignment_file, to_delete = al.get_alignment_file(as_phylip=True)
+            if to_delete:
+                filelist = [alignment_file]
+            else:
+                filelist = []
+            with fileIO.TempFileList(filelist):
+                model = read_model(al)
+                partitions = '{}, {} = 1 - {}'.format(model, al.name, len(al))
+                freqs = al.parameters.partitions.frequencies
+                alpha = al.parameters.partitions.alpha
+                rates = al.parameters.partitions.rates if al.is_dna() else None
+                ml_tree = al.parameters.ml_tree
+                inst = pll_helpers.create_instance(alignment_file, partitions, ml_tree, 1)
+                inst.set_frequencies(freqs, 0, False)
+                inst.set_alpha(alpha, 0, False)
+                if rates: inst.set_rates(rates, 0, False)
+                lst.append(inst)
+        return lst
+
+    def _check_for_required_info(self, collection):
+        """
+        Raises an exception if required info is missing for an alignment.
+        Info required is:
+          ml tree (al.parameters.ml_tree)
+          ml parameters (al.parameters.partitions.{frequencies,rates,alpha}
+          likelihood model (al.parameters.partitions.model)
+        :param collection:
+        :return:
+        """
+        for al in collection:
+            if not hasattr(al, 'parameters'):
+                raise AttributeError('No parameters for alignment {}'.format(al.name))
+            if not hasattr(al.parameters, 'ml_tree'):
+                raise AttributeError('No ML tree for alignment {}'.format(al.name))
+            if al.parameters.ml_tree is None:
+                raise AttributeError('No ML tree for alignment {}'.format(al.name))
+            if not hasattr(al.parameters, 'partitions'):
+                raise AttributeError('No partition information for alignment {}'.format(al.name))
+            if not al.parameters.partitions:
+                raise AttributeError('No partition information for alignment {}'.format(al.name))
+
+    def random_start(self, alpha):
+        """
+        Generate a random start using expected proportions, alpha.
+        These are used to parameterise a random draw from a Dirichlet
+        distribution.
+        An example, to split a dataset of 20 items into 3 groups of [10,
+        6, 4] items:
+         - alpha = [10, 6, 4],
+         - alpha = [100, 60, 40],
+         - alpha = [5, 3, 2],
+        would all work. Variance is inversely related to sum(alpha)
+        """
+        l = np.array(self.collection.records)
+        props = np.concatenate([[0], (ss.dirichlet.rvs(alpha) * len(l)).cumsum().round().astype(int)])
+        indices = np.array(range(len(l)))
+        random.shuffle(indices)
+        x = []
+        for i in range(len(props)-1):
+            ix = indices[props[i]:props[i+1]]
+            x.append(l[ix].tolist())
+        return x
+
+    def mstep(self):
+        pass
+
+    def estep(self):
+        pass
+
 
 
 class Optimiser(object):

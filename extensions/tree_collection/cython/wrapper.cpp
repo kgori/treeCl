@@ -34,7 +34,8 @@ double fit(std::string matrices, std::string mapping, std::string labels, std::s
     return result;
 }
 
-std::pair<std::string, double> compute(std::string matrices, std::string mapping, std::string labels, std::string tree, int iter, bool loglik, bool keep_topology, bool quiet) throw()
+std::pair<std::string, double> compute(std::string matrices, std::string mapping, std::string labels, std::string tree,
+                                       int iter, bool loglik, bool keep_topology, bool quiet)
 {
     std::vector<MinSquareTreeCollection::DblMatrix> pmatrices;
     MinSquareTreeCollection::IntMatrix pmapping;

@@ -3361,7 +3361,7 @@ MinSquareTreeCollection::MinSquareTreeCollection(const vector<DblMatrix> &matric
 
 void MinSquareTreeCollection::compute(bool KeepTopology, int iter, bool quiet) throw(RuntimeException) {
     int nswap, i;
-    double d1, d2;
+    double d1, d2, d0;
     IntVector Skip;
     DblMatrix L, M, W;
 
@@ -3376,7 +3376,7 @@ void MinSquareTreeCollection::compute(bool KeepTopology, int iter, bool quiet) t
 
     IncidencesC();
 
-    globmin = d1 = DistanceFitCollection();
+    globmin = d1 = d0 = DistanceFitCollection();
 
     if (!quiet) printf("initial distance fit: %.8g\n", d1);
 
@@ -3396,14 +3396,21 @@ void MinSquareTreeCollection::compute(bool KeepTopology, int iter, bool quiet) t
             if (!quiet) printf("after fitting edges with FitLabeledEdgesC, fit %.12g (d1=%.12g)\n", d2, d1);
         }
         IncidencesC();
+        nswap = FiveOptimCollection(1, L, Skip, M, W);
     }
     else {
         i = iter;
         IncidencesC();
-        FitLabeledEdgesC(1);
 
-        d2 = DistanceFitCollection();
-        if (!quiet) printf("after fitting edges with FitLabeledEdgesC, fit %.12g\n", d2);
+        for (int i=0; i < iter; ++i){
+            FitLabeledEdgesC(1);
+            d2 = DistanceFitCollection();
+            if (!quiet) printf("after fitting edges with FitLabeledEdgesC, fit %.12g\n", d2);
+            if (ReallyLessCollection(d2, d0))
+                d0 = d2;
+            else
+                break;
+        }
 
         while (i-- > 0) {
             if (ne > 4) {
@@ -3419,10 +3426,16 @@ void MinSquareTreeCollection::compute(bool KeepTopology, int iter, bool quiet) t
             }
 
             IncidencesC();
-            FitLabeledEdgesC(1);
 
-            d2 = DistanceFitCollection();
-            if (!quiet) printf("after fitting edges with FitLabeledEdgesC, %.8g\n", d2);
+            for (int i=0; i < iter; ++i) {
+                FitLabeledEdgesC(1);
+                d2 = DistanceFitCollection();
+                if (!quiet) printf("after fitting edges with FitLabeledEdgesC, %.8g\n", d2);
+                if (ReallyLessCollection(d2, d0))
+                    d0 = d2;
+                else
+                    break;
+            }
 
             if (nswap > 0)
                 i = iter;

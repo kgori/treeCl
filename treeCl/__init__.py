@@ -1,6 +1,7 @@
 # from __future__ import print_function
 from treeCl.collection import Collection, Scorer
-from treeCl.clustering import Clustering, Partition
+from treeCl.clustering import Clustering
+from treeCl.partition import Partition
 from treeCl.distance_matrix import DistanceMatrix
 # from optimiser import Optimiser
 # from plotter import Plotter

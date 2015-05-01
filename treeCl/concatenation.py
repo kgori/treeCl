@@ -38,6 +38,10 @@ class Concatenation(object):
         return [self.collection.frequencies[i] for i in self.indices]
 
     @lazyprop
+    def alphas(self):
+        return [self.collection.alphas[i] for i in self.indices]
+
+    @lazyprop
     def datatypes(self):
         return [self.collection.datatypes[i] for i in self.indices]
 
@@ -141,7 +145,7 @@ class Concatenation(object):
         return distvar_string, genome_map_string, labels_string, tree_string
 
     def qfile(self, models=None, default_dna='DNA', default_protein='LG', sep_codon_pos=False,
-              ml_freqs=False, eq_freqs=False):
+              ml_freqs=False, emp_freqs=False):
         from_ = 1
         to_ = 0
         qs = list()
@@ -149,7 +153,7 @@ class Concatenation(object):
             if ml_freqs:
                 default_dna += 'X'
                 default_protein += 'X'
-            if eq_freqs and not ml_freqs:
+            if emp_freqs and not ml_freqs:
                 default_protein += 'F'
             default_models = dict(dna=default_dna, protein=default_protein)
             models = [default_models[m] for m in self.datatypes]

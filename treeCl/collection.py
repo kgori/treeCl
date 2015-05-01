@@ -14,17 +14,17 @@ import random
 from scipy.spatial.distance import squareform
 
 # treeCl
-from treeCl.concatenation import Concatenation
-from treeCl.clustering import Partition
-from treeCl.parallel import tasks
-from distance_matrix import DistanceMatrix
-from alignment import Alignment
-from parameters import PartitionParameters
-from treeCl.parallel.utils import get_client, parallel_map, sequential_map
-from utils import fileIO, setup_progressbar, model_translate
-from errors import optioncheck, directorycheck
-from constants import SORT_KEY, PLL_RANDOM_SEED
-from treeCl.utils.decorators import lazyprop
+from .alignment import Alignment
+from .concatenation import Concatenation
+from .constants import SORT_KEY, PLL_RANDOM_SEED
+from .distance_matrix import DistanceMatrix
+from .errors import optioncheck, directorycheck
+from .parallel import tasks
+from .parallel.utils import get_client, parallel_map, sequential_map
+from .parameters import PartitionParameters
+from .partition import Partition
+from .utils import fileIO, setup_progressbar, model_translate
+from .utils.decorators import lazyprop
 
 
 def gapmask(simseqs, origseqs):
@@ -77,10 +77,12 @@ class Collection(object):
             file_format='fasta',
             compression=None,
             header_grep=None,
+            show_progressbars=True,
     ):
 
         self._records = None
         self._input_files = None
+        self.show_progressbars=show_progressbars
 
         if records is not None:
             self.records = records
@@ -164,6 +166,13 @@ class Collection(object):
             return []
 
     @lazyprop
+    def alphas(self):
+        try:
+            return [rec.parameters.partitions.alpha for rec in self]
+        except ValueError:
+            return []
+
+    @lazyprop
     def datatypes(self):
         try:
             return ['dna' if rec.is_dna() else 'protein' for rec in self]
@@ -221,8 +230,9 @@ class Collection(object):
         self._input_files = files
         records = []
 
-        pbar = setup_progressbar("Loading files", len(files), simple_progress=True)
-        pbar.start()
+        if self.show_progressbars:
+            pbar = setup_progressbar("Loading files", len(files), simple_progress=True)
+            pbar.start()
 
         for i, f in enumerate(files):
             if compression is not None:
@@ -258,16 +268,19 @@ class Collection(object):
 
             record.name = (fileIO.strip_extensions(f))
             records.append(record)
-            pbar.update(i)
-        pbar.finish()
+            if self.show_progressbars:
+                pbar.update(i)
+        if self.show_progressbars:
+            pbar.finish()
         return records
 
     def read_parameters(self, input_dir):
         """ Read a directory full of tree files, matching them up to the
         already loaded alignments """
 
-        pbar = setup_progressbar("Loading parameters", len(self.records))
-        pbar.start()
+        if self.show_progressbars:
+            pbar = setup_progressbar("Loading parameters", len(self.records))
+            pbar.start()
         for i, rec in enumerate(self.records):
             hook = os.path.join(input_dir, '{}.json*'.format(rec.name))
             filename = glob.glob(hook)
@@ -281,8 +294,10 @@ class Collection(object):
                 continue
 
             finally:
-                pbar.update(i)
-        pbar.finish()
+                if self.show_progressbars:
+                    pbar.update(i)
+        if self.show_progressbars:
+            pbar.finish()
 
     def write_parameters(self, output_dir, gz=False):
         if not os.path.exists(output_dir):
@@ -522,37 +537,41 @@ class Scorer(object):
         # Collect argument list
         args = []
         to_delete = []
-        for ix in index_tuples:
-            conc = self.concatenate(ix)
-            al = conc.alignment
-            filename, delete = al.get_alignment_file(as_phylip=True)
-            if delete:
-                to_delete.append(filename)
-            partition = conc.qfile(default_dna="GTR", default_protein="LG", ml_freqs=True)
-            tree = self.minsq_cache[ix]['tree']
-            if use_calculated_freqs:
-                args.append((filename, partition, tree, threads, PLL_RANDOM_SEED, conc.frequencies))
-            else:
-                args.append((filename, partition, tree, threads, PLL_RANDOM_SEED, None))
+        try:
+            for ix in index_tuples:
+                conc = self.concatenate(ix)
+                al = conc.alignment
+                filename, delete = al.get_alignment_file(as_phylip=True)
+                if delete:
+                    to_delete.append(filename)
+                partition = conc.qfile(default_dna="GTR", default_protein="LG", ml_freqs=True)
+                tree = self.minsq_cache[ix]['tree']
+                if use_calculated_freqs:
+                    args.append((filename, partition, tree, threads, PLL_RANDOM_SEED, conc.frequencies))
+                else:
+                    args.append((filename, partition, tree, threads, PLL_RANDOM_SEED, None))
 
-        # Distribute work
-        with fileIO.TempFileList(to_delete):
-            msg = 'Adding ML cluster trees'
-            client = get_client()
-            if client is None:
-                map_result = sequential_map(tasks.pll_task, args, msg)
-            else:
-                map_result = parallel_map(client, tasks.pll_task, args, msg, batchsize, background)
-                if background:
-                    return map_result
+            # Distribute work
+            with fileIO.TempFileList(to_delete):
+                msg = 'Adding ML cluster trees'
+                client = get_client()
+                if client is None:
+                    map_result = sequential_map(tasks.pll_task, args, msg)
+                else:
+                    map_result = parallel_map(client, tasks.pll_task, args, msg, batchsize, background)
+                    if background:
+                        return map_result
 
-        # Process results
-        pbar = setup_progressbar('Processing results', len(map_result))
-        pbar.start()
-        for i, (ix, result) in enumerate(zip(index_tuples, map_result)):
-            self.lnl_cache[ix] = result
-            pbar.update(i)
-        pbar.finish()
+            # Process results
+            pbar = setup_progressbar('Processing results', len(map_result))
+            pbar.start()
+            for i, (ix, result) in enumerate(zip(index_tuples, map_result)):
+                self.lnl_cache[ix] = result
+                pbar.update(i)
+            pbar.finish()
+        except:
+            with fileIO.TempFileList(to_delete):
+                pass
 
     def add_minsq_partitions(self, partitions, batchsize=1, background=False, **kwargs):
         if isinstance(partitions, Partition):

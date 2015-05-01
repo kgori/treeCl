@@ -34,7 +34,7 @@ except ImportError:
 
 import pkg_resources
 
-VERSION = '0.0.6'
+VERSION = '0.0.7'
 
 logo = """
 ═══════════ ╔═╗┬
