@@ -1,6 +1,9 @@
 __author__ = 'kgori'
 
 from collections import defaultdict
+import numpy as np
+import random
+import scipy.stats
 
 def entropies(partition_1, partition_2):
     """ parameters: partition_1 (list / array) - a partitioning of a dataset
@@ -112,6 +115,28 @@ class Partition(object):
                 l2[index] = name
 
         return tuple(l2)
+
+    @classmethod
+    def random(cls, alpha, size):
+        """
+        Generate a random start using expected proportions, alpha.
+        These are used to parameterise a random draw from a Dirichlet
+        distribution.
+        An example, to split a dataset of 20 items into 3 groups of [10,
+        6, 4] items:
+         - alpha = [10, 6, 4],
+         - alpha = [100, 60, 40],
+         - alpha = [5, 3, 2],
+        would all work. Variance is inversely related to sum(alpha)
+        """
+        props = np.concatenate([[0], (scipy.stats.dirichlet.rvs(alpha) * size).cumsum().round().astype(int)])
+        indices = np.array(range(size))
+        random.shuffle(indices)
+        x = []
+        for i in range(len(props)-1):
+            ix = indices[props[i]:props[i+1]]
+            x.append(ix)
+        return cls.from_membership(x)
 
     def num_elements(self):
         return len(self.partition_vector)

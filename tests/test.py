@@ -32,15 +32,23 @@ class PartitionTests(unittest.TestCase):
         expected = [(0, 2, 3, 5), (1, 9, 10, 11, 12, 13), (4, 6), (7, 8)]
         self.assertEqual(self.partition.get_membership(), expected)
 
-    def test_maximal_minimal(self):
+    def test_maximal(self):
+        p1 = Partition([1, 1, 1, 1, 1, 1, 1, 1, 1])
+        p2 = Partition([0, 1, 2, 3, 4, 5, 6, 7, 8])
+        self.assertFalse(p1.is_maximal())
+        self.assertTrue(p2.is_maximal())
+        self.assertFalse(self.partition.is_maximal())
+
+    def test_minimal(self):
         p1 = Partition([1, 1, 1, 1, 1, 1, 1, 1, 1])
         p2 = Partition([0, 1, 2, 3, 4, 5, 6, 7, 8])
         self.assertTrue(p1.is_minimal())
-        self.assertFalse(p1.is_maximal())
-        self.assertTrue(p2.is_maximal())
         self.assertFalse(p2.is_minimal())
         self.assertFalse(self.partition.is_minimal())
-        self.assertFalse(self.partition.is_maximal())
+
+    def test_random(self):
+        p = Partition.random([1, 1, 1], 12)
+        self.assertEqual(p.num_groups(), 3)
 
 
 class CollectionTests(unittest.TestCase):
@@ -58,6 +66,19 @@ class CollectionTests(unittest.TestCase):
     def test_lengths(self):
         expected = [511, 420, 139, 635, 229, 593, 228, 218, 404, 167, 227, 650, 104, 1172, 93]
         self.assertEqual(self.c.lengths, expected)
+
+
+class TreeTests(unittest.TestCase):
+    def test_RandomTree_defaultnames(self):
+        t = treeCl.tree.RandomTree.new(10)
+        expected = ['l1', 'l10', 'l2', 'l3', 'l4', 'l5', 'l6', 'l7', 'l8', 'l9']
+        self.assertEqual(sorted(t.labels), expected)
+
+    def test_RandomTree_given_names(self):
+        names = ['Jools', 'Jops', 'Stoo', 'Rj', 'Ubik', 'Cj', 'Chris', 'Pete', 'Tadger', 'Hector']
+        t = treeCl.tree.RandomTree.new(10, names)
+        self.assertEqual(sorted(t.labels), sorted(names))
+
 
 class EMTests(unittest.TestCase):
     def setUp(self):

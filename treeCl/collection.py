@@ -7,10 +7,11 @@ import itertools
 import json
 import math
 import os
-import sys
 import random
+import sys
 
 # third party
+import numpy as np
 from scipy.spatial.distance import squareform
 
 # treeCl
@@ -19,10 +20,11 @@ from .concatenation import Concatenation
 from .constants import SORT_KEY, PLL_RANDOM_SEED
 from .distance_matrix import DistanceMatrix
 from .errors import optioncheck, directorycheck
-from .parallel import tasks
-from .parallel.utils import get_client, parallel_map, sequential_map
+from . import tasks
 from .parameters import PartitionParameters
 from .partition import Partition
+from .parutils import get_client, parallel_map, sequential_map
+from .tree import Tree
 from .utils import fileIO, setup_progressbar, model_translate
 from .utils.decorators import lazyprop
 
@@ -475,12 +477,76 @@ class Collection(object):
                 pbar.update(j+1)
                 j += 1
 
+    def concatenate(self, indices):
+        return Concatenation(self, indices)
+
     def get_inter_tree_distances(self, metric, normalise=False, batchsize=100, background=False):
         """ Generate a distance matrix from a fully-populated Collection """
         array = _get_inter_tree_distances(metric, self.trees, normalise, batchsize, background)
         if background:  # return IPython.parallel map result object to the user before jobs are finished
             return array
         return DistanceMatrix(array, self.names)
+
+    def get_tree_collection_strings(self, indices, scale=1, guide_tree=None):
+        """ Function to get input strings for tree_collection
+        tree_collection needs distvar, genome_map and labels -
+        these are returned in the order above
+        """
+
+        # local lists
+        distances = []
+        variances = []
+        headers = []
+        for i in indices:
+            distances.append(self.distances[i])
+            variances.append(self.variances[i])
+            headers.append(self.headers[i])
+
+        num_matrices = len(indices)
+        label_set = reduce(lambda x, y: x.union(y), (set(l) for l in headers))
+        labels_len = len(label_set)
+
+        # labels string can be built straight away
+        labels_string = '{0}\n{1}\n'.format(labels_len, ' '.join(label_set))
+
+        # distvar and genome_map need to be built up
+        distvar_list = [str(num_matrices)]
+        genome_map_list = ['{0} {1}'.format(num_matrices, labels_len)]
+
+        # build up lists to turn into strings
+        for i in range(num_matrices):
+            labels = headers[i]
+            dim = len(labels)
+            dmatrix = np.array(distances[i])
+            vmatrix = np.array(variances[i])
+            matrix = np.zeros(dmatrix.shape)
+            matrix[np.triu_indices(len(dmatrix), 1)] = dmatrix[np.triu_indices(len(dmatrix), 1)]
+            matrix[np.tril_indices(len(vmatrix), -1)] = vmatrix[np.tril_indices(len(vmatrix), -1)]
+            if scale:
+                matrix[np.triu_indices(dim, 1)] *= scale
+                matrix[np.tril_indices(dim, -1)] *= scale * scale
+
+            if isinstance(matrix, np.ndarray):
+                matrix_string = '\n'.join([' '.join(str(x) for x in row)
+                                           for row in matrix]) + '\n'
+            else:
+                matrix_string = matrix
+            distvar_list.append('{0} {0} {1}\n{2}'.format(dim, i + 1,
+                                                          matrix_string))
+            genome_map_entry = ' '.join((str(labels.index(lab) + 1)
+                                         if lab in labels else '-1')
+                                        for lab in label_set)
+            genome_map_list.append(genome_map_entry)
+
+        distvar_string = '\n'.join(distvar_list)
+        genome_map_string = '\n'.join(genome_map_list)
+
+        if guide_tree is None:
+            guide_tree = Tree.new_iterative_rtree(labels_len, names=label_set, rooted=True)
+
+        tree_string = guide_tree.scale(scale).newick
+
+        return distvar_string, genome_map_string, labels_string, tree_string
 
 
 def _get_inter_tree_distances(metric, trees, normalise=False, batchsize=100, background=False):
@@ -608,7 +674,7 @@ class Scorer(object):
     def concatenate(self, index_tuple):
         """ Returns a Concatenation object that stitches together
         the alignments picked out by the index tuple """
-        return Concatenation(self.collection, index_tuple)
+        return self.collection.concatenate(index_tuple)
 
     def members(self, index_tuple):
         """ Gets records by their index, contained in the index_tuple """

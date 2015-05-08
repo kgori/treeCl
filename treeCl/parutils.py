@@ -1,5 +1,5 @@
-from treeCl.constants import PARALLEL_PROFILE
-from treeCl.utils import setup_progressbar
+from .constants import PARALLEL_PROFILE
+from .utils import setup_progressbar
 
 __author__ = 'kgori'
 

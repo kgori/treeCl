@@ -178,6 +178,8 @@ class SPR(object):
 
         regraft_edge, l2 = self.tree.map_event_onto_tree(excl)
 
+        edges, nodes, redges, rnodes = self.tree.__name_things()
+        print(edges[prune_edge], l1, edges[regraft_edge], l2)
         self.spr(prune_edge, l1, regraft_edge, l2)
         if rescale:
             self.tree.scale(starting_length / self.tree.length())
@@ -881,8 +883,8 @@ class Tree(dendropy.Tree):
     #                name=name)name
 
     @classmethod
-    def new_iterative_rtree(cls, nspecies):
-        return RandomTree.new(nspecies)
+    def new_iterative_rtree(cls, nspecies, **kwargs):
+        return RandomTree.new(nspecies, **kwargs)
 
     @classmethod
     def new_rtree(cls, nspecies=16, zero_root_height=True, **kwargs):
@@ -914,14 +916,17 @@ class Tree(dendropy.Tree):
 
 
 class RandomTree(object):
-    def __init__(self, names=None):
+    def __init__(self, names=None, rooted=False):
         if names is None:
             self.label_generator = itertools.chain(_infinite_labels_generator(['l'], start=1))
             next(self.label_generator)
         else:
             self.label_generator = itertools.chain(_infinite_labels_generator(names, start=2))
 
-        self.tree = Tree('({}:1,{}:1,{}:1):0'.format(self.next_label(), self.next_label(), self.next_label()))
+        if rooted:
+            self.tree = Tree('({}:1,{}:1):0'.format(self.next_label(), self.next_label()))
+        else:
+            self.tree = Tree('({}:1,{}:1,{}:1):0'.format(self.next_label(), self.next_label(), self.next_label()))
 
     def next_label(self):
         return next(self.label_generator)
@@ -945,9 +950,10 @@ class RandomTree(object):
         return e
 
     @classmethod
-    def new(cls, n, names=None):
-        rt = cls(names)
-        for _ in range(n - 3):
+    def new(cls, n, names=None, rooted=False):
+        rt = cls(names, rooted)
+        present = 2 if rooted else 3
+        for _ in range(n - present):
             e = rt.select()
             rt.add(e)
         return rt.tree

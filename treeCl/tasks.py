@@ -8,7 +8,6 @@ from treeCl.utils.pll_helpers import pll_to_dict
 from treeCl.parameters import Parameters
 from treeCl.utils import fileIO, smooth_freqs
 from treeCl.constants import PLL_RANDOM_SEED
-import sys
 
 def eucdist_task(newick_string_a, newick_string_b, normalise):
     """
@@ -126,7 +125,7 @@ def simulate_task(n, model, frequencies, alpha, tree, rates=None):
 
 
 def minsq_task(dv, gm, lab, tree, niters=10, keep_topology=False):
-    tree, lk = tree_collection.compute(dv, gm, lab, tree, niters, True, keep_topology, False)
+    tree, lk = tree_collection.compute(dv, gm, lab, tree, niters, True, keep_topology, True)
     tree = Tree(tree)
     tree.deroot()
     return dict(tree=tree.newick, score=lk)

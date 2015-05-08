@@ -13,7 +13,9 @@ import numpy as np
 
 # treeCl
 from collection import Collection, Scorer
-from treeCl import Partition
+from treeCl import tasks
+from treeCl.parutils import sequential_map
+from partition import Partition
 from constants import EPS, NEGINF, TMPDIR, ANALYSES
 from errors import optioncheck
 from utils import fileIO, pll_helpers
@@ -121,88 +123,107 @@ def get_markov_based_likelihood3(al, treelist):
             results.append(inst.get_likelihood())
     return results
 
+def load_instances(collection):
+    lst = []
+    for al in collection:
+        alignment_file, to_delete = al.get_alignment_file(as_phylip=True)
+        if to_delete:
+            filelist = [alignment_file]
+        else:
+            filelist = []
+        with fileIO.TempFileList(filelist):
+            model = read_model(al)
+            partitions = '{}, {} = 1 - {}'.format(model, al.name, len(al))
+            freqs = al.parameters.partitions.frequencies
+            alpha = al.parameters.partitions.alpha
+            rates = al.parameters.partitions.rates if al.is_dna() else None
+            ml_tree = al.parameters.ml_tree
+            inst = pll_helpers.create_instance(alignment_file, partitions, ml_tree, 1)
+            inst.set_frequencies(freqs, 0, False)
+            inst.set_alpha(alpha, 0, False)
+            if rates: inst.set_rates(rates, 0, False)
+            lst.append(inst)
+    return lst
+
+def _check_for_required_info(collection):
+    """
+    Raises an exception if required info is missing for an alignment.
+    Info required is:
+      ml tree (al.parameters.ml_tree)
+      ml parameters (al.parameters.partitions.{frequencies,rates,alpha}
+      likelihood model (al.parameters.partitions.model)
+    :param collection:
+    :return:
+    """
+    for al in collection:
+        if not hasattr(al, 'parameters'):
+            raise AttributeError('No parameters for alignment {}'.format(al.name))
+        if not hasattr(al.parameters, 'ml_tree'):
+            raise AttributeError('No ML tree for alignment {}'.format(al.name))
+        if al.parameters.ml_tree is None:
+            raise AttributeError('No ML tree for alignment {}'.format(al.name))
+        if not hasattr(al.parameters, 'partitions'):
+            raise AttributeError('No partition information for alignment {}'.format(al.name))
+        if not al.parameters.partitions:
+            raise AttributeError('No partition information for alignment {}'.format(al.name))
+
+
+
 class EM(object):
 
     def __init__(self, collection):
         """
         Sets data
         """
-        self.instances = self.load_instances(collection) # may take a lot of memory
-        # self.collection = collection
+        _check_for_required_info(collection)
+        self.collection = collection
 
-    def load_instances(self, collection):
-        self._check_for_required_info(collection)
-        lst = []
-        for al in collection:
-            alignment_file, to_delete = al.get_alignment_file(as_phylip=True)
-            if to_delete:
-                filelist = [alignment_file]
-            else:
-                filelist = []
-            with fileIO.TempFileList(filelist):
-                model = read_model(al)
-                partitions = '{}, {} = 1 - {}'.format(model, al.name, len(al))
-                freqs = al.parameters.partitions.frequencies
-                alpha = al.parameters.partitions.alpha
-                rates = al.parameters.partitions.rates if al.is_dna() else None
-                ml_tree = al.parameters.ml_tree
-                inst = pll_helpers.create_instance(alignment_file, partitions, ml_tree, 1)
-                inst.set_frequencies(freqs, 0, False)
-                inst.set_alpha(alpha, 0, False)
-                if rates: inst.set_rates(rates, 0, False)
-                lst.append(inst)
-        return lst
+    
+    def get_likelihood(self, i, instances, tree):
+        """
+        Return the log likelihood == logP(alignment[i] | tree, parameters)
+        :param i: index of the alignment under test
+        :param tree: newick string of the tree under test
+        :return: log-likelihood (float)
+        """
+        inst = instances[i]
+        inst.set_tree(tree)
+        return inst.get_likelihood()
 
-    def _check_for_required_info(self, collection):
-        """
-        Raises an exception if required info is missing for an alignment.
-        Info required is:
-          ml tree (al.parameters.ml_tree)
-          ml parameters (al.parameters.partitions.{frequencies,rates,alpha}
-          likelihood model (al.parameters.partitions.model)
-        :param collection:
-        :return:
-        """
-        for al in collection:
-            if not hasattr(al, 'parameters'):
-                raise AttributeError('No parameters for alignment {}'.format(al.name))
-            if not hasattr(al.parameters, 'ml_tree'):
-                raise AttributeError('No ML tree for alignment {}'.format(al.name))
-            if al.parameters.ml_tree is None:
-                raise AttributeError('No ML tree for alignment {}'.format(al.name))
-            if not hasattr(al.parameters, 'partitions'):
-                raise AttributeError('No partition information for alignment {}'.format(al.name))
-            if not al.parameters.partitions:
-                raise AttributeError('No partition information for alignment {}'.format(al.name))
+    def get_avg_per_site_likelihood(self, i, instances, tree):
+        return self.get_likelihood(i, instances, tree) / len(self.collection[i])
 
-    def random_start(self, alpha):
-        """
-        Generate a random start using expected proportions, alpha.
-        These are used to parameterise a random draw from a Dirichlet
-        distribution.
-        An example, to split a dataset of 20 items into 3 groups of [10,
-        6, 4] items:
-         - alpha = [10, 6, 4],
-         - alpha = [100, 60, 40],
-         - alpha = [5, 3, 2],
-        would all work. Variance is inversely related to sum(alpha)
-        """
-        l = np.array(self.collection.records)
-        props = np.concatenate([[0], (ss.dirichlet.rvs(alpha) * len(l)).cumsum().round().astype(int)])
-        indices = np.array(range(len(l)))
-        random.shuffle(indices)
-        x = []
-        for i in range(len(props)-1):
-            ix = indices[props[i]:props[i+1]]
-            x.append(l[ix].tolist())
-        return x
+    def initialise_groups(self):
+        pass
 
     def mstep(self):
+        """
+        In general, the process of maximising the likelihood by tuning the partition parameter
+        Uses the following strategies:
+          single reassignment
+          batch reassignment
+          split-and-merge
+        :return:
+        """
         pass
 
-    def estep(self):
-        pass
+    def estep(self, partition):
+        """
+        In general, estimating the likelihood of the data using the current partition parameter value
+        This involves computing new trees based on the partition assignments. Theoretically, this
+        should be done by maximising the likelihood of each tree using the full set of parameters,
+        but some shortcuts are taken:
+          tree search: least-square trees + rough ML branch length optimisation
+          model parameters: fixed at pre-estimated values
 
+        :return:
+        """
+        memberships = partition.get_membership()
+        args = []
+        for mbl in memberships:
+            args.append(self.collection.get_tree_collection_strings(mbl))
+        msg = 'ESTEP'
+        trees = [result['tree'] for result in sequential_map(tasks.minsq_task, args, msg)]
 
 
 class Optimiser(object):
