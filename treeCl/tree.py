@@ -178,8 +178,8 @@ class SPR(object):
 
         regraft_edge, l2 = self.tree.map_event_onto_tree(excl)
 
-        edges, nodes, redges, rnodes = self.tree.__name_things()
-        print(edges[prune_edge], l1, edges[regraft_edge], l2)
+        # edges, nodes, redges, rnodes = self.tree._name_things()
+        # print(edges[prune_edge], l1, edges[regraft_edge], l2)
         self.spr(prune_edge, l1, regraft_edge, l2)
         if rescale:
             self.tree.scale(starting_length / self.tree.length())
@@ -833,7 +833,7 @@ class Tree(dendropy.Tree):
                 writer.write(writeable + '\n')
         return outfile
 
-    def __name_things(self):
+    def _name_things(self):
         """ Easy names for debugging """
         edges = {}
         nodes = {None: 'root'}
