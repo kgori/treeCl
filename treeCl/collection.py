@@ -485,7 +485,7 @@ class Collection(object):
         array = _get_inter_tree_distances(metric, self.trees, normalise, batchsize, background)
         if background:  # return IPython.parallel map result object to the user before jobs are finished
             return array
-        return DistanceMatrix(array, self.names)
+        return DistanceMatrix.from_array(array, self.names)
 
     def get_tree_collection_strings(self, indices, scale=1, guide_tree=None):
         """ Function to get input strings for tree_collection

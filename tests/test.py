@@ -47,6 +47,7 @@ class PartitionTests(unittest.TestCase):
         self.assertFalse(self.partition.is_minimal())
 
     def test_random(self):
+        # Be aware, this has been known to spontaneously fail - problem with testing random things
         p = Partition.random([1, 1, 1], 12)
         self.assertEqual(p.num_groups(), 3)
 
@@ -78,6 +79,12 @@ class TreeTests(unittest.TestCase):
         names = ['Jools', 'Jops', 'Stoo', 'Rj', 'Ubik', 'Cj', 'Chris', 'Pete', 'Tadger', 'Hector']
         t = treeCl.tree.RandomTree.new(10, names)
         self.assertEqual(sorted(t.labels), sorted(names))
+
+
+class DistanceMatrixTests(unittest.TestCase):
+    def test_from_csv(self):
+        dm = treeCl.DistanceMatrix.from_csv(os.path.join(thisdir, 'data', 'cache', 'geo_dm.csv'))
+        self.assertEqual(dm.df.values.sum(), 412.70677069540181)
 
 
 class EMTests(unittest.TestCase):

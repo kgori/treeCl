@@ -388,7 +388,7 @@ class CoordinateMatrix(object):
 
 
 class DistanceMatrix(object):
-    def __init__(self, array, names=None):
+    def __init__(self):
         self.df = pd.DataFrame()
 
     def __repr__(self):
@@ -402,7 +402,7 @@ class DistanceMatrix(object):
     def from_csv(cls, filename, **kwargs):
         with fileIO.freader(filename) as handle:
             new_instance = cls()
-            new_instance.df = pd.DataFrame(handle, **kwargs)
+            new_instance.df = pd.DataFrame.from_csv(handle, **kwargs)
         return new_instance
 
     def to_csv(self, filename, **kwargs):
@@ -419,6 +419,7 @@ class DistanceMatrix(object):
         new_instance.df = pd.DataFrame(array)
         try:
             new_instance.set_names(names)
+            return new_instance
         except ValueError, err:
             sys.stderr.write(str(err))
             return new_instance
