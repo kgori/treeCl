@@ -79,6 +79,7 @@ setup(name="treeCl",
           'bin/bootstrap',
       ],
       install_requires=[
+          'autowrap',
           'biopython',
           'bpp',
           'cython',

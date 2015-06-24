@@ -498,3 +498,8 @@ class DistanceMatrix(object):
     def sort(self):
         order = self.df.index.argsort()
         return self.reorder(order)
+
+    @property
+    def values(self):
+        return self.df.values
+
