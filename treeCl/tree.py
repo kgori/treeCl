@@ -965,7 +965,7 @@ class TreeGen(object):
         if names is not None:
             g = _infinite_labels_generator(names, shuffle=False)
             self.names = list(itertools.islice(g, nspecies))
-        if cf:
+        elif cf:
             g = _infinite_labels_generator(cfnames)
             self.names = list(itertools.islice(g, nspecies))
         else:
