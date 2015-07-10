@@ -427,6 +427,7 @@ class Collection(object):
                 rec.parameters.nj_tree = result['nj_tree']
                 pbar.update(j+1)
                 j += 1
+            pbar.finish()
 
     def calc_trees(self, model=None, threads=1, indices=None, batchsize=1, output_dir=None, background=False):
         """
@@ -476,6 +477,7 @@ class Collection(object):
                 rec.parameters.construct_from_dict(result)
                 pbar.update(j+1)
                 j += 1
+            pbar.finish()
 
     def concatenate(self, indices):
         return Concatenation(self, indices)
