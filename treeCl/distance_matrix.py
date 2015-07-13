@@ -489,7 +489,7 @@ class DistanceMatrix(object):
         return CoordinateMatrix(array, names=self.df.index)
 
     def reorder(self, new_order):
-        reordered_df = self.df[new_order].ix[new_order]
+        reordered_df = self.df.reindex(columns=new_order, index=new_order)
         reordered_names = reordered_df.columns
         newobj = self.__class__()
         newobj.df = reordered_df
