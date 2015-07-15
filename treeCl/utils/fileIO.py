@@ -15,6 +15,9 @@ from ..errors import filecheck, directorycheck
 
 __all__ = [
     'TempFile',
+    'TempDir',
+    'ChDir',
+    'TempFileList'
     'basename',
     'can_locate',
     'can_open',
@@ -68,6 +71,20 @@ class TempFileList(object):
 
     def __exit__(self, type, value, tb):
         [os.remove(fl) for fl in self._filelist]
+
+
+class ChDir(object):
+    def __init__(self, working_dir):
+        if not os.path.exists(working_dir):
+            raise IOError('Directory "{}"" does not exist'.format(working_dir))
+        self._cdir = os.getcwd()
+        self._wdir = working_dir
+
+    def __enter__(self):
+        os.chdir(self._wdir)
+
+    def __exit__(self, type, value, tb):
+        os.chdir(self._cdir)
 
 
 def basename(filename):
