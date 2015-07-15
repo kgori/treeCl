@@ -33,21 +33,31 @@ except ImportError:
     sys.exit()
 
 import pkg_resources
+import platform
+import re
+import subprocess
 
-VERSION = '0.0.7'
+# Facilities to install properly on Mac using clang
+def is_clang(bin):
+    proc = subprocess.Popen([bin, '-v'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = proc.communicate()
+    output = '\n'.join([stdout, stderr])
+    return not re.search(r'clang', output) is None
 
-logo = """
-═══════════ ╔═╗┬
-┌┬┐┬─┐┌─┐┌─┐║  │
- │ ├┬┘├┤ ├┤ ╚═╝┴─┘
- ┴ ┴└─└─┘└─┘╭─────
-┈┈┈┈┈┈┄┄┄┄┄─┤  ╭──
-   V{0:s}   ╰──┤
-══════════════ ╰──
-""".format(VERSION)
+class my_build_ext(build_ext):
+    def build_extensions(self):
+        binary = self.compiler.compiler[0]
+        if is_clang(binary):
+            for e in self.extensions:
+                e.extra_compile_args.append('-stdlib=libc++')
+                if platform.system() == 'Darwin':
+                    e.extra_compile_args.append('-mmacosx-version-min=10.7')
+        build_ext.build_extensions(self)
 
-print(logo)
+compile_args = ['-std=c++1y']
+
 data_dir = pkg_resources.resource_filename("autowrap", "data_files")
+
 extensions = [
     Extension(name='tree_collection',
               sources=[
@@ -61,6 +71,21 @@ extensions = [
               extra_compile_args=['-std=c++11'],
     ),
 ]
+
+# Install splash
+VERSION = '0.0.7'
+
+logo = """
+═══════════ ╔═╗┬
+┌┬┐┬─┐┌─┐┌─┐║  │
+ │ ├┬┘├┤ ├┤ ╚═╝┴─┘
+ ┴ ┴└─└─┘└─┘╭─────
+┈┈┈┈┈┈┄┄┄┄┄─┤  ╭──
+   V{0:s}   ╰──┤
+══════════════ ╰──
+""".format(VERSION)
+
+print(logo)
 
 setup(name="treeCl",
       version=VERSION,
@@ -96,7 +121,7 @@ setup(name="treeCl",
           'scikit-learn',
           'tree_distance',
       ],
-      cmdclass={'build_ext': build_ext},
+      cmdclass={'build_ext': my_build_ext},
       ext_modules=extensions,
       test_suite='tests',
 )
