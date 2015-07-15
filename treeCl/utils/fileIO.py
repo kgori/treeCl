@@ -6,6 +6,7 @@ import cPickle
 import glob
 import gzip
 import os
+import shutil
 import tempfile
 from subprocess import Popen, PIPE
 
@@ -34,12 +35,25 @@ __all__ = [
 
 class TempFile(object):
 
+    def __init__(self, dir_=None):
+        self.dir = dir_
+
     def __enter__(self):
-        self._wrapped_tmp = tempfile.mkstemp()[1]
+        self._wrapped_tmp = tempfile.mkstemp(dir=self.dir)[1]
         return os.path.abspath(self._wrapped_tmp)
 
     def __exit__(self, type, value, tb):
         os.remove(self._wrapped_tmp)
+
+
+class TempDir(object):
+
+    def __enter__(self):
+        self._wrapped_tmpdir = tempfile.mkdtemp()
+        return os.path.abspath(self._wrapped_tmpdir)
+
+    def __exit__(self, type, value, tb):
+        shutil.rmtree(self._wrapped_tmpdir)
 
 
 class TempFileList(object):
