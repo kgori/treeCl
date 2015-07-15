@@ -8,6 +8,11 @@ import bpp
 from treeCl.utils import pll_helpers
 from parameters import Parameters, PartitionParameters
 from utils import fileIO
+from Bio.Seq import Seq, UnknownSeq
+from Bio.SeqRecord import SeqRecord
+from Bio.Align import MultipleSeqAlignment
+from Bio.Alphabet import IUPAC
+from collections import defaultdict
 
 
 class Alignment(bpp.Alignment):
@@ -91,3 +96,10 @@ class Alignment(bpp.Alignment):
             if v > 1:
                 ucl += v * log(v)
         return ucl - n * log(n)
+
+    def to_biopython_msa(self):
+        alph = IUPAC.extended_dna if self.is_dna() else IUPAC.extended_protein
+        msa = MultipleSeqAlignment([SeqRecord(Seq(sequence, alphabet=IUPAC.extended_dna), id=key) for (key, sequence) in self.get_sequences()])
+        for seq in msa: seq.description=''
+        return msa
+

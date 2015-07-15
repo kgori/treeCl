@@ -3,7 +3,53 @@ from progressbar import ProgressBar, Percentage, SimpleProgress, Timer, Adaptive
 import numpy as np
 
 from printing import print_and_return
+from Bio.Seq import Seq, UnknownSeq
+from Bio.SeqRecord import SeqRecord
+from Bio.Align import MultipleSeqAlignment
+from collections import defaultdict
 
+def concatenate(alignments):
+    """
+    Concatenates a list of Bio.Align.MultipleSeqAlignment objects.
+    If any sequences are missing the are padded with unknown data
+    (Bio.Seq.UnknownSeq).
+    Returns a single Bio.Align.MultipleSeqAlignment.
+    Limitations: any annotations in the sub-alignments are lost in
+    the concatenated alignment.
+    """
+
+    # Get the full set of labels (i.e. sequence ids) for all the alignments
+    all_labels = set(seq.id for aln in alignments for seq in aln)
+
+    # Make a dictionary to store info as we go along
+    # (defaultdict is convenient -- asking for a missing key gives back an empty list)
+    tmp = defaultdict(list)
+
+    # Assume all alignments have same alphabet
+    alphabet = alignments[0]._alphabet
+
+    for aln in alignments:
+        length = aln.get_alignment_length()
+
+        # check if any labels are missing in the current alignment
+        these_labels = set(rec.id for rec in aln)
+        missing = all_labels - these_labels
+
+        # if any are missing, create unknown data of the right length,
+        # stuff the string representation into the tmp dict
+        for label in missing:
+            new_seq = UnknownSeq(length, alphabet=alphabet)
+            tmp[label].append(str(new_seq))
+
+        # else stuff the string representation into the tmp dict
+        for rec in aln:
+            tmp[rec.id].append(str(rec.seq))
+
+    # Stitch all the substrings together using join (most efficient way),
+    # and build the Biopython data structures Seq, SeqRecord and MultipleSeqAlignment
+    msa = MultipleSeqAlignment(SeqRecord(Seq(''.join(v), alphabet=alphabet), id=k)
+               for (k,v) in tmp.items())
+    return msa
 
 def flatten_list(list_):
     newlist = list()

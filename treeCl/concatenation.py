@@ -2,7 +2,8 @@ import numpy as np
 from treeCl.alignment import Alignment
 from treeCl.tree import Tree
 from treeCl.utils.decorators import lazyprop
-from treeCl.utils import flatten_list
+from treeCl.utils import flatten_list, concatenate, fileIO
+from Bio import AlignIO
 
 __author__ = 'kgori'
 
@@ -47,7 +48,12 @@ class Concatenation(object):
 
     @lazyprop
     def alignment(self):
-        al = Alignment([self.collection[i] for i in self.indices])
+        msas = [self.collection[i].to_biopython_msa() for i in self.indices]
+        conc = concatenate(msas)
+        for seq in conc: seq.description=''
+        with fileIO.TempFile() as tmp:
+            AlignIO.write(conc, tmp, 'fasta')
+            al = Alignment(tmp, 'fasta', True)
         return al
 
     @lazyprop
