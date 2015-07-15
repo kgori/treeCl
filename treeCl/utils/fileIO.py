@@ -36,6 +36,8 @@ __all__ = [
 class TempFile(object):
 
     def __init__(self, dir_=None):
+        if dir_ is not None and not os.path.exists(dir_):
+            raise IOError('Directory "{}" does not exist'.format(dir_))
         self.dir = dir_
 
     def __enter__(self):
