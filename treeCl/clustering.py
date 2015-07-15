@@ -19,14 +19,201 @@ except ImportError:
 
 from sklearn.cluster import AffinityPropagation, DBSCAN, KMeans
 from sklearn.mixture import GMM
+from sklearn.manifold import spectral_embedding
 
 # treeCl
-from distance_matrix import DistanceMatrix, rbf, binsearch_mask, kmask, kscale, affinity, laplace, eigen, double_centre, \
+from .distance_matrix import DistanceMatrix, rbf, binsearch_mask, kmask, kscale, affinity, laplace, eigen, double_centre, \
     normalise_rows
-from partition import Partition
+from .partition import Partition
+from .utils import enum
+from .errors import OptionError, isnumbercheck, rangecheck
+
+options = enum(
+    "PRUNING_NONE",
+    "PRUNING_ESTIMATE",
+    "PRUNING_MANUAL",
+    "LOCAL_SCALE_MEDIAN",
+    "LOCAL_SCALE_ESTIMATE",
+    "LOCAL_SCALE_MANUAL")
+
+methods = enum(
+    "KMEANS",
+    "GMM")
 
 
-class Clustering(object):
+class ClusteringManager(object):
+    """
+    Clustering manager base class
+    """
+    def __init__(self, dm):
+        if isinstance(dm, np.ndarray):
+            dm = DistanceMatrix.from_array(dm)
+
+        if not isinstance(dm, DistanceMatrix):
+            raise ValueError('Distance matrix should be a numpy array or treeCl.DistanceMatrix')
+        self.dm = dm
+
+    def get_dm(self, noise):
+        return self.dm.add_noise().values if noise else self.dm.values
+
+    @staticmethod
+    def kmeans(nclusters, coords):
+        est = KMeans(n_clusters=nclusters, n_init=50, max_iter=500)
+        est.fit(coords)
+        return Partition(est.labels_)
+
+    @staticmethod
+    def gmm(nclusters, coords, n_init=50, n_iter=500):
+        est = GMM(n_components=nclusters, n_init=n_init, n_iter=n_iter)
+        est.fit(coords)
+        return Partition(est.predict(coords))
+
+def _check_val(opt, min_, max_):
+    isnumbercheck(opt)
+    rangecheck(opt, min_, max_)
+
+class Spectral(ClusteringManager):
+    """
+    Manager for spectral clustering 
+    """
+    def __init__(self, dm, 
+                 pruning_option=options.PRUNING_NONE, 
+                 scale_option=options.LOCAL_SCALE_MEDIAN, 
+                 manual_pruning=None, 
+                 manual_scale=None,
+                 verbosity=0):
+        super(Spectral, self).__init__(dm)
+        try:
+            options.reverse[pruning_option]
+        except KeyError:
+            raise OptionError(pruning_option, options.reverse.values())
+        try:
+            options.reverse[scale_option]
+        except KeyError:
+            raise OptionError(scale_option, options.reverse.values())
+
+        if pruning_option == options.PRUNING_MANUAL:
+            _check_val(manual_pruning, 2, self.dm.df.shape[0])
+
+        if scale_option == options.LOCAL_SCALE_MANUAL:
+            _check_val(manual_scale, 2, self.dm.df.shape[0])
+
+        self._pruning_option = pruning_option
+        self._scale_option = scale_option
+        self._manual_pruning = manual_pruning
+        self._manual_scale = manual_scale
+        self._verbosity = verbosity
+        self._affinity = self.decompose()
+
+    def __str__(self):
+        return ('Spectral Clustering with local scaling:\n'
+                'Pruning option: {}\n'
+                'Scaling option: {}'
+                .format(options.reverse[self._pruning_option], options.reverse[self._scale_option]))
+
+    def decompose(self,
+            noise=False,
+            verbosity=0,
+            logic='or',
+            **kwargs):
+        """ Use prune to remove links between distant points:
+
+        prune is None: no pruning
+        prune={int > 0}: prunes links beyond `prune` nearest neighbours
+        prune='estimate': searches for the smallest value that retains a fully
+        connected graph
+
+        """
+
+        matrix = self.get_dm(noise)
+
+        # get local scale estimate
+        est_scale = None
+
+        # ADJUST MASK
+        if self._pruning_option == options.PRUNING_NONE:  
+            # Set kp to max value
+            kp = len(matrix) - 1
+            mask = np.ones(matrix.shape, dtype=bool)
+        elif self._pruning_option == options.PRUNING_MANUAL:
+            # Manually set value of kp
+            kp = self._manual_pruning
+            mask = kmask(matrix, self._manual_pruning, logic=logic)
+        elif self._pruning_option == options.PRUNING_ESTIMATE:
+            # Must estimate value of kp
+            kp, mask, est_scale = binsearch_mask(matrix, logic=logic) 
+        else:
+            raise ValueError("Unexpected error: 'kp' not set")
+
+        # ADJUST SCALE
+        if self._scale_option == options.LOCAL_SCALE_MEDIAN:
+            dist = np.median(matrix, axis=1)
+            scale = np.outer(dist, dist)
+        elif self._scale_option == options.LOCAL_SCALE_MANUAL:
+            scale = kscale(matrix, self._manual_scale)
+        elif self._scale_option == options.LOCAL_SCALE_ESTIMATE:
+            if est_scale is None:
+                _, _, scale = binsearch_mask(matrix, logic=logic) 
+            else:
+                # Nothing to be done - est_scale was set during the PRUNING_ESTIMATE
+                scale = est_scale
+        else:
+            raise ValueError("Unexpected error: 'scale' not set")
+
+
+        # ZeroDivisionError safety check
+        if not (scale > 1e-5).all():
+            if verbosity > 0:
+                print('Rescaling to avoid zero-div error')
+            _, _, scale = binsearch_mask(matrix, logic=logic)
+            assert (scale > 1e-5).all()
+
+        aff = affinity(matrix, mask, scale)
+        return aff
+        # laplacian = laplace(aff, **kwargs)
+
+        # if self._verbosity > 1:
+        #     print('Pruning parameter: {0}'.format(kp))
+        #     print('Mask, scale, affinity matrix and laplacian:')
+        #     print(mask)
+        #     print(scale)
+        #     print(aff)
+        #     print(laplace)
+
+        # return eigen(laplacian)  # vectors are in columns
+
+    def cluster(self, n, method=methods.KMEANS):
+        """
+        Cluster the embedded coordinates
+
+        Parameters
+        ----------
+        n:      int
+                The number of clusters to return
+        method: enum value, one of (methods.KMEANS | methods.GMM)
+                The clustering method to use
+
+        Returns
+        -------
+        Partition: Partition object describing the data partition
+        """
+        if n == 1:
+            return Partition([1] * len(self.dm))
+
+        coords = spectral_embedding(self._affinity, n)
+        self._coords = normalise_rows(coords)  # scale all rows to unit length
+        if method == methods.KMEANS:
+            p = self.kmeans(n, self._coords)
+        elif method == methods.GMM:
+            p = self.gmm(n, self._coords)
+        else:
+            raise OptionError(method, list(methods.reverse.values()))
+        if self._verbosity > 0:
+            print('Using clustering method: {}'.format(methods.reverse[method]))
+        return p
+
+
+class Clustering(ClusteringManager):
     """ Apply clustering methods to distance matrix
 
     = Hierarchical clustering - single-linkage - complete-linkage - average-
@@ -107,9 +294,6 @@ class Clustering(object):
         est = DBSCAN(metric='precomputed', eps=eps, min_samples=min_samples)
         est.fit(self.get_dm(False))
         return Partition(est.labels_)
-
-    def get_dm(self, noise):
-        return self.dm.add_noise().values if noise else self.dm.values
 
     def hierarchical(self, nclusters, linkage_method, noise=False):
         """
@@ -249,18 +433,6 @@ class Clustering(object):
                   'the variance'.format(coords.shape[1], cve * 100))
         p = self.kmeans(nclusters, coords)
         return p
-
-    @staticmethod
-    def kmeans(nclusters, coords):
-        est = KMeans(n_clusters=nclusters, n_init=50, max_iter=500)
-        est.fit(coords)
-        return Partition(est.labels_)
-
-    @staticmethod
-    def gmm(nclusters, coords, n_init=50, n_iter=500):
-        est = GMM(n_components=nclusters, n_init=n_init, n_iter=n_iter)
-        est.fit(coords)
-        return Partition(est.predict(coords))
 
     # def plot_dendrogram(self, compound_key):
     #     """ Extracts data from clustering to plot dendrogram """

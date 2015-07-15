@@ -19,6 +19,7 @@ __all__ = [
     'directoryquit',
     'optioncheck',
     'rangecheck',
+    'isnumbercheck'
 ]
 
 

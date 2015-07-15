@@ -1,8 +1,8 @@
 # import fileIO
 from progressbar import ProgressBar, Percentage, SimpleProgress, Timer, AdaptiveETA, Bar, FormatLabel
 import numpy as np
-
-from printing import print_and_return
+from .enum import enum
+from .printing import print_and_return
 from Bio.Seq import Seq, UnknownSeq
 from Bio.SeqRecord import SeqRecord
 from Bio.Align import MultipleSeqAlignment

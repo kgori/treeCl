@@ -290,8 +290,7 @@ def _embedding_spectral(matrix, dimensions=3, unit_length=True,
         aff = rbf(matrix, sigma=sigma)
     else:
         aff = affinity_matrix
-    decomp = eigen(laplace(aff))
-    coords = decomp.vecs[:, :dimensions]
+    coords = sklearn.manifold.spectral_embedding(aff, dimensions)
     return normalise_rows(coords) if unit_length else coords
 
 
