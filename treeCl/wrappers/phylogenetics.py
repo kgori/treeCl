@@ -30,7 +30,7 @@ class Phyml(AbstractWrapper):
 class FastTree(AbstractWrapper):
     @property
     def _default_exe(self):
-        return 'fasttree'
+        return 'FastTree'
 
     def _set_help(self):
         self(wait=True)

@@ -2,12 +2,13 @@
 
 import treeCl
 from treeCl.utils import fileIO
-from treeCl.wrappers.phylogenetics import Raxml
+from treeCl.wrappers.phylogenetics import Raxml, FastTree
 import os
 import glob
 import re
 import logging
 import json
+from Bio import AlignIO
 
 def get_dirs(path, i):
     working_dir = os.path.join(path, 'npbs{}'.format(i))
@@ -23,27 +24,38 @@ def generate_npbs(path, i):
         os.mkdir(working_dir)
     for rec in npbs:
         rec.write_alignment('{}.phy'.format(os.path.join(working_dir, rec.name)), 'phylip', True)
+        AlignIO.convert('{}.phy'.format(os.path.join(working_dir, rec.name)), 'phylip-relaxed', '{}.phy_'.format(os.path.join(working_dir, rec.name)), 'phylip-relaxed')
+        os.system('mv {} {}'.format('{}.phy_'.format(os.path.join(working_dir, rec.name)), '{}.phy'.format(os.path.join(working_dir, rec.name))))
 
 def get_collection(path, i):
     working_dir = get_dirs(path, i)['wdir']
     return treeCl.Collection(input_dir=working_dir, file_format='phylip')
 
-def calc_trees(collection, path, i, logger):
+def calc_trees(collection, path, i, logger, method):
     working_dir = get_dirs(path, i)['wdir']
     for rec in collection:
         f = rec.parameters.filename
         if rec.is_dna():
-            logger.info('Calculating fast raxml tree for dna alignment {}'.format(f))
-            result = run_raxml_fast(f)
+            if method == 'raxml':
+                logger.info('Calculating fast raxml tree for dna alignment {}'.format(f))
+                result = run_raxml_fast(f)
+            else:
+                logger.info('Calculating FastTree tree for dna alignment {}'.format(f))
+                result = run_fasttree(f, True)
         else:
-            logger.info('Calculating fast raxml tree for protein alignment {}'.format(f))
-            result = run_raxml_fast(f, 'PROTGAMMALGF')
+            if method == 'raxml':
+                logger.info('Calculating fast raxml tree for protein alignment {}'.format(f))
+                result = run_raxml_fast(f, 'PROTGAMMALGF')
+            else:
+                logger.info('Calculating FastTree tree for protein alignment {}'.format(f))
+                result = run_fasttree(f, False)
         rec.parameters.ml_tree = result['tree']
         rec.parameters.likelihood = result['likelihood']
         rec.parameters.partitions.append(treeCl.parameters.PartitionParameters())
         rec.parameters.partitions.alpha = result['alpha']
-        rec.parameters.partitions.rates = result['rates']
-        rec.parameters.partitions.frequencies = result['frequencies']
+        if method == 'raxml':
+            rec.parameters.partitions.rates = result['rates']
+            rec.parameters.partitions.frequencies = result['frequencies']
 
     # collection.calc_trees()
     collection.write_parameters(os.path.join(working_dir, 'cache'))
@@ -64,10 +76,10 @@ def cluster(dm, path, index, nclust):
             fl.write(repr(p)+'\n')
     return ps
 
-def write_concats(collection, ps, path, index, logger):
+def write_concats(collection, ps, path, index, logger, method):
     concat_dir = get_dirs(path, index)['concdir']
     if not os.path.exists(concat_dir): os.mkdir(concat_dir)
-    
+
     # First concat is all records, no clustering
     conc = collection.concatenate(range(len(collection)))
     al = conc.alignment
@@ -92,11 +104,22 @@ def write_concats(collection, ps, path, index, logger):
             outr = os.path.join(concat_dir, '{}cl{}.json'.format(ngrp, i))
             al.write_alignment(outf, 'phylip', True)
             if al.is_dna():
-                logger.info('Calculating fast raxml tree for dna alignment {}cl{}.phy'.format(ngrp, i))
-                result = run_raxml_fast(outf)
+                if method == 'raxml':
+                    logger.info('Calculating fast raxml tree for dna alignment {}cl{}.phy'.format(ngrp, i))
+                    result = run_raxml_fast(outf)
+                else:
+                    logger.info('Calculating FastTree tree for dna alignment {}'.format(f))
+                    result = run_fasttree(f, True)
+
+
             else:
-                logger.info('Calculating fast raxml tree for protein alignment {}cl{}.phy'.format(ngrp, i))
-                result = run_raxml_fast(outf, 'PROTGAMMALG')
+                if method == 'raxml':
+                    logger.info('Calculating fast raxml tree for protein alignment {}cl{}.phy'.format(ngrp, i))
+                    result = run_raxml_fast(outf, 'PROTGAMMALG')
+                else:
+                    logger.info('Calculating FastTree tree for protein alignment {}'.format(f))
+                    result = run_fasttree(f, False)
+
             with fileIO.fwriter(outr) as fl:
                 json.dump(result, fl)
 
@@ -113,12 +136,24 @@ def set_logger():
     logger.addHandler(console)
     return logger
 
+def run_fasttree(fl, dna=False):
+    fl = os.path.abspath(fl)
+    with fileIO.TempDir() as tmpd, fileIO.ChDir(tmpd):
+        fst = FastTree(verbose=False)
+        cmd = '-gtr -gamma -pseudo -out tree.txt {} {}'.format('-nt' if dna else '', fl)
+        fst(cmd, wait=True)
+        with open('tree.txt') as treefl_handle:
+            tree = treefl_handle.read()
+    result = parse_fasttree_output(fst.get_stderr())
+    result['tree'] = tree
+    return result
+
 def run_raxml_fast(fl, model='GTRGAMMA'):
     fl = os.path.abspath(fl)
     with fileIO.TempDir() as tmpd, fileIO.ChDir(tmpd):
         rax = Raxml(verbose=False)
         rax(s=fl, m=model, p='123', f='F', n='initial_tree', wait=True)
-        
+
         rax(s=fl, m=model, p='123', f='e', R='RAxML_binaryModelParameters.initial_tree', t='RAxML_fastTree.initial_tree', n='model_opt', wait=True)
 
         resfl = 'RAxML_info.model_opt'
@@ -151,6 +186,19 @@ def parse_raxml_output(s):
         'rates': [ac, ag, at, cg, ct, gt],
     }
 
+def parse_fasttree_output(s):
+
+    try:
+        loglk, alpha = (float(x) for x in re.search(r'Gamma\(\d+\) LogLk = ([0-9-.]+) alpha = ([0-9.]+)', s).groups())
+    except AttributeError:
+        logger.warn('Couldn\'t parse loglk and alpha from {}'.format(filename))
+        return None
+
+    return {
+        'likelihood': loglk,
+        'alpha': alpha,
+    }
+
 if __name__ == '__main__':
     import argparse
     logger = set_logger()
@@ -159,6 +207,7 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--path', type=str, required=True)
     parser.add_argument('-i', '--index', type=str, required=True)
     parser.add_argument('-n', '--nclust', type=int, required=True)
+    parser.add_argument('-m', '--method', type=str, default='fasttree', choices=['fasttree', 'raxml'])
     args = parser.parse_args()
 
     logger.info('Writing npbs...')
@@ -166,10 +215,11 @@ if __name__ == '__main__':
     logger.info('Getting a treeCl.Collection from the new npbs files...')
     c = get_collection(args.path, args.index)
     logger.info('Calc trees...')
-    calc_trees(c, args.path, args.index, logger)
+    calc_trees(c, args.path, args.index, logger, args.method)
     logger.info('Calc distances...')
     dm = calc_dists(c, args.path, args.index)
     logger.info('Cluster...')
     ps = cluster(dm, args.path, args.index, args.nclust)
     logger.info('Write up...')
-    write_concats(c, ps, args.path, args.index, logger)
+    write_concats(c, ps, args.path, args.index, logger, args.method)
+
