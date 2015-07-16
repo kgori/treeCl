@@ -4,3 +4,4 @@ include bin/treeCl
 include extensions/tree_collection/src/*.h
 include extensions/tree_collection/src/*.cc
 include extensions/tree_collection/cython/wrapper.*
+include logging/logging.yaml

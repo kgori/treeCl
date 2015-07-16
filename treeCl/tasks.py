@@ -1,5 +1,6 @@
 from pllpy import pll
 import tree_collection
+import os
 
 from treeCl import treedist
 from treeCl.tree import Tree
@@ -8,6 +9,7 @@ from treeCl.utils.pll_helpers import pll_to_dict
 from treeCl.parameters import Parameters
 from treeCl.utils import fileIO, smooth_freqs
 from treeCl.constants import PLL_RANDOM_SEED
+from treeCl.wrappers.phylogenetics import FastTree, parse_fasttree_output
 
 def eucdist_task(newick_string_a, newick_string_b, normalise):
     """
@@ -61,14 +63,17 @@ def wrfdist_task(newick_string_a, newick_string_b, normalise):
         wrfdist_task.retry(exc=exc, countdown=1, max_retries=5)
 
 
-def pll_task(alignment_file, partition_string, guidetree=None, threads=1, seed=PLL_RANDOM_SEED, frequencies=None,
+def pll_task(alignment_file, partition_string, guidetree=None, tree_search=True, threads=1, seed=PLL_RANDOM_SEED, frequencies=None,
              write_to_file=None):
     guidetree = True if guidetree is None else guidetree
     instance = pll(alignment_file, partition_string, guidetree, threads, seed)
     if frequencies is not None and len(frequencies) == instance.get_number_of_partitions():
         for i in range(len(frequencies)):
             instance.set_frequencies(frequencies[i], i, False)
-    instance.optimise_tree_search(True)
+    if tree_search:
+        instance.optimise_tree_search(True)
+    else:
+        instance.optimise(True, True, True, True)
     result = pll_to_dict(instance)
     if write_to_file is not None: # attempt to write to file specified by write_to_file
         try:
@@ -80,6 +85,18 @@ def pll_task(alignment_file, partition_string, guidetree=None, threads=1, seed=P
             pass  # fail silently
     return result
 
+
+def fasttree_task(alignment_file, dna=False):
+    fl = os.path.abspath(alignment_file)
+    with fileIO.TempDir() as tmpd, fileIO.ChDir(tmpd):
+        fst = FastTree(verbose=False)
+        cmd = '-gtr -gamma -pseudo -out tree.txt {} {}'.format('-nt' if dna else '', fl)
+        fst(cmd, wait=True)
+        with open('tree.txt') as treefl_handle:
+            tree = treefl_handle.read().rstrip()
+    result = parse_fasttree_output(fst.get_stderr())
+    result['ml_tree'] = Tree(tree).as_string('newick', internal_labels=False, suppress_rooting=True).rstrip()
+    return result
 
 def fast_calc_distances_task(alignment_file):
     rec = Alignment(alignment_file, 'phylip', True)

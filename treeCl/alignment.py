@@ -12,6 +12,7 @@ from Bio.Seq import Seq, UnknownSeq
 from Bio.SeqRecord import SeqRecord
 from Bio.Align import MultipleSeqAlignment
 from Bio.Alphabet import IUPAC
+from Bio import AlignIO
 from collections import defaultdict
 
 
@@ -56,6 +57,18 @@ class Alignment(bpp.Alignment):
     def read_alignment(self, *args, **kwargs):
         super(Alignment, self).read_alignment(*args, **kwargs)
         self.infile = args[0]
+
+    def write_alignment(self, filename, file_format, interleaved=None):
+        """
+        Overloads the base class function.
+        Uses Bio AlignIO to write because biopp writes
+        phylip interleaved in a way that causes an error
+        with FastTree
+        """
+        b = self.to_biopython_msa()
+        if file_format == 'phylip':
+            file_format = 'phylip-relaxed'
+        AlignIO.write(b, filename, file_format)
 
     def get_alignment_file(self, as_phylip=False):
         try:

@@ -28,6 +28,10 @@ from .tree import Tree
 from .utils import fileIO, setup_progressbar, model_translate
 from .utils.decorators import lazyprop
 
+import json
+import sys
+import logging
+logger = logging.getLogger(__name__)
 
 def gapmask(simseqs, origseqs):
     """
@@ -429,7 +433,49 @@ class Collection(object):
                 j += 1
             pbar.finish()
 
-    def calc_trees(self, model=None, threads=1, indices=None, batchsize=1, output_dir=None, background=False):
+    def fast_calc_trees(self, indices=None, batchsize=1, background=False):
+        """
+        Use FastTree to calculate maximum-likelihood trees
+        :return: None (all side effects)
+        """
+        # Assemble argument lists
+        if indices is None:
+            indices = list(range(len(self)))
+        args = []
+        to_delete = []
+        for i in indices:
+            rec = self[i]
+            filename, delete = rec.get_alignment_file(as_phylip=True)
+            if delete:
+                to_delete.append(filename)
+            
+            curr_args = (filename, rec.is_dna())
+            args.append(curr_args)
+
+        # Dispatch work
+        msg = 'Calculating FastTree trees'
+        client = get_client()
+        if client is None:
+            map_result = sequential_map(tasks.fasttree_task, args, msg)
+        else:
+            map_result = parallel_map(client, tasks.fasttree_task, args, msg, batchsize, background)
+            if background:
+                return map_result
+
+        # Process results
+        with fileIO.TempFileList(to_delete):
+            pbar = setup_progressbar('Processing results', len(map_result))
+            j = 0
+            pbar.start()
+            for i, result in zip(indices, map_result):
+                logger.info(result)
+                rec = self[i]
+                rec.parameters.construct_from_dict(result)
+                pbar.update(j+1)
+                j += 1
+            pbar.finish()
+
+    def calc_trees(self, model=None, threads=1, indices=None, tree_search=True, batchsize=1, output_dir=None, background=False):
         """
         Use pllpy to calculate maximum-likelihood trees
         :return: None (all side effects)
@@ -452,9 +498,9 @@ class Collection(object):
             tree = rec.parameters.nj_tree if rec.parameters.nj_tree is not None else True
             if output_dir is not None and os.path.isdir(output_dir):
                 output_file = os.path.join(output_dir, '{}.json'.format(rec.name))
-                curr_args = (filename, partition, tree, threads, PLL_RANDOM_SEED, None, output_file)
+                curr_args = (filename, partition, tree, tree_search, threads, PLL_RANDOM_SEED, None, output_file)
             else:
-                curr_args = (filename, partition, tree, threads, PLL_RANDOM_SEED)
+                curr_args = (filename, partition, tree, tree_search, threads, PLL_RANDOM_SEED)
             args.append(curr_args)
 
         # Dispatch work
@@ -593,7 +639,7 @@ class Scorer(object):
     def records(self):
         return self.collection.records
 
-    def add_lnl_partitions(self, partitions, threads=1, use_calculated_freqs=True, batchsize=1, background=False):
+    def add_lnl_partitions(self, partitions, threads=1, use_calculated_freqs=True, tree_search=True, batchsize=1, background=False):
         self.add_minsq_partitions(partitions)
         if isinstance(partitions, Partition):
             partitions = (partitions,)
@@ -615,9 +661,9 @@ class Scorer(object):
                 partition = conc.qfile(default_dna="GTR", default_protein="LG", ml_freqs=True)
                 tree = self.minsq_cache[ix]['tree']
                 if use_calculated_freqs:
-                    args.append((filename, partition, tree, threads, PLL_RANDOM_SEED, conc.frequencies))
+                    args.append((filename, partition, tree, tree_search, threads, PLL_RANDOM_SEED, conc.frequencies))
                 else:
-                    args.append((filename, partition, tree, threads, PLL_RANDOM_SEED, None))
+                    args.append((filename, partition, tree, tree_search, threads, PLL_RANDOM_SEED, None))
 
             # Distribute work
             with fileIO.TempFileList(to_delete):

@@ -3,6 +3,9 @@ Data structures to hold model parameters and attributes such as alignment file p
 """
 import json
 import sys
+import logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 def setter_helper(fn, value):
     """
@@ -29,6 +32,7 @@ class BaseParameters(object):
     def construct_from_dict(self, dict):
         for k, v in dict.items():
             if '_{}'.format(k) in self.__slots__:
+                logger.debug('Set attributes {}, {}'.format(k, v))
                 setattr(self, k, v)
 
     def write(self, fileobj=sys.stdout, indent=None):
@@ -184,7 +188,11 @@ class Parameters(BaseParameters):
 
     def construct_from_dict(self, dict):
         super(Parameters, self).construct_from_dict(dict)
-        tmp = {int(k): v for (k, v) in self._partitions.items()}
+        try:
+            tmp = {int(k): v for (k, v) in self._partitions.items()}
+        except AttributeError:
+            tmp = {}
+        logger.debug('tmp = {}'.format(tmp))
         self._partitions = []
         for k in sorted(tmp):
             pp = PartitionParameters()
