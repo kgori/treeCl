@@ -96,7 +96,7 @@ setup(name="treeCl",
       packages=find_packages(),
       include_package_data=True,
       package_data={
-          'logging_config': ['logging/logging.yaml']
+          'treeCl': ['logging/logging.yaml']
       },
       scripts=[
           'bin/simulator',

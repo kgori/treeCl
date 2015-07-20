@@ -468,7 +468,6 @@ class Collection(object):
             j = 0
             pbar.start()
             for i, result in zip(indices, map_result):
-                logger.info(result)
                 rec = self[i]
                 rec.parameters.construct_from_dict(result)
                 pbar.update(j+1)

@@ -11,16 +11,12 @@ from plotter import Plotter
 from simulator import Simulator
 from tree import Tree
 
-import logging
+import logging.config
 import yaml
 from pkg_resources import resource_string
-logging_config = resource_string(__name__, 'logging_config')
+conf = resource_string(__name__, 'logging/logging.yaml')
 
-
-
-
-D = yaml.load(logging_config)
+D = yaml.load(conf)
 D.setdefault('version', 1)
 logging.config.dictConfig(D)
-logger = logging.getLogger(__name__)
-logger.info('xyz')
+del D

@@ -49,31 +49,7 @@ def calc_trees(collection, path, i, logger, method, fastest):
         collection.calc_trees(tree_search=False)
     else:
         raise ValueError('Unrecognised method {}'.format(method))
-    # for rec in collection:
-    #     f = rec.parameters.filename
-    #     if rec.is_dna():
-    #         if method == 'raxml':
-    #             logger.info('Calculating fast raxml tree for dna alignment {}'.format(f))
-    #             result = run_raxml_fast(f, fastest)
-    #         else:
-    #             logger.info('Calculating FastTree tree for dna alignment {}'.format(f))
-    #             result = run_fasttree(f, True)
-    #     else:
-    #         if method == 'raxml':
-    #             logger.info('Calculating fast raxml tree for protein alignment {}'.format(f))
-    #             result = run_raxml_fast(f, 'PROTGAMMALGF', fastest)
-    #         else:
-    #             logger.info('Calculating FastTree tree for protein alignment {}'.format(f))
-    #             result = run_fasttree(f, False)
-    #     rec.parameters.ml_tree = result['tree']
-    #     rec.parameters.likelihood = result['likelihood']
-    #     rec.parameters.partitions.append(treeCl.parameters.PartitionParameters())
-    #     rec.parameters.partitions.alpha = result['alpha']
-    #     if method == 'raxml':
-    #         rec.parameters.partitions.rates = result['rates']
-    #         rec.parameters.partitions.frequencies = result['frequencies']
 
-    # collection.calc_trees()
     collection.write_parameters(os.path.join(working_dir, 'cache'))
 
 def calc_dists(collection, path, i):
