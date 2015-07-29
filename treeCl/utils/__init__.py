@@ -1,6 +1,7 @@
 # import fileIO
 from progressbar import ProgressBar, Percentage, SimpleProgress, Timer, AdaptiveETA, Bar, FormatLabel
 import numpy as np
+import itertools
 from .enum import enum
 from .printing import print_and_return
 from Bio.Seq import Seq, UnknownSeq
@@ -119,3 +120,11 @@ def smooth_freqs(freqs):
     """
     s = sum(freqs)
     return [f/s for f in freqs]
+
+def grouper(n, iterable):
+    """
+    >>> list(grouper(3, 'ABCDEFG'))
+    [['A', 'B', 'C'], ['D', 'E', 'F'], ['G']]
+    """
+    iterable = iter(iterable)
+    return iter(lambda: list(itertools.islice(iterable, n)), [])
