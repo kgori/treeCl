@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import treeCl
+from treeCl import Partition
 from treeCl.utils import fileIO
 from treeCl.wrappers.phylogenetics import Raxml, FastTree
 import os
@@ -18,14 +19,24 @@ def get_dirs(path, i):
 
 def generate_npbs(path, i):
     c = treeCl.Collection(input_dir=path, file_format='phylip')
-    npbs = c.permuted_copy()
     working_dir = get_dirs(path, i)['wdir']
-    if not os.path.exists(working_dir):
-        os.mkdir(working_dir)
-    for rec in npbs:
-        rec.write_alignment('{}.phy'.format(os.path.join(working_dir, rec.name)), 'phylip', True)
-        AlignIO.convert('{}.phy'.format(os.path.join(working_dir, rec.name)), 'phylip-relaxed', '{}.phy_'.format(os.path.join(working_dir, rec.name)), 'phylip-relaxed')
-        os.system('mv {} {}'.format('{}.phy_'.format(os.path.join(working_dir, rec.name)), '{}.phy'.format(os.path.join(working_dir, rec.name))))
+    # Check if work already done
+    work_done = True
+    for rec in c:
+        looking_for = '{}.phy'.format(os.path.join(working_dir, rec.name))
+        if not (os.path.exists(looking_for) and os.path.getsize(looking_for) > 0):
+            if not (os.path.exists(looking_for + '.bz2') and os.path.getsize(looking_for + '.bz2') > 0):
+                logger.error("File not found or is empty: {}".format(looking_for))
+                work_done = False
+
+    if not work_done:
+        npbs = c.permuted_copy()
+        if not os.path.exists(working_dir):
+            os.mkdir(working_dir)
+        for rec in npbs:
+            rec.write_alignment('{}.phy'.format(os.path.join(working_dir, rec.name)), 'phylip', True)
+            AlignIO.convert('{}.phy'.format(os.path.join(working_dir, rec.name)), 'phylip-relaxed', '{}.phy_'.format(os.path.join(working_dir, rec.name)), 'phylip-relaxed')
+            os.system('mv {} {}'.format('{}.phy_'.format(os.path.join(working_dir, rec.name)), '{}.phy'.format(os.path.join(working_dir, rec.name))))
 
 def get_collection(path, i):
     working_dir = get_dirs(path, i)['wdir']
@@ -62,12 +73,16 @@ def calc_dists(collection, path, i):
     return geo
 
 def cluster(dm, path, index, nclust):
-    cl = treeCl.Spectral(dm)
-    ps = [cl.cluster(i) for i in range(2, nclust)]
     cache_dir = get_dirs(path, index)['cachedir']
-    with treeCl.utils.fileIO.fwriter(os.path.join(cache_dir, 'partitions.txt')) as fl:
-        for p in ps:
-            fl.write(repr(p)+'\n')
+    if os.path.exists(os.path.join(cache_dir, 'partitions.txt')):
+        with treeCl.utils.fileIO.freader(os.path.join(cache_dir, 'partitions.txt')) as fl:
+            ps = [eval(line) for line in fl]
+    else:
+        cl = treeCl.Spectral(dm)
+        ps = [cl.cluster(i) for i in range(2, nclust)]
+        with treeCl.utils.fileIO.fwriter(os.path.join(cache_dir, 'partitions.txt')) as fl:
+            for p in ps:
+                fl.write(repr(p)+'\n')
     return ps
 
 def write_concats(collection, ps, path, index, logger, method, fastest):
@@ -75,61 +90,66 @@ def write_concats(collection, ps, path, index, logger, method, fastest):
     if not os.path.exists(concat_dir): os.mkdir(concat_dir)
 
     # First concat is all records, no clustering
-    conc = collection.concatenate(range(len(collection)))
-    al = conc.alignment
     outf = os.path.join(concat_dir, '1cl0.phy')
     outr = os.path.join(concat_dir, '1cl0.json')
-    al.write_alignment(outf, 'phylip', True)
-    AlignIO.convert(outf, 'phylip-relaxed', '{}_'.format(outf), 'phylip-relaxed')
-    os.system('mv {} {}'.format('{}_'.format(outf), outf))
-    if al.is_dna():
-        if method == 'raxml':
-            logger.info('Calculating fast raxml tree for dna alignment 1cl0.phy')
-            result = run_raxml_fast(outf, fastest)
-        else:
-            logger.info('Calculating FastTree tree for dna alignment 1cl0.phy')
-            result = run_fasttree(outf, True)
+    if not os.path.exists(outf):
+        conc = collection.concatenate(range(len(collection)))
+        al = conc.alignment
+        al.write_alignment(outf, 'phylip', True)
+        AlignIO.convert(outf, 'phylip-relaxed', '{}_'.format(outf), 'phylip-relaxed')
+        os.system('mv {} {}'.format('{}_'.format(outf), outf))
+    if not os.path.exists(outr):
+        al = treeCl.alignment.Alignment(outf, 'phylip', True)
+        if al.is_dna():
+            if method == 'raxml':
+                logger.info('Calculating fast raxml tree for dna alignment 1cl0.phy')
+                result = run_raxml_fast(outf, fastest)
+            else:
+                logger.info('Calculating FastTree tree for dna alignment 1cl0.phy')
+                result = run_fasttree(outf, True)
 
-    else:
-        if method == 'raxml':
-            logger.info('Calculating fast raxml tree for protein alignment 1cl0.phy')
-            result = run_raxml_fast(outf, 'PROTGAMMALG', fastest)
         else:
-            logger.info('Calculating FastTree tree for protein alignment 1cl0.phy')
-            result = run_fasttree(outf, False)
+            if method == 'raxml':
+                logger.info('Calculating fast raxml tree for protein alignment 1cl0.phy')
+                result = run_raxml_fast(outf, 'PROTGAMMALG', fastest)
+            else:
+                logger.info('Calculating FastTree tree for protein alignment 1cl0.phy')
+                result = run_fasttree(outf, False)
 
-    with fileIO.fwriter(outr) as fl:
-        json.dump(result, fl)
+        with fileIO.fwriter(outr) as fl:
+            json.dump(result, fl)
 
     # Now do rest of concats
     for ngrp, p in enumerate(ps, start=2):
         for i, grp in enumerate(p.get_membership()):
-            conc = collection.concatenate(grp)
-            al = conc.alignment
             outf = os.path.join(concat_dir, '{}cl{}.phy'.format(ngrp, i))
             outr = os.path.join(concat_dir, '{}cl{}.json'.format(ngrp, i))
-            al.write_alignment(outf, 'phylip', True)
-            AlignIO.convert(outf, 'phylip-relaxed', '{}_'.format(outf), 'phylip-relaxed')
-            os.system('mv {} {}'.format('{}_'.format(outf), outf))
-            if al.is_dna():
-                if method == 'raxml':
-                    logger.info('Calculating fast raxml tree for dna alignment {}cl{}.phy'.format(ngrp, i))
-                    result = run_raxml_fast(outf, fastest)
+            if not os.path.exists(outf):
+                conc = collection.concatenate(grp)
+                al = conc.alignment
+                al.write_alignment(outf, 'phylip', True)
+                AlignIO.convert(outf, 'phylip-relaxed', '{}_'.format(outf), 'phylip-relaxed')
+                os.system('mv {} {}'.format('{}_'.format(outf), outf))
+            if not os.path.exists(outr):
+                al = treeCl.alignment.Alignment(outf, 'phylip', True)
+                if al.is_dna():
+                    if method == 'raxml':
+                        logger.info('Calculating fast raxml tree for dna alignment {}cl{}.phy'.format(ngrp, i))
+                        result = run_raxml_fast(outf, fastest)
+                    else:
+                        logger.info('Calculating FastTree tree for dna alignment {}cl{}.phy'.format(ngrp, i))
+                        result = run_fasttree(outf, True)
+
                 else:
-                    logger.info('Calculating FastTree tree for dna alignment {}cl{}.phy'.format(ngrp, i))
-                    result = run_fasttree(outf, True)
+                    if method == 'raxml':
+                        logger.info('Calculating fast raxml tree for protein alignment {}cl{}.phy'.format(ngrp, i))
+                        result = run_raxml_fast(outf, 'PROTGAMMALG', fastest)
+                    else:
+                        logger.info('Calculating FastTree tree for protein alignment {}cl{}.phy'.format(ngrp, i))
+                        result = run_fasttree(outf, False)
 
-
-            else:
-                if method == 'raxml':
-                    logger.info('Calculating fast raxml tree for protein alignment {}cl{}.phy'.format(ngrp, i))
-                    result = run_raxml_fast(outf, 'PROTGAMMALG', fastest)
-                else:
-                    logger.info('Calculating FastTree tree for protein alignment {}cl{}.phy'.format(ngrp, i))
-                    result = run_fasttree(outf, False)
-
-            with fileIO.fwriter(outr) as fl:
-                json.dump(result, fl)
+                with fileIO.fwriter(outr) as fl:
+                    json.dump(result, fl)
 
 
 def set_logger():
@@ -211,7 +231,7 @@ def parse_fasttree_output(s):
 
 if __name__ == '__main__':
     import argparse
-    logger = set_logger()
+    logger = treeCl.logging.getLogger()
     logger.info('Handling args...')
     parser = argparse.ArgumentParser()
     parser.add_argument('-p', '--path', type=str, required=True)
@@ -220,11 +240,17 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--fastest', action='store_true')
     parser.add_argument('-m', '--method', type=str, default='fasttree', choices=['fasttree', 'raxml'])
     args = parser.parse_args()
+    logger.info('Path = {}, Index = {}, Method = {}'.format(args.path, args.index, args.method))
+
 
     logger.info('Writing npbs...')
     generate_npbs(args.path, args.index)
+
+
     logger.info('Getting a treeCl.Collection from the new npbs files...')
     c = get_collection(args.path, args.index)
+
+
     logger.info('Looking for precomputed trees...')
     trees_found = read_cache(c, args.path, args.index)
     if not trees_found:
@@ -232,10 +258,16 @@ if __name__ == '__main__':
         calc_trees(c, args.path, args.index, logger, args.method, args.fastest)
     else:
         logger.info('Loaded trees from cache')
+
+
     logger.info('Calc distances...')
     dm = calc_dists(c, args.path, args.index)
+
+
     logger.info('Cluster...')
     ps = cluster(dm, args.path, args.index, args.nclust)
+
+
     logger.info('Write up...')
     write_concats(c, ps, args.path, args.index, logger, args.method, args.fastest)
 
