@@ -52,16 +52,14 @@ def gapmask(simseqs, origseqs):
 
 
 class NoRecordsError(Exception):
-    def __init__(self, file_format, input_dir, compression):
+    def __init__(self, file_format, input_dir):
         self.file_format = file_format
         self.input_dir = input_dir
-        self.compression = compression
 
     def __str__(self):
         msg = ('No records were found in {0} matching\n'
-               '\tfile_format = {1}\n'
-               '\tcompression = {2}'.format(self.input_dir,
-                                            self.file_format, self.compression))
+               '\tfile_format = {1}\n'.format(self.input_dir,
+                                              self.file_format))
         return msg
 
 
@@ -81,7 +79,6 @@ class Collection(object):
             input_dir=None,
             param_dir=None,
             file_format='fasta',
-            compression=None,
             header_grep=None,
             show_progressbars=True,
     ):
@@ -99,8 +96,7 @@ class Collection(object):
             optioncheck(file_format, ['fasta', 'phylip'])
             self.records = self.read_alignments(input_dir,
                                                 file_format,
-                                                header_grep,
-                                                compression)
+                                                header_grep)
 
         else:
             raise Exception('Provide a list of records, '
@@ -110,7 +106,7 @@ class Collection(object):
             self.read_parameters(param_dir)
 
         if not self.records:
-            raise NoRecordsError(file_format, input_dir, compression)
+            raise NoRecordsError(file_format, input_dir)
 
 
     def __len__(self):
@@ -211,13 +207,13 @@ class Collection(object):
                              (rec.get_names() for rec in self.records))
         return len(all_headers)
 
-    def read_alignments(self, input_dir, file_format, header_grep=None, compression=None):
+    def read_alignments(self, input_dir, file_format, header_grep=None):
         """ Get list of alignment files from an input directory *.fa, *.fas and
         *.phy files only
 
         Stores in self.files """
 
-        optioncheck(compression, [None, 'gz', 'bz2'])
+        compression = ['', 'gz', 'bz2']
 
         if file_format == 'fasta':
             extensions = ['fa', 'fas', 'fasta']
@@ -228,8 +224,8 @@ class Collection(object):
         else:
             extensions = []
 
-        if compression:
-            extensions = ['.'.join([x, compression]) for x in extensions]
+
+        extensions = list('.'.join([x,y]) if y else x for x,y in itertools.product(extensions, compression))
 
         files = fileIO.glob_by_extensions(input_dir, extensions)
         files.sort(key=SORT_KEY)
@@ -241,9 +237,9 @@ class Collection(object):
             pbar.start()
 
         for i, f in enumerate(files):
-            if compression is not None:
+            if f.endswith('gz') or f.endswith('bz2'):
                 with fileIO.TempFile() as tmpfile:
-                    with fileIO.freader(f, compression) as reader, fileIO.fwriter(tmpfile) as writer:
+                    with fileIO.freader(f, f.endswith('gz'), f.endswith('bz2')) as reader, fileIO.fwriter(tmpfile) as writer:
                         for line in reader:
                             writer.write(line)
                     try:
