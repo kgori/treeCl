@@ -103,7 +103,8 @@ setup(name="treeCl",
           'bin/treeCl',
           'bin/seqconvert',
           'bin/bootstrap',
-          'bin/npbs.py'
+          'bin/npbs.py',
+          'bin/pre_npbs.py',
       ],
       install_requires=[
           'autowrap',

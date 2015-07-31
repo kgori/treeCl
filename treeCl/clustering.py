@@ -7,7 +7,7 @@ from __future__ import print_function
 import numpy as np
 from scipy.cluster.hierarchy import fcluster
 from scipy.spatial.distance import squareform
-from fastcluster import linkage
+import fastcluster
 import skbio
 
 try:
@@ -40,6 +40,15 @@ methods = enum(
     "KMEANS",
     "GMM")
 
+linkage = enum(
+    "SINGLE",
+    "COMPLETE",
+    "AVERAGE",
+    "WARD",
+    "WEIGHTED",
+    "CENTROID",
+    "MEDIAN")
+
 
 class ClusteringManager(object):
     """
@@ -53,9 +62,17 @@ class ClusteringManager(object):
             raise ValueError('Distance matrix should be a numpy array or treeCl.DistanceMatrix')
         self.dm = dm
 
+    def __str__(self):
+        return str(self.dm)
+
     def get_dm(self, noise):
         return self.dm.add_noise().values if noise else self.dm.values
 
+
+class EMMixin(object):
+    """
+    Provide methods to do kmeans and GMM estimation
+    """
     @staticmethod
     def kmeans(nclusters, coords):
         est = KMeans(n_clusters=nclusters, n_init=50, max_iter=500)
@@ -68,11 +85,12 @@ class ClusteringManager(object):
         est.fit(coords)
         return Partition(est.predict(coords))
 
+
 def _check_val(opt, min_, max_):
     isnumbercheck(opt)
     rangecheck(opt, min_, max_)
 
-class Spectral(ClusteringManager):
+class Spectral(ClusteringManager, EMMixin):
     """
     Manager for spectral clustering 
     """
@@ -124,7 +142,6 @@ class Spectral(ClusteringManager):
         connected graph
 
         """
-
         matrix = self.get_dm(noise)
 
         # get local scale estimate
@@ -160,7 +177,6 @@ class Spectral(ClusteringManager):
         else:
             raise ValueError("Unexpected error: 'scale' not set")
 
-
         # ZeroDivisionError safety check
         if not (scale > 1e-5).all():
             if verbosity > 0:
@@ -170,17 +186,6 @@ class Spectral(ClusteringManager):
 
         aff = affinity(matrix, mask, scale)
         return aff
-        # laplacian = laplace(aff, **kwargs)
-
-        # if self._verbosity > 1:
-        #     print('Pruning parameter: {0}'.format(kp))
-        #     print('Mask, scale, affinity matrix and laplacian:')
-        #     print(mask)
-        #     print(scale)
-        #     print(aff)
-        #     print(laplace)
-
-        # return eigen(laplacian)  # vectors are in columns
 
     def cluster(self, n, method=methods.KMEANS):
         """
@@ -213,7 +218,7 @@ class Spectral(ClusteringManager):
         return p
 
 
-class Clustering(ClusteringManager):
+class Hierarchical(ClusteringManager):
     """ Apply clustering methods to distance matrix
 
     = Hierarchical clustering - single-linkage - complete-linkage - average-
@@ -229,32 +234,75 @@ class Clustering(ClusteringManager):
 
     """
 
-    def __init__(self, dm):
-        if isinstance(dm, np.ndarray):
-            dm = DistanceMatrix(dm)
-
-        if not isinstance(dm, DistanceMatrix):
-            raise ValueError('Distance matrix should be a numpy array or treeCl.DistanceMatrix')
-        self.dm = dm
-
     def __str__(self):
-        return str(self.dm)
+        return 'Hierarchical Clustering'
 
-    def anosim(self, partition, n_permutations=999):
-        if partition.is_minimal():
-            raise ValueError("ANOSim is not defined for singleton clusters")
-        elif partition.is_maximal():
-            raise ValueError("ANOSim is not defined for maximally divided partitions")
-        result = skbio.stats.distance.ANOSIM(skbio.DistanceMatrix(self.get_dm(False)), partition.partition_vector)
-        return result(n_permutations)
+    def cluster(self, nclusters, linkage_method=linkage.WARD, **kwargs):
+        """
+        Do hierarchical clustering on a distance matrix using one of the methods:
+            methods.SINGLE   = single-linkage clustering
+            methods.COMPLETE = complete-linkage clustering
+            methods.AVERAGE  = average-linkage clustering
+            methods.WARD     = Ward's minimum variance method
+        """
 
-    def permanova(self, partition, n_permutations=999):
-        if partition.is_minimal():
-            raise ValueError("PERMANOVA is not defined for singleton clusters")
-        elif partition.is_maximal():
-            raise ValueError("PERMANOVA is not defined for maximally divided partitions")
-        result = skbio.stats.distance.PERMANOVA(skbio.DistanceMatrix(self.get_dm(False)), partition.partition_vector)
-        return result(n_permutations)
+        if linkage_method == linkage.SINGLE:
+            return self._hclust(nclusters, 'single', **kwargs)
+        elif linkage_method == linkage.COMPLETE:
+            return self._hclust(nclusters, 'complete', **kwargs)
+        elif linkage_method == linkage.AVERAGE:
+            return self._hclust(nclusters, 'average', **kwargs)
+        elif linkage_method == linkage.WARD:
+            return self._hclust(nclusters, 'ward', **kwargs)
+        elif linkage_method == linkage.WEIGHTED:
+            return self._hclust(nclusters, 'weighted', **kwargs)
+        elif linkage_method == linkage.CENTROID:
+            return self._hclust(nclusters, 'centroid', **kwargs)
+        elif linkage_method == linkage.MEDIAN:
+            return self._hclust(nclusters, 'median', **kwargs)
+        else:
+            raise ValueError('Unknown linkage_method: {}'.format(linkage_method))
+
+    def _hclust(self, nclusters, method, noise=False):
+        """
+        :param nclusters: Number of clusters to return
+        :param linkage_method: single, complete, average, ward, weighted, centroid or median
+                               (http://docs.scipy.org/doc/scipy/reference/cluster.hierarchy.html)
+        :param noise: Add Gaussian noise to the distance matrix prior to clustering (bool, default=False)
+        :return: Partition object describing clustering
+        """
+        matrix = self.get_dm(noise)
+
+        linkmat = fastcluster.linkage(squareform(matrix), method)
+        linkmat_size = len(linkmat)
+        if nclusters <= 1:
+            br_top = linkmat[linkmat_size - nclusters][2]
+        else:
+            br_top = linkmat[linkmat_size - nclusters + 1][2]
+        if nclusters >= len(linkmat):
+            br_bottom = 0
+        else:
+            br_bottom = linkmat[linkmat_size - nclusters][2]
+        threshold = 0.5 * (br_top + br_bottom)
+        t = fcluster(linkmat, threshold, criterion='distance')
+        return Partition(t)
+
+
+class Clustering(ClusteringManager, EMMixin):
+    """ Apply clustering methods to distance matrix
+
+    = Hierarchical clustering - single-linkage - complete-linkage - average-
+    linkage (UPGMA) - Ward's method
+
+    = k-medoids
+
+    = Multidimensional Scaling (Principal Coordinate Analysis) + k-means
+
+    = Spectral Clustering + k-means - NJW method - Shi-Malik method - Zelnik-
+    Manor and Perona Local Scaling - Local Scaling with eigenvector rotation as
+    stopping criterion
+
+    """
 
     def kmedoids(self, nclusters, noise=False, npass=100, nreps=1):
 
@@ -433,6 +481,78 @@ class Clustering(ClusteringManager):
                   'the variance'.format(coords.shape[1], cve * 100))
         p = self.kmeans(nclusters, coords)
         return p
+
+
+class Assessment(ClusteringManager):
+
+    def anosim(self, partition, n_permutations=999):
+        if partition.is_minimal():
+            raise ValueError("ANOSim is not defined for singleton clusters")
+        elif partition.is_maximal():
+            raise ValueError("ANOSim is not defined for maximally divided partitions")
+        result = skbio.stats.distance.ANOSIM(skbio.DistanceMatrix(self.get_dm(False)), partition.partition_vector)
+        return result(n_permutations)
+
+    def permanova(self, partition, n_permutations=999):
+        if partition.is_minimal():
+            raise ValueError("PERMANOVA is not defined for singleton clusters")
+        elif partition.is_maximal():
+            raise ValueError("PERMANOVA is not defined for maximally divided partitions")
+        result = skbio.stats.distance.PERMANOVA(skbio.DistanceMatrix(self.get_dm(False)), partition.partition_vector)
+        return result(n_permutations)
+
+    def silhouette(self, partition):
+        pvec   = np.array(partition.partition_vector)
+        groups = np.unique(pvec)
+        nbrs   = np.zeros(pvec.shape)
+        scores = np.zeros(pvec.shape)
+
+        if len(groups) == 1:
+            raise ValueError("Silhouette is not defined for singleton clusters")
+        for ingroup in groups:
+            ingroup_ix = np.where(pvec == ingroup)[0]
+            within, between, outgroups = self.__get_mean_dissimilarities_for_group(pvec, ingroup, groups)
+            between_min = between.min(axis=0)
+            outgroup_ix, neighbours_ix = np.where(between == between_min)
+            neighbours = np.zeros(neighbours_ix.shape)
+            neighbours[neighbours_ix] = outgroups[outgroup_ix]
+            nbrs[ingroup_ix] = neighbours
+            scores[ingroup_ix] = self.__silhouette_calc(within, between_min)
+
+        return nbrs, scores
+
+    @staticmethod
+    def __get_indices_for_groups_by_index(ix, jx):
+        if len(ix) == len(jx) == 1 and ix == jx:
+            return [list(ix)], [list(jx)]
+        row_indices = [[i for j in jx if i != j] for i in ix]
+        column_indices = [[j for j in jx if j != i] for i in ix]
+        return row_indices, column_indices
+
+    @staticmethod
+    def __silhouette_calc(ingroup, outgroup):
+        if len(ingroup) == 1:
+            return 0
+        max_ = np.array([ingroup, outgroup]).max(axis=0)
+        return (outgroup - ingroup) / max_
+
+    def __get_indices_for_groups(self, pvec, group1, group2):
+        ix = np.where(pvec == group1)[0]
+        jx = np.where(pvec == group2)[0]
+        return self.__get_indices_for_groups_by_index(ix, jx)
+
+    def __get_mean_dissimilarities_for_group(self, pvec, group, groups):
+        outgroups = groups[groups != group]
+        within_indices = self.__get_indices_for_groups(pvec, group, group)
+        within_distances = self.dm.values[within_indices].mean(axis=1)
+        dissimilarities = []
+        for outgroup in outgroups:
+            between_indices = self.__get_indices_for_groups(pvec, group, outgroup)
+            between_distances = self.dm.values[between_indices]
+            dissimilarities.append(between_distances.mean(axis=1))
+        return within_distances, np.array(dissimilarities), outgroups
+
+
 
     # def plot_dendrogram(self, compound_key):
     #     """ Extracts data from clustering to plot dendrogram """

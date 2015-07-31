@@ -47,8 +47,9 @@ def parallel_map(client, task, args, message, batchsize=1, background=False):
     """
     njobs = len(args)
     nproc = len(client)
+    logger.debug('parallel_map: len(client) = {}'.format(len(client)))
     view = client.load_balanced_view()
-    message += ' ({} proc)'.format(nproc)
+    message += ' (IP:{}w:{}b)'.format(nproc, batchsize)
     pbar = setup_progressbar(message, njobs, simple_progress=True)
     if not background:
         pbar.start()
@@ -96,17 +97,19 @@ def threadpool_map(task, args, message, concurrency, batchsize=1):
     batched_task = lambda batch: [task(*job) for job in batch]
     PROGRESS = message is not None
     if PROGRESS:
-        message += ' ({} workers)'.format(concurrency)
+        message += ' (TP:{}w:{}b)'.format(concurrency, batchsize)
         pbar = setup_progressbar(message, njobs, simple_progress=True)
         pbar.start()
     with concurrent.futures.ThreadPoolExecutor(max_workers=concurrency) as executor:
         futures = []
+        completed_count = 0
         for batch in batches:
             futures.append(executor.submit(batched_task, batch))
 
         if PROGRESS:
             for i, fut in enumerate(concurrent.futures.as_completed(futures), start=1):
-                pbar.update(i*batchsize)
+                completed_count += len(fut.result())
+                pbar.update(completed_count)
 
         else:
             concurrent.futures.wait(futures)
@@ -123,20 +126,8 @@ class JobHandler(object):
     """
     metaclass = ABCMeta
 
-    # default values
-    concurrency = 1
-    batchsize = 1
-    client = None
-
-    def __init__(self, concurrency=None, client=None):
-        if concurrency is not None:
-            self.concurrency = concurrency
-
-        if client is not None:
-            self.client = client
-
     @abstractmethod
-    def __call__(self, task, params, message, batchsize):
+    def __call__(self, task, args, message, batchsize):
         """ If you define a message, then progress will be written to stderr """
         pass
 
@@ -144,10 +135,10 @@ class SequentialJobHandler(JobHandler):
     """
     Jobs are handled using a simple map
     """
-    def __init__(self, *args, **kwargs):
-        super(SequentialJobHandler, self).__init__()
 
-    def __call__(self, task, params, message, batchsize):
+    def __call__(self, task, args, message, batchsize):
+        if batchsize > 1:
+            logger.warn("Setting batchsize > 1 has no effect when using a SequentialJobHandler")
         return sequential_map(task, args, message)
 
 
@@ -155,25 +146,37 @@ class ThreadpoolJobHandler(JobHandler):
     """
     Jobs are handled by a threadpool using concurrent.futures
     """
-    def __init__(self, concurrency, *args, **kwargs):
-        super(ThreadpoolJobHandler, self).__init__(concurrency=concurrency)
+    def __init__(self, concurrency):
+        self.concurrency = concurrency
 
-    def __call__(self, task, params, message, *args, **kwargs):
-        return threadpool_map(task, args, message, self.concurrency)
+    def __call__(self, task, args, message, batchsize):
+        return threadpool_map(task, args, message, self.concurrency, batchsize)
 
 
 class IPythonJobHandler(JobHandler):
     """
     Jobs are handled using an IPython.parallel.Client
     """
-    def __init__(self, *args, **kwargs):
-        client=get_client()
-        if not client:
-            logger.warn('Could not obtain an IPython parallel Client - this IPythonJobHandler will behave as a SequentialJobHandler')
-        super(IPythonJobHandler, self).__init__(client=client)
+    def __init__(self, profile=None):
+        """
+        Initialise the IPythonJobHandler using the given ipython profile.
 
-    def __call__(self, task, params, message, *args, **kwargs):
-        if self.client is None:
-            return sequential_map(task, params, message, *args, **kwargs)
-        else:
-            return parallel_map(task, params, message, *args, **kwargs)
+        Parameters
+        ----------
+
+        profile:  string
+                  The ipython profile to connect to - this should already be running an ipcluster
+                  If the connection fails it raises a RuntimeError
+        """
+        import IPython.parallel
+        try:
+            self.client=IPython.parallel.Client(profile=profile)
+            logger.debug('__init__: len(client) = {}'.format(len(self.client)))
+        except IOError, IPython.parallel.TimeoutError:
+            msg = 'Could not obtain an IPython parallel Client using profile "{}"'.format(profile)
+            logger.error(msg)
+            raise RuntimeError(msg)
+
+    def __call__(self, task, args, message, batchsize):
+        logger.debug('__call__: len(client) = {}'.format(len(self.client)))
+        return list(parallel_map(self.client, task, args, message, batchsize))

@@ -23,7 +23,7 @@ from .errors import optioncheck, directorycheck
 from . import tasks
 from .parameters import PartitionParameters
 from .partition import Partition
-from .parutils import get_client, parallel_map, sequential_map
+from .parutils import SequentialJobHandler
 from .tree import Tree
 from .utils import fileIO, setup_progressbar, model_translate
 from .utils.decorators import lazyprop
@@ -32,6 +32,9 @@ import json
 import sys
 import logging
 logger = logging.getLogger(__name__)
+
+default_jobhandler = SequentialJobHandler()
+
 
 def gapmask(simseqs, origseqs):
     """
@@ -310,7 +313,7 @@ class Collection(object):
                 raise err
 
         for rec in self.records:
-            with fileIO.fwriter(os.path.join(output_dir, '{}.json'.format(rec.name)), gz=True) as outfile:
+            with fileIO.fwriter(os.path.join(output_dir, '{}.json'.format(rec.name)), gz=gz) as outfile:
                 rec.parameters.write(outfile, indent=4)
 
     def permuted_copy(self, partition=None):
@@ -339,7 +342,7 @@ class Collection(object):
 
         return self.__class__(records=sorted(alignments, key=lambda x: SORT_KEY(x.name)))
 
-    def fast_calc_distances(self, batchsize=1, background=False):
+    def fast_calc_distances(self, jobhandler=default_jobhandler, batchsize=1):
         """
         Calculate fast approximate intra-alignment pairwise distances and variances using
         Jukes-Cantor closed formulae.
@@ -355,15 +358,9 @@ class Collection(object):
             args.append((filename,))
 
         # Dispatch work (either sequentially or in parallel)
-        msg = 'Calculating fast distances'
+        msg = 'Fast distance estimation'
         with fileIO.TempFileList(to_delete):
-            client = get_client()
-            if client is None:
-                map_result = sequential_map(tasks.fast_calc_distances_task, args, msg)
-            else:
-                map_result = parallel_map(client, tasks.fast_calc_distances_task, args, msg, batchsize, background)
-                if background:
-                    return map_result
+            map_result = jobhandler(tasks.fast_calc_distances_task, args, msg, batchsize)
 
         # Process results
         pbar = setup_progressbar('Processing results', len(map_result))
@@ -384,7 +381,7 @@ class Collection(object):
             pbar.update(i)
         pbar.finish()
 
-    def calc_distances(self, batchsize=1, background=False):
+    def calc_distances(self, jobhandler=default_jobhandler, batchsize=1):
         """
         Calculate fast approximate intra-alignment pairwise distances and variances using
         ML (requires ML models to have been set up using `calc_trees`).
@@ -406,14 +403,8 @@ class Collection(object):
             args.append((model, filename))
 
         # Dispatch
-        msg = 'Calculating ML distances'
-        client = get_client()
-        if client is None:
-            map_result = sequential_map(tasks.calc_distances_task, args, msg)
-        else:
-            map_result = parallel_map(client, tasks.calc_distances_task, args, msg, batchsize, background)
-            if background:
-                return map_result
+        msg = 'ML distance estimation'
+        map_result = jobhandler(tasks.calc_distances_task, args, msg, batchsize)
 
         # Process results
         with fileIO.TempFileList(to_delete):
@@ -429,7 +420,7 @@ class Collection(object):
                 j += 1
             pbar.finish()
 
-    def fast_calc_trees(self, indices=None, batchsize=1, background=False):
+    def fast_calc_trees(self, indices=None, jobhandler=default_jobhandler, batchsize=1, background=False):
         """
         Use FastTree to calculate maximum-likelihood trees
         :return: None (all side effects)
@@ -449,28 +440,26 @@ class Collection(object):
             args.append(curr_args)
 
         # Dispatch work
-        msg = 'Calculating FastTree trees'
-        client = get_client()
-        if client is None:
-            map_result = sequential_map(tasks.fasttree_task, args, msg)
-        else:
-            map_result = parallel_map(client, tasks.fasttree_task, args, msg, batchsize, background)
-            if background:
-                return map_result
-
+        msg = 'FastTree tree estimation'
+        map_result = jobhandler(tasks.fasttree_task, args, msg, batchsize)
+        #logger.debug(str(map_result))
         # Process results
         with fileIO.TempFileList(to_delete):
-            pbar = setup_progressbar('Processing results', len(map_result))
+            pbar = setup_progressbar('Processing results', len(args))
+            logger.debug('len(args) = {}, len(map_result) = {} pbar.maxval = {}'.format(len(args), len(map_result), pbar.maxval))
             j = 0
             pbar.start()
             for i, result in zip(indices, map_result):
                 rec = self[i]
                 rec.parameters.construct_from_dict(result)
-                pbar.update(j+1)
+                try:
+                    pbar.update(j+1)
+                except ValueError:
+                    logger.error('Value of j ({}) too great for progressbar.maxval ({})'.format(j, pbar.maxval))
                 j += 1
             pbar.finish()
 
-    def calc_trees(self, model=None, threads=1, indices=None, tree_search=True, batchsize=1, output_dir=None, background=False):
+    def calc_trees(self, model=None, threads=1, indices=None, tree_search=True, jobhandler=default_jobhandler, batchsize=1, output_dir=None):
         """
         Use pllpy to calculate maximum-likelihood trees
         :return: None (all side effects)
@@ -499,14 +488,8 @@ class Collection(object):
             args.append(curr_args)
 
         # Dispatch work
-        msg = 'Calculating ML trees'
-        client = get_client()
-        if client is None:
-            map_result = sequential_map(tasks.pll_task, args, msg)
-        else:
-            map_result = parallel_map(client, tasks.pll_task, args, msg, batchsize, background)
-            if background:
-                return map_result
+        msg = 'PLL tree estimation'
+        map_result = jobhandler(tasks.pll_task, args, msg, batchsize)
 
         # Process results
         with fileIO.TempFileList(to_delete):
@@ -523,11 +506,9 @@ class Collection(object):
     def concatenate(self, indices):
         return Concatenation(self, indices)
 
-    def get_inter_tree_distances(self, metric, normalise=False, batchsize=100, background=False):
+    def get_inter_tree_distances(self, metric, jobhandler=default_jobhandler, normalise=False, batchsize=100):
         """ Generate a distance matrix from a fully-populated Collection """
-        array = _get_inter_tree_distances(metric, self.trees, normalise, batchsize, background)
-        if background:  # return IPython.parallel map result object to the user before jobs are finished
-            return array
+        array = _get_inter_tree_distances(metric, self.trees, jobhandler, normalise, batchsize)
         return DistanceMatrix.from_array(array, self.names)
 
     def get_tree_collection_strings(self, indices, scale=1, guide_tree=None):
@@ -592,7 +573,7 @@ class Collection(object):
         return distvar_string, genome_map_string, labels_string, tree_string
 
 
-def _get_inter_tree_distances(metric, trees, normalise=False, batchsize=100, background=False):
+def _get_inter_tree_distances(metric, trees, jobhandler, normalise=False, batchsize=100, background=False):
     # Assemble argument lists
     args = [(t1, t2, normalise) for (t1, t2) in itertools.combinations(trees, 2)]
 
@@ -603,14 +584,7 @@ def _get_inter_tree_distances(metric, trees, normalise=False, batchsize=100, bac
 
     # Dispatch
     msg = 'Inter-tree distances ({})'.format(metric)
-    client = get_client()
-    if client is None:
-        map_result = sequential_map(task, args, msg)
-    else:
-        map_result = parallel_map(client, task, args, msg, batchsize, background)
-        if background:
-            return map_result
-        map_result = list(map_result)
+    map_result = jobhandler(task, args, msg, batchsize)
 
     return squareform(map_result)
 

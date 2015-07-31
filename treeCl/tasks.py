@@ -89,33 +89,13 @@ def pll_task(alignment_file, partition_string, guidetree=None, tree_search=True,
 
 
 def fasttree_task(alignment_file, dna=False):
-    logger.debug("alignment_file = {}".format(alignment_file))   
     fl = os.path.abspath(alignment_file)
-    logger.debug("fl = {}".format(fl))
     with fileIO.TempDir() as tmpd, fileIO.TempFile(tmpd) as treefile:
-        logger.debug("Current dir = {}".format(os.getcwd()))
-        fst = FastTree(verbose=False)
-        cmd = '-gtr -gamma -pseudo -out {} {} {}'.format(treefile, '-nt' if dna else '', fl)
-        fst(cmd, wait=True)
-        logger.debug("{} exists? {}".format(treefile, 'True' if os.path.exists(treefile) else 'False'))
-        logger.debug(fst.get_stderr())
-        with open(treefile) as treefl_handle:
-            tree = treefl_handle.read().rstrip()
-        logger.debug('Tree - {}'.format(tree))
-    result = parse_fasttree_output(fst.get_stderr())
-    result['ml_tree'] = Tree(tree).as_string('newick', internal_labels=False, suppress_rooting=True).rstrip()
-    return result
-
-
-def fasttree_task_notmpdir(alignment_file, dna=False):
-    fl = os.path.abspath(alignment_file)
-    with fileIO.TempFile() as treefile:
         fst = FastTree(verbose=False)
         cmd = '-gtr -gamma -pseudo -out {} {} {}'.format(treefile, '-nt' if dna else '', fl)
         fst(cmd, wait=True)
         with open(treefile) as treefl_handle:
             tree = treefl_handle.read().rstrip()
-        logger.debug('Tree - {}'.format(tree))
     result = parse_fasttree_output(fst.get_stderr())
     result['ml_tree'] = Tree(tree).as_string('newick', internal_labels=False, suppress_rooting=True).rstrip()
     return result
