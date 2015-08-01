@@ -2,7 +2,7 @@ version: 1
 disable_existing_loggers: False
 formatters:
     time_stamp:
-        format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        format: "%(asctime)s - %(name)s - %(lineno)d - %(levelname)s - %(message)s"
         datefmt: "%Y-%m-%d %H:%M:%S"
     simple:
         format: "%(name)s - %(levelname)s - %(message)s"

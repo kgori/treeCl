@@ -3,6 +3,7 @@ from __future__ import print_function
 
 # standard lib
 import glob
+import hashlib
 import itertools
 import json
 import math
@@ -446,7 +447,6 @@ class Collection(object):
         # Process results
         with fileIO.TempFileList(to_delete):
             pbar = setup_progressbar('Processing results', len(args))
-            logger.debug('len(args) = {}, len(map_result) = {} pbar.maxval = {}'.format(len(args), len(map_result), pbar.maxval))
             j = 0
             pbar.start()
             for i, result in zip(indices, map_result):
@@ -587,6 +587,29 @@ def _get_inter_tree_distances(metric, trees, jobhandler, normalise=False, batchs
     map_result = jobhandler(task, args, msg, batchsize)
 
     return squareform(map_result)
+
+class Aggregator(object):
+
+    def __init__(self, collection, cache_dir):
+        self.collection = collection
+        self.cache = {}
+        self.cache_dir = cache_dir
+        if not os.path.exists(cache_dir):
+            raise IOError('\'{}\' does not exist'.format(cache_dir))
+
+    def add_partition(self, p, **kwargs):
+        for grp in p.get_membership():
+            if not grp in self.cache:
+                id_ = hashlib.sha1(hex(hash(grp))).hexdigest()
+                self.cache[grp] = id_
+                conc = self.collection.concatenate(grp)
+                al = conc.alignment
+                al.write_alignment(os.path.join(self.cache_dir, '{}.phy'.format(id_)),
+                                   'phylip', True)
+                q = conc.qfile(**kwargs)
+                with open(os.path.join(self.cache_dir, '{}.partitions.txt'.format(id_)), 'w') as fl:
+                    fl.write(q + '\n')
+
 
 
 class Scorer(object):

@@ -203,7 +203,7 @@ class Spectral(ClusteringManager, EMMixin):
         Partition: Partition object describing the data partition
         """
         if n == 1:
-            return Partition([1] * len(self.dm))
+            return Partition([1] * len(self.get_dm(False)))
 
         coords = spectral_embedding(self._affinity, n)
         self._coords = normalise_rows(coords)  # scale all rows to unit length
@@ -216,6 +216,11 @@ class Spectral(ClusteringManager, EMMixin):
         if self._verbosity > 0:
             print('Using clustering method: {}'.format(methods.reverse[method]))
         return p
+
+    @property
+    def affinity(self):
+        return self._affinity
+    
 
 
 class Hierarchical(ClusteringManager):

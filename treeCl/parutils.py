@@ -7,12 +7,12 @@ logger = logging.getLogger(__name__)
 
 __author__ = 'kgori'
 
-def fun(f,q_in,q_out):
+def fun(f, q_in, q_out):
     while True:
-        i,x = q_in.get()
+        (i, x) = q_in.get()
         if i is None:
             break
-        q_out.put((i,f(*x)))
+        q_out.put((i, f(*x)))
 
 def async_avail():
     from IPython import parallel
@@ -24,7 +24,6 @@ def async_avail():
     except Exception:
         return False
 
-
 def get_client():
     from IPython import parallel
     try:
@@ -35,10 +34,8 @@ def get_client():
     except Exception:
         return None
 
-
 def tupleise(args):
     return [a if isinstance(a, (tuple, list)) else (a,) for a in args]
-
 
 def parallel_map(client, task, args, message, batchsize=1, background=False):
     """
@@ -69,7 +66,6 @@ def parallel_map(client, task, args, message, batchsize=1, background=False):
     pbar.finish()
     return map_result
 
-
 def sequential_map(task, args, message):
     """
     Helper to map a function over a sequence of inputs, sequentially, with progress meter.
@@ -91,7 +87,6 @@ def sequential_map(task, args, message):
         pbar.update(i)
     pbar.finish()
     return map_result
-
 
 def threadpool_map(task, args, message, concurrency, batchsize=1):
     """
@@ -127,6 +122,9 @@ def threadpool_map(task, args, message, concurrency, batchsize=1):
     return flatten_list([fut.result() for fut in futures])
 
 def processpool_map(task, args, message, concurrency, batchsize=1):
+    """
+    See http://stackoverflow.com/a/16071616
+    """
     njobs = len(args)
     batches = grouper(batchsize, tupleise(args))
     def batched_task(*batch):
@@ -138,21 +136,23 @@ def processpool_map(task, args, message, concurrency, batchsize=1):
         pbar = setup_progressbar(message, len(args), simple_progress=True)
         pbar.start()
     
-    q_in   = multiprocessing.Queue(1)
-    q_out  = multiprocessing.Queue()
+    q_in   = multiprocessing.Queue()  # Should I limit either queue size? Limiting in-queue
+    q_out  = multiprocessing.Queue()  # increases time taken to send jobs, makes pbar less useful
 
-    proc = [multiprocessing.Process(target=fun,args=(batched_task, q_in, q_out)) for _ in range(concurrency)]
+    proc = [multiprocessing.Process(target=fun, args=(batched_task, q_in, q_out)) for _ in range(concurrency)]
     for p in proc:
         p.daemon = True
         p.start()
-
     sent = [q_in.put((i, x)) for (i, x) in enumerate(batches)]
     [q_in.put((None, None)) for _ in range(concurrency)]
     res = []
-    for i in range(len(sent)):
-        res.append(q_out.get())
+    completed_count = 0
+    for _ in range(len(sent)):
+        result = q_out.get()
+        res.append(result)
+        completed_count += len(result[1])
         if PROGRESS:
-            pbar.update(i+1)
+            pbar.update(completed_count)
 
     [p.join() for p in proc]
     if PROGRESS:
