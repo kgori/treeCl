@@ -3360,7 +3360,7 @@ MinSquareTreeCollection::MinSquareTreeCollection(const vector<DblMatrix> &matric
 //}
 
 void MinSquareTreeCollection::compute(bool KeepTopology, int iter, bool quiet) throw(RuntimeException) {
-    int nswap, i;
+    int nswap, i, loop_counter=0;
     double d1, d2, d0;
     IntVector Skip;
     DblMatrix L, M, W;
@@ -3370,7 +3370,7 @@ void MinSquareTreeCollection::compute(bool KeepTopology, int iter, bool quiet) t
     }
 
     Skip = IntVector::Zero(NT);  // flag for incomplete families
-    L = DblMatrix::Zero(NT, 7); // stores the 7 branch lengths
+    L = DblMatrix::Zero(NT, 7);  // stores the 7 branch lengths
     M = DblMatrix::Zero(NT, 12); // for 10 distances per family
     W = DblMatrix::Zero(NT, 12); // for 10 weights per family
 
@@ -3378,9 +3378,16 @@ void MinSquareTreeCollection::compute(bool KeepTopology, int iter, bool quiet) t
 
     globmin = d1 = d0 = DistanceFitCollection();
 
-    if (!quiet) printf("initial distance fit: %.8g\n", d1);
+    if (!quiet) {
+        printf("TreeCollection\n");
+        printf("--> initial distance fit: %.8g\n", d1);
+        printf("--> initial log-likelihood: %.8g\n", LogLikelihoodFitCollection());
+    }
 
     if (KeepTopology) {
+        if (!quiet) {
+            printf("Beginning branch length optimisation on fixed topology with max %d iterations\n", iter);
+        }
         IncidencesC();
         d1 = DBL_MAX;
         i = 4;
@@ -3400,32 +3407,55 @@ void MinSquareTreeCollection::compute(bool KeepTopology, int iter, bool quiet) t
     }
     else {
         i = iter;
+        if (!quiet) {
+            printf("Beginning topology optimisation with up to %d iterations of branch length optimisation per topology\n", i);
+        }
         IncidencesC();
 
         for (int i=0; i < iter; ++i){
             FitLabeledEdgesC(1);
             d2 = DistanceFitCollection();
-            if (!quiet) printf("after fitting edges with FitLabeledEdgesC, fit %.12g\n", d2);
             if (ReallyLessCollection(d2, d0))
                 d0 = d2;
             else
                 break;
         }
+        if (!quiet) {
+            printf("--> Distance fit   = %.12g\n", d2);
+            printf("--> log-likelihood = %.12g\n", LogLikelihoodFitCollection());
+        }
 
         while (i-- > 0) {
+            loop_counter += 1;
+            if (!quiet) {
+                printf("\n\nLOOP %d\n", loop_counter);
+                printf("1) Topology optimisation (i = %d)\n", i);
+            }
             if (ne > 4) {
                 nswap = FiveOptimCollection(0, L, Skip, M, W);
                 IncidencesC();
+                FitLabeledEdgesC(1);
                 d2 = DistanceFitCollection();
-                if (!quiet) printf("after FiveOptim, dst fit %.8g (%d swaps)\n", d2, nswap);
+                if (!quiet) {
+                    printf("--> Distance fit   = %.8g (%d swaps)\n", d2, nswap);
+                    printf("--> log-likelihood = %.12g\n", LogLikelihoodFitCollection());
+                }
             } else {
                 nswap = FourOptimCollection(0, L, Skip, M, W);
                 IncidencesC();
+                FitLabeledEdgesC(1);
                 d2 = DistanceFitCollection();
-                if (!quiet) printf("after FourOptim, dst fit %.8g (%d swaps)\n", d2, nswap);
+                if (!quiet) {
+                    printf("--> Distance fit   = %.8g (%d swaps)\n", d2, nswap);
+                    printf("--> log-likelihood = %.12g\n", LogLikelihoodFitCollection());
+                }
             }
-
+            if (!quiet) {
+                printf("2) Branch length optimisation\n");
+            }
             IncidencesC();
+            FitLabeledEdgesC(1);
+            d2 = DistanceFitCollection();
 
             for (int i=0; i < iter; ++i) {
                 FitLabeledEdgesC(1);
@@ -3437,12 +3467,37 @@ void MinSquareTreeCollection::compute(bool KeepTopology, int iter, bool quiet) t
                     break;
             }
 
-            if (nswap > 0)
+            if (!quiet) {
+                printf("--> Distance fit   = %.8g\n", d2);
+                printf("--> log-likelihood = %.12g\n", LogLikelihoodFitCollection());
+            }
+            if (!quiet) {
+                printf("3) Check if topology changed\n");
+            }
+            if (nswap > 0) {
                 i = iter;
-
-            if (ReallyLessCollection(d2, d1)) {
-                d1 = d2;
+                if (!quiet) {
+                    printf("--> Topology changed: reset i to %d\n", i);
+                }
                 continue;
+            }
+
+            if (!quiet) {
+                printf("4) Check for convergence (d1 = %f, d2 = %f)\n   If d2 < d1, continue optimising, else terminate\n", d1,
+                       d2);
+            }
+            if (ReallyLessCollection(d2, d1)) {
+                if (!quiet) {
+                    printf("--> Continue\n");
+                }
+                d1 = d2;
+                bestTree = getPhyTree();
+                bestScore = d2;
+                bestLnL = LogLikelihoodFitCollection();
+                continue;
+            }
+            if (!quiet) {
+                printf("--> Terminate\n");
             }
             break;
         }
@@ -3464,14 +3519,14 @@ bool MinSquareTreeCollection::isComputed() {
 }
 
 double MinSquareTreeCollection::getScore() {
-    return DistanceFitCollection();
+    return bestScore;
 }
 
 double MinSquareTreeCollection::getLogLikelihood() {
-   return LogLikelihoodFitCollection();
+   return bestLnL;
 }
 
 void MinSquareTreeCollection::getTree() {
-    PhyTree::TreePtr tree = getPhyTree();
-    tree->print(this->newick);
+    PhyTree::TreePtr tree = bestTree;
+    if (tree) tree->print(this->newick);
 }

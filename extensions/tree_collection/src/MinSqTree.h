@@ -151,6 +151,9 @@ public:
     double getScore();
     double getLogLikelihood();
     std::string newick = "";
+    double bestScore;
+    double bestLnL;
+    PhyTree::TreePtr bestTree;
 };
 
 #endif
