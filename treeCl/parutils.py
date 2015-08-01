@@ -2,10 +2,17 @@ from abc import ABCMeta, abstractmethod, abstractproperty
 from .constants import PARALLEL_PROFILE
 from .utils import setup_progressbar, grouper, flatten_list
 import logging
+import multiprocessing
 logger = logging.getLogger(__name__)
 
 __author__ = 'kgori'
 
+def fun(f,q_in,q_out):
+    while True:
+        i,x = q_in.get()
+        if i is None:
+            break
+        q_out.put((i,f(*x)))
 
 def async_avail():
     from IPython import parallel
@@ -79,7 +86,7 @@ def sequential_map(task, args, message):
     pbar = setup_progressbar(message, njobs, simple_progress=True)
     pbar.start()
     map_result = []
-    for (i, arglist) in enumerate(args):
+    for (i, arglist) in enumerate(tupleise(args)):
         map_result.append(task(*arglist))
         pbar.update(i)
     pbar.finish()
@@ -119,6 +126,40 @@ def threadpool_map(task, args, message, concurrency, batchsize=1):
 
     return flatten_list([fut.result() for fut in futures])
 
+def processpool_map(task, args, message, concurrency, batchsize=1):
+    njobs = len(args)
+    batches = grouper(batchsize, tupleise(args))
+    def batched_task(*batch):
+        return [task(*job) for job in batch]
+
+    PROGRESS = message is not None
+    if PROGRESS:
+        message += ' (PP:{}w:{}b)'.format(concurrency, batchsize)
+        pbar = setup_progressbar(message, len(args), simple_progress=True)
+        pbar.start()
+    
+    q_in   = multiprocessing.Queue(1)
+    q_out  = multiprocessing.Queue()
+
+    proc = [multiprocessing.Process(target=fun,args=(batched_task, q_in, q_out)) for _ in range(concurrency)]
+    for p in proc:
+        p.daemon = True
+        p.start()
+
+    sent = [q_in.put((i, x)) for (i, x) in enumerate(batches)]
+    [q_in.put((None, None)) for _ in range(concurrency)]
+    res = []
+    for i in range(len(sent)):
+        res.append(q_out.get())
+        if PROGRESS:
+            pbar.update(i+1)
+
+    [p.join() for p in proc]
+    if PROGRESS:
+        pbar.finish()
+
+    return flatten_list([x for (i, x) in sorted(res)])
+
 
 class JobHandler(object):
     """
@@ -130,6 +171,7 @@ class JobHandler(object):
     def __call__(self, task, args, message, batchsize):
         """ If you define a message, then progress will be written to stderr """
         pass
+
 
 class SequentialJobHandler(JobHandler):
     """
@@ -151,6 +193,17 @@ class ThreadpoolJobHandler(JobHandler):
 
     def __call__(self, task, args, message, batchsize):
         return threadpool_map(task, args, message, self.concurrency, batchsize)
+
+
+class ProcesspoolJobHandler(JobHandler):
+    """
+    Jobs are handled by a threadpool using concurrent.futures
+    """
+    def __init__(self, concurrency):
+        self.concurrency = concurrency
+
+    def __call__(self, task, args, message, batchsize):
+        return processpool_map(task, args, message, self.concurrency, batchsize)
 
 
 class IPythonJobHandler(JobHandler):
