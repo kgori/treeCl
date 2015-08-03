@@ -343,165 +343,61 @@ class Collection(object):
 
         return self.__class__(records=sorted(alignments, key=lambda x: SORT_KEY(x.name)))
 
-    def fast_calc_distances(self, jobhandler=default_jobhandler, batchsize=1):
-        """
-        Calculate fast approximate intra-alignment pairwise distances and variances using
-        Jukes-Cantor closed formulae.
-        :return: None (all side effects)
-        """
-        # Assemble argument lists
-        args = []
-        to_delete = []
-        for rec in self:
-            filename, delete = rec.get_alignment_file(as_phylip=True)
-            if delete:
-                to_delete.append(filename)
-            args.append((filename,))
-
-        # Dispatch work (either sequentially or in parallel)
-        msg = 'Fast distance estimation'
-        with fileIO.TempFileList(to_delete):
-            map_result = jobhandler(tasks.fast_calc_distances_task, args, msg, batchsize)
-
-        # Process results
-        pbar = setup_progressbar('Processing results', len(map_result))
-        j = 0
-        pbar.start()
-        for i, result in enumerate(map_result):
-            rec = self[i]
-            distances = result['distances']
-            variances = result['variances']
-            tree = result['tree']
-            rec.parameters.nj_tree = tree
-            params = rec.parameters.partitions
-            if params is None:
-                params = PartitionParameters()
-                rec.parameters.partitions = [params]
-            params.distances = distances
-            params.variances = variances
-            pbar.update(i)
-        pbar.finish()
-
-    def calc_distances(self, jobhandler=default_jobhandler, batchsize=1):
+    def calc_distances(self, indices=None, task_interface=None, jobhandler=default_jobhandler, batchsize=1):
         """
         Calculate fast approximate intra-alignment pairwise distances and variances using
         ML (requires ML models to have been set up using `calc_trees`).
         :return: None (all side effects)
         """
+        if indices is None:
+            indices = list(range(len(self)))
+
+        if task_interface is None:
+            task_interface = tasks.MLDistanceTaskInterface()
+
+        records = [self[i] for i in indices]
+
         # Assemble argument lists
-        args = []
-        to_delete = []
-        for rec in self:
-            filename, delete = rec.get_alignment_file(as_phylip=True)
-            if delete:
-                to_delete.append(filename)
-            # Get input dict
-            model = {'partitions': {}}
-            data = {'alpha': rec.parameters.partitions.alpha, 'frequencies': rec.parameters.partitions.frequencies}
-            if rec.is_dna():
-                data['rates'] = rec.parameters.partitions.rates
-            model['partitions'][0] = data
-            args.append((model, filename))
+        args, to_delete = task_interface.scrape_args(records)
 
         # Dispatch
-        msg = 'ML distance estimation'
-        map_result = jobhandler(tasks.calc_distances_task, args, msg, batchsize)
+        msg = '{} estimation'.format(task_interface.name)
+        map_result = jobhandler(task_interface.get_task(), args, msg, batchsize)
 
         # Process results
         with fileIO.TempFileList(to_delete):
-            pbar = setup_progressbar('Processing results', len(map_result))
-            j = 0
-            pbar.start()
-            for i, result in enumerate(map_result):
-                rec = self[i]
+            # pbar = setup_progressbar('Processing results', len(map_result))
+            # j = 0
+            # pbar.start()
+            for rec, result in zip(records, map_result):
+                logger.debug('Map result = {}'.format(result))
                 rec.parameters.partitions.distances = result['partitions'][0]['distances']
                 rec.parameters.partitions.variances = result['partitions'][0]['variances']
                 rec.parameters.nj_tree = result['nj_tree']
-                pbar.update(j+1)
-                j += 1
-            pbar.finish()
+                # pbar.update(j+1)
+                # j += 1
+            # pbar.finish()
 
-    def fast_calc_trees(self, indices=None, jobhandler=default_jobhandler, batchsize=1, background=False):
-        """
-        Use FastTree to calculate maximum-likelihood trees
-        :return: None (all side effects)
-        """
-        # Assemble argument lists
+    def calc_trees(self, indices=None, task_interface=None, jobhandler=default_jobhandler, batchsize=1, **kwargs):
         if indices is None:
             indices = list(range(len(self)))
-        args = []
-        to_delete = []
-        for i in indices:
-            rec = self[i]
-            filename, delete = rec.get_alignment_file(as_phylip=True)
-            if delete:
-                to_delete.append(filename)
-            
-            curr_args = (filename, rec.is_dna())
-            args.append(curr_args)
+
+        if task_interface is None:
+            task_interface = tasks.PllTaskInterface()
+
+        records = [self[i] for i in indices]
+        
+        # Scrape args from records
+        args, to_delete = task_interface.scrape_args(records, **kwargs)
 
         # Dispatch work
-        msg = 'FastTree tree estimation'
-        map_result = jobhandler(tasks.fasttree_task, args, msg, batchsize)
-        #logger.debug(str(map_result))
-        # Process results
-        with fileIO.TempFileList(to_delete):
-            pbar = setup_progressbar('Processing results', len(args))
-            j = 0
-            pbar.start()
-            for i, result in zip(indices, map_result):
-                rec = self[i]
-                rec.parameters.construct_from_dict(result)
-                try:
-                    pbar.update(j+1)
-                except ValueError:
-                    logger.error('Value of j ({}) too great for progressbar.maxval ({})'.format(j, pbar.maxval))
-                j += 1
-            pbar.finish()
-
-    def calc_trees(self, model=None, threads=1, indices=None, tree_search=True, jobhandler=default_jobhandler, batchsize=1, output_dir=None):
-        """
-        Use pllpy to calculate maximum-likelihood trees
-        :return: None (all side effects)
-        """
-        # Assemble argument lists
-        if indices is None:
-            indices = list(range(len(self)))
-        args = []
-        to_delete = []
-        for i in indices:
-            rec = self[i]
-            filename, delete = rec.get_alignment_file(as_phylip=True)
-            if delete:
-                to_delete.append(filename)
-            if model is None:
-                model = ('DNA' if rec.is_dna() else 'LGX')
-            if model == 'AUTOX':
-                model = 'AUTO'
-            partition = '{}, {} = 1 - {}'.format(model, rec.name, len(rec))
-            tree = rec.parameters.nj_tree if rec.parameters.nj_tree is not None else True
-            if output_dir is not None and os.path.isdir(output_dir):
-                output_file = os.path.join(output_dir, '{}.json'.format(rec.name))
-                curr_args = (filename, partition, tree, tree_search, threads, PLL_RANDOM_SEED, None, output_file)
-            else:
-                curr_args = (filename, partition, tree, tree_search, threads, PLL_RANDOM_SEED)
-            args.append(curr_args)
-
-        # Dispatch work
-        msg = 'PLL tree estimation'
-        map_result = jobhandler(tasks.pll_task, args, msg, batchsize)
+        msg = '{} Tree estimation'.format(task_interface.name)
+        map_result = jobhandler(task_interface.get_task(), args, msg, batchsize)
 
         # Process results
         with fileIO.TempFileList(to_delete):
-            pbar = setup_progressbar('Processing results', len(map_result))
-            j = 0
-            pbar.start()
-            for i, result in zip(indices, map_result):
-                rec = self[i]
+            for rec, result in zip(records, map_result):
                 rec.parameters.construct_from_dict(result)
-                pbar.update(j+1)
-                j += 1
-            pbar.finish()
 
     def concatenate(self, indices):
         return Concatenation(self, indices)
@@ -595,21 +491,58 @@ class Aggregator(object):
         self.cache = {}
         self.cache_dir = cache_dir
         if not os.path.exists(cache_dir):
+            os.makedirs(cache_dir)
+        if not os.path.exists(cache_dir):
             raise IOError('\'{}\' does not exist'.format(cache_dir))
 
-    def add_partition(self, p, **kwargs):
+    @staticmethod
+    def get_id(grp):
+        return hashlib.sha1(hex(hash(grp))).hexdigest()
+
+    def write_group(self, grp, **kwargs):
+        id_ = self.get_id(grp)
+        self.cache[grp] = id_
+        conc = self.collection.concatenate(grp)
+        al = conc.alignment
+        al.write_alignment(os.path.join(self.cache_dir, '{}.phy'.format(id_)),
+                           'phylip', True)
+        q = conc.qfile(**kwargs)
+        with open(os.path.join(self.cache_dir, '{}.partitions.txt'.format(id_)), 'w') as fl:
+            fl.write(q + '\n')
+
+    def write_partition(self, p, **kwargs):
         for grp in p.get_membership():
             if not grp in self.cache:
-                id_ = hashlib.sha1(hex(hash(grp))).hexdigest()
-                self.cache[grp] = id_
-                conc = self.collection.concatenate(grp)
-                al = conc.alignment
-                al.write_alignment(os.path.join(self.cache_dir, '{}.phy'.format(id_)),
-                                   'phylip', True)
-                q = conc.qfile(**kwargs)
-                with open(os.path.join(self.cache_dir, '{}.partitions.txt'.format(id_)), 'w') as fl:
-                    fl.write(q + '\n')
+                self.write_group(grp, **kwargs)
 
+    def analyse_cache_dir(self, jobhandler=None):
+        if jobhandler is None:
+            jobhandler = SequentialJobHandler()
+        files = glob.glob(os.path.join(self.cache_dir, '*.phy'))
+        args = []
+        dna = self.collection[0].is_dna() # THIS IS ONLY A GUESS AT SEQ TYPE!!
+        for infile in files:
+            outfile = f.replace('.phy', '.json')
+            logger.log('Looking for {}: {}'.format(outfile, os.path.exists(outfile)))
+            if not os.path.exists(outfile):
+                args.append(infile)
+        result = jobhandler(tasks.fasttree_task, args, 'Cache dir analysis', 1)
+        return result
+
+    def get_partition_score(self, p, jobhandler=None):
+        """
+        Assumes analysis is done and written to id.json!
+        """
+        result = []
+        for grp in p.get_membership():
+            id_ = self.cache.get(grp, self.get_id(grp))
+            filename = os.path.join(self.cache_dir, '{}.json'.format(id_))
+            try:
+                with open(filename) as fl:
+                    result.append(json.load(fl))
+            except IOError:
+                raise
+        return sum(result)
 
 
 class Scorer(object):

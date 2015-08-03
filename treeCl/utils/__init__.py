@@ -128,3 +128,9 @@ def grouper(n, iterable):
     """
     iterable = iter(iterable)
     return iter(lambda: list(itertools.islice(iterable, n)), [])
+
+def insort_no_dup(lst, item): 
+    import bisect
+    ix = bisect.bisect_left(lst, item)
+    if lst[ix] != item: 
+        lst[ix:ix] = [item]

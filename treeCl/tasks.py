@@ -1,6 +1,7 @@
 from pllpy import pll
 import tree_collection
 import os
+from abc import ABCMeta, abstractmethod, abstractproperty
 
 from treeCl import treedist
 from treeCl.tree import Tree
@@ -12,10 +13,29 @@ from treeCl.constants import PLL_RANDOM_SEED
 from treeCl.wrappers.phylogenetics import FastTree, parse_fasttree_output
 import logging
 logger = logging.getLogger(__name__)
+import numpy as np
+
+
+class TaskInterface(object):
+    __metaclass__ = ABCMeta
+    _name = None
+
+    @abstractmethod
+    def get_task(self):
+        pass
+
+    @abstractmethod
+    def scrape_args(self):
+        pass
+
+    @property
+    def name(self):
+        return self._name
+
 
 def eucdist_task(newick_string_a, newick_string_b, normalise):
     """
-    Celery-distributed version of tree_distance.eucdist
+    Distributed version of tree_distance.eucdist
     Parameters: two valid newick strings and a boolean
     """
     try:
@@ -28,7 +48,7 @@ def eucdist_task(newick_string_a, newick_string_b, normalise):
 
 def geodist_task(newick_string_a, newick_string_b, normalise):
     """
-    Celery-distributed version of tree_distance.geodist
+    Distributed version of tree_distance.geodist
     Parameters: two valid newick strings and a boolean
     """
     try:
@@ -41,7 +61,7 @@ def geodist_task(newick_string_a, newick_string_b, normalise):
 
 def rfdist_task(newick_string_a, newick_string_b, normalise):
     """
-    Celery-distributed version of tree_distance.rfdist
+    Distributed version of tree_distance.rfdist
     Parameters: two valid newick strings and a boolean
     """
     try:
@@ -54,7 +74,7 @@ def rfdist_task(newick_string_a, newick_string_b, normalise):
 
 def wrfdist_task(newick_string_a, newick_string_b, normalise):
     """
-    Celery-distributed version of tree_distance.rfdist
+    Distributed version of tree_distance.rfdist
     Parameters: two valid newick strings and a boolean
     """
     try:
@@ -65,6 +85,7 @@ def wrfdist_task(newick_string_a, newick_string_b, normalise):
         wrfdist_task.retry(exc=exc, countdown=1, max_retries=5)
 
 
+### TASKS that calculate trees
 def pll_task(alignment_file, partition_string, guidetree=None, tree_search=True, threads=1, seed=PLL_RANDOM_SEED, frequencies=None,
              write_to_file=None):
     guidetree = True if guidetree is None else guidetree
@@ -87,7 +108,6 @@ def pll_task(alignment_file, partition_string, guidetree=None, tree_search=True,
             pass  # fail silently
     return result
 
-
 def fasttree_task(alignment_file, dna=False):
     fl = os.path.abspath(alignment_file)
     with fileIO.TempDir() as tmpd, fileIO.TempFile(tmpd) as treefile:
@@ -104,9 +124,10 @@ def fasttree_task(alignment_file, dna=False):
 def fast_calc_distances_task(alignment_file):
     rec = Alignment(alignment_file, 'phylip', True)
     rec.fast_compute_distances()
-    result = dict(distances=rec.get_distances().tolist(),
-                  variances=rec.get_variances().tolist(),
-                  tree=rec.get_bionj_tree())
+    inner = dict(distances=rec.get_distances().tolist(),
+                 variances=rec.get_variances().tolist())
+    outer = dict(tree=rec.get_bionj_tree(),
+                 partitions={0: inner})
     return result
 
 
@@ -145,7 +166,157 @@ def simulate_task(n, model, frequencies, alpha, tree, rates=None):
 
 
 def minsq_task(dv, gm, lab, tree, niters=10, keep_topology=False):
-    tree, lk = tree_collection.compute(dv, gm, lab, tree, niters, True, keep_topology, True)
+    tree, lk = tree_collection.compute(dv, gm, lab, tree, niters, True, keep_topology, False)
     tree = Tree(tree)
     tree.deroot()
     return dict(tree=tree.newick, score=lk)
+
+
+class PllTaskInterface(TaskInterface):
+    _name = 'PLL'
+
+    def scrape_args(self, records, model=None, output_dir=None, tree_search=True, **kwargs):
+        args = []
+        to_delete = []
+        for rec in records:
+            filename, delete = rec.get_alignment_file(as_phylip=True)
+            if delete:
+                to_delete.append(filename)
+            if model is None:
+                model = ('DNA' if rec.is_dna() else 'LGX')
+            if model == 'AUTOX':
+                model = 'AUTO'
+            partition = '{}, {} = 1 - {}'.format(model, rec.name, len(rec))
+            tree = rec.parameters.nj_tree if rec.parameters.nj_tree is not None else True
+            if output_dir is not None and os.path.isdir(output_dir):
+                output_file = os.path.join(output_dir, '{}.json'.format(rec.name))
+                curr_args = (filename, partition, tree, tree_search, 1, PLL_RANDOM_SEED, None, output_file)
+            else:
+                curr_args = (filename, partition, tree, tree_search, 1, PLL_RANDOM_SEED)
+            args.append(curr_args)
+        return args, to_delete
+    
+    def get_task(self):
+        return pll_task
+
+
+class FastTreeTaskInterface(TaskInterface):
+    _name = 'FastTree'
+    
+    def scrape_args(self, records): 
+        args = []
+        to_delete = []
+        for rec in records:
+            filename, delete = rec.get_alignment_file(as_phylip=True)
+            if delete:
+                to_delete.append(filename)
+            
+            curr_args = (filename, rec.is_dna())
+            args.append(curr_args)
+        return args, to_delete
+    
+    def get_task(self):
+        return fasttree_task
+
+
+class ApproxDistanceTaskInterface(TaskInterface):
+    _name = 'Approx distance'
+
+    def scrape_args(self, records):
+        args = []
+        to_delete = []
+        for rec in records:
+            filename, delete = rec.get_alignment_file(as_phylip=True)
+            if delete:
+                to_delete.append(filename)
+            args.append((filename,))
+        return args, to_delete
+
+    def get_task(self):
+        return fast_calc_distances_task
+
+
+class MLDistanceTaskInterface(TaskInterface):
+    _name = 'ML distance'
+
+    def scrape_args(self, records):
+        args = []
+        to_delete = []
+        for rec in records:
+            filename, delete = rec.get_alignment_file(as_phylip=True)
+            if delete:
+                to_delete.append(filename)
+            # Get input dict
+            model = {'partitions': {}}
+            data = {'alpha': rec.parameters.partitions.alpha, 'frequencies': rec.parameters.partitions.frequencies}
+            if rec.is_dna():
+                data['rates'] = rec.parameters.partitions.rates
+            model['partitions'][0] = data
+            args.append((model, filename))
+        return args, to_delete
+
+    def get_task(self):
+        return calc_distances_task
+
+
+class TreeCollectionTaskInterface(TaskInterface):
+    _name = 'TreeCollection'
+
+    def scrape_args(self, records, scale=1, guide_tree=None, niters=10, keep_topology=False):
+        # local lists
+        distances = []
+        variances = []
+        headers = []
+        for rec in records:
+            distances.append(rec.parameters.partitions.distances)
+            variances.append(rec.parameters.partitions.variances)
+            headers.append(rec.get_names())
+
+        num_matrices = len(records)
+        label_set = reduce(lambda x, y: x.union(y), (set(l) for l in headers))
+        labels_len = len(label_set)
+
+        # labels string can be built straight away
+        labels_string = '{0}\n{1}\n'.format(labels_len, ' '.join(label_set))
+
+        # distvar and genome_map need to be built up
+        distvar_list = [str(num_matrices)]
+        genome_map_list = ['{0} {1}'.format(num_matrices, labels_len)]
+
+        # build up lists to turn into strings
+        for i in range(num_matrices):
+            labels = headers[i]
+            dim = len(labels)
+            dmatrix = np.array(distances[i])
+            vmatrix = np.array(variances[i])
+            matrix = np.zeros(dmatrix.shape)
+            matrix[np.triu_indices(len(dmatrix), 1)] = dmatrix[np.triu_indices(len(dmatrix), 1)]
+            matrix[np.tril_indices(len(vmatrix), -1)] = vmatrix[np.tril_indices(len(vmatrix), -1)]
+            if scale:
+                matrix[np.triu_indices(dim, 1)] *= scale
+                matrix[np.tril_indices(dim, -1)] *= scale * scale
+
+            if isinstance(matrix, np.ndarray):
+                matrix_string = '\n'.join([' '.join(str(x) for x in row)
+                                           for row in matrix]) + '\n'
+            else:
+                matrix_string = matrix
+            distvar_list.append('{0} {0} {1}\n{2}'.format(dim, i + 1,
+                                                          matrix_string))
+            genome_map_entry = ' '.join((str(labels.index(lab) + 1)
+                                         if lab in labels else '-1')
+                                        for lab in label_set)
+            genome_map_list.append(genome_map_entry)
+
+        distvar_string = '\n'.join(distvar_list)
+        genome_map_string = '\n'.join(genome_map_list)
+
+        if guide_tree is None:
+            guide_tree = Tree.new_iterative_rtree(labels_len, names=label_set, rooted=True)
+
+        tree_string = guide_tree.scale(scale).newick.replace('\'', '')
+
+        return distvar_string, genome_map_string, labels_string, tree_string, niters, keep_topology
+
+    def get_task(self):
+        return minsq_task
