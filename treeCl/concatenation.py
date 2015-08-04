@@ -1,5 +1,6 @@
 import numpy as np
 from treeCl.alignment import Alignment
+from treeCl.tasks import TreeCollectionTaskInterface
 from treeCl.tree import Tree
 from treeCl.utils.decorators import lazyprop
 from treeCl.utils import flatten_list, concatenate, fileIO
@@ -87,7 +88,8 @@ class Concatenation(object):
         tree_collection needs distvar, genome_map and labels -
         these are returned in the order above
         """
-        return self.collection.get_tree_collection_strings(self.indices, scale, guide_tree)
+        records = [self.collection[i] for i in self.indices]
+        return TreeCollectionTaskInterface().scrape_args(records)
 
     def qfile(self, models=None, default_dna='DNA', default_protein='LG', sep_codon_pos=False,
               ml_freqs=False, emp_freqs=False):
