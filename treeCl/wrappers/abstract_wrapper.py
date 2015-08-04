@@ -5,6 +5,8 @@ import shlex
 from subprocess import PIPE, Popen
 import sys
 import threading
+import logging
+logger = logging.getLogger(__name__)
 
 IS_PY3 = sys.version_info[0] == 3
 POSIX = 'posix' in sys.builtin_module_names
@@ -94,6 +96,8 @@ class AbstractWrapper(object):
         exe = None
         if executable:
             exe = self._search_for_executable(executable)
+            if exe is None:
+                logging.error('Couldn\'t locate {}, trying fallback'.format(executable))
 
         if exe is None:
             exe = self._search_for_executable(self._default_exe)

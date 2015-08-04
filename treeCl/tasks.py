@@ -1,6 +1,9 @@
 from pllpy import pll
+import itertools
+import tempfile
 import tree_collection
 import os
+import random
 from abc import ABCMeta, abstractmethod, abstractproperty
 
 from treeCl import treedist
@@ -10,7 +13,8 @@ from treeCl.utils.pll_helpers import pll_to_dict
 from treeCl.parameters import Parameters
 from treeCl.utils import fileIO, smooth_freqs
 from treeCl.constants import PLL_RANDOM_SEED
-from treeCl.wrappers.phylogenetics import FastTree, parse_fasttree_output
+from treeCl.wrappers.phylogenetics import FastTree, parse_fasttree_output, Raxml
+from treeCl.parsers import RaxmlParser
 import logging
 logger = logging.getLogger(__name__)
 import numpy as np
@@ -120,6 +124,28 @@ def fasttree_task(alignment_file, dna=False):
     result['ml_tree'] = Tree(tree).as_string('newick', internal_labels=False, suppress_rooting=True).rstrip()
     return result
 
+def raxml_task(alignment_file, model, partitions_file=None, threads=1):
+    afl = os.path.abspath(alignment_file)
+    pfl = os.path.abspath(partitions_file) if partitions_file else None
+    if threads > 1:
+        executable = 'raxmlHPC-PTHREADS-AVX'
+    else:
+        executable = 'raxmlHPC-AVX'
+    with fileIO.TempDir() as tmpd, fileIO.TempFile(tmpd) as name:
+        name = os.path.basename(name)
+        logger.debug('Name = {}'.format(name))
+        rax = Raxml(executable, verbose=False)
+        cmd = '-m {model} -n {name} -s {seqfile} -p {seed} -O -w {outdir}'.format(
+            model=model, name=name, seqfile=afl, seed=random.randint(1000, 99999),
+            outdir=os.path.abspath(tmpd))
+        if pfl:
+            cmd += ' -q {}'.format(pfl)
+        logger.debug('Command = {}'.format(cmd))
+        rax(cmd, wait=True)
+        parser = RaxmlParser()
+        result = parser.to_dict(os.path.join(tmpd, 'RAxML_info.{}'.format(name)),
+                                os.path.join(tmpd, 'RAxML_bestTree.{}'.format(name)))
+    return result
 
 def fast_calc_distances_task(alignment_file):
     rec = Alignment(alignment_file, 'phylip', True)
@@ -129,7 +155,6 @@ def fast_calc_distances_task(alignment_file):
     outer = dict(tree=rec.get_bionj_tree(),
                  partitions={0: inner})
     return result
-
 
 def calc_distances_task(pll_dict, alignment_file, model=None):
     rec = Alignment(alignment_file, 'phylip', True)
@@ -195,26 +220,55 @@ class PllTaskInterface(TaskInterface):
                 curr_args = (filename, partition, tree, tree_search, 1, PLL_RANDOM_SEED)
             args.append(curr_args)
         return args, to_delete
-    
+
     def get_task(self):
         return pll_task
 
 
+class RaxmlTaskInterface(TaskInterface):
+    _name = 'Raxml'
+
+    def scrape_args(self, records, partition_files=None, model=None, threads=1):
+        args = []
+        to_delete = []
+        if partition_files is None:
+            partition_files = [None for rec in records]
+        for (rec, qfile) in zip(records, partition_files):
+            if model is None:
+                model = 'GTRGAMMA' if rec.is_dna() else 'PROTGAMMALGX'
+            filename, delete = rec.get_alignment_file(as_phylip=True)
+            if delete:
+                to_delete.append(filename)
+            if qfile is None:
+                with tempfile.NamedTemporaryFile(delete=False) as tmpfile:
+                    qfile = tmpfile.name
+                    to_delete.append(tmpfile.name)
+                    partition_string = '{model}, {name} = 1-{seqlen}\n'.format(
+                        model=model.replace('PROT', '').replace('GAMMA', ''),
+                        name=rec.name, seqlen=len(rec))
+                    tmpfile.write(partition_string)
+                    logger.debug(partition_string)
+            args.append((filename, model, qfile, threads))
+        return args, to_delete
+
+    def get_task(self):
+        return raxml_task
+
 class FastTreeTaskInterface(TaskInterface):
     _name = 'FastTree'
-    
-    def scrape_args(self, records): 
+
+    def scrape_args(self, records):
         args = []
         to_delete = []
         for rec in records:
             filename, delete = rec.get_alignment_file(as_phylip=True)
             if delete:
                 to_delete.append(filename)
-            
+
             curr_args = (filename, rec.is_dna())
             args.append(curr_args)
         return args, to_delete
-    
+
     def get_task(self):
         return fasttree_task
 
@@ -320,3 +374,34 @@ class TreeCollectionTaskInterface(TaskInterface):
 
     def get_task(self):
         return minsq_task
+
+class TreeDistanceTaskInterface(TaskInterface):
+    __metaclass__ = ABCMeta
+    _name = 'Tree distance'
+
+    def scrape_args(self, trees, normalise=False):
+        return [(t1, t2, normalise) for (t1, t2) in itertools.combinations(trees, 2)]
+
+    @abstractmethod
+    def get_task(self):
+        pass
+
+class GeodesicTreeDistance(TreeDistanceTaskInterface):
+    _name = 'Geodesic distance'
+    def get_task(self):
+        return geodist_task
+
+class RobinsonFouldsTreeDistance(TreeDistanceTaskInterface):
+    _name = 'RF distance'
+    def get_task(self):
+        return rfdist_task
+
+class WeightedRobinsonFouldsTreeDistance(TreeDistanceTaskInterface):
+    _name = 'Geodesic distance'
+    def get_task(self):
+        return wrfdist_task
+
+class EuclideanTreeDistance(TreeDistanceTaskInterface):
+    _name = 'Geodesic distance'
+    def get_task(self):
+        return eucdist_task

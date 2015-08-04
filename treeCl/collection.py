@@ -404,8 +404,16 @@ class Collection(object):
 
     def get_inter_tree_distances(self, metric, jobhandler=default_jobhandler, normalise=False, batchsize=100):
         """ Generate a distance matrix from a fully-populated Collection """
-        array = _get_inter_tree_distances(metric, self.trees, jobhandler, normalise, batchsize)
-        return DistanceMatrix.from_array(array, self.names)
+        metrics = {'euc': tasks.EuclideanTreeDistance,
+                   'geo': tasks.GeodesicTreeDistance,
+                   'rf': tasks.RobinsonFouldsTreeDistance,
+                   'wrf': tasks.WeightedRobinsonFouldsTreeDistance}
+        optioncheck(metric, metrics.keys())
+        task_interface = metrics[metric]()
+        args = task_interface.scrape_args(self.trees, normalise)
+        msg = task_interface.name
+        array = jobhandler(task_interface.get_task(), args, msg, batchsize)
+        return DistanceMatrix.from_array(squareform(array), self.names)
 
     def get_tree_collection_strings(self, indices, scale=1, guide_tree=None):
         """ Function to get input strings for tree_collection
@@ -468,21 +476,6 @@ class Collection(object):
 
         return distvar_string, genome_map_string, labels_string, tree_string
 
-
-def _get_inter_tree_distances(metric, trees, jobhandler, normalise=False, batchsize=100, background=False):
-    # Assemble argument lists
-    args = [(t1, t2, normalise) for (t1, t2) in itertools.combinations(trees, 2)]
-
-    # Get task
-    tasks_dict = dict(zip(['euc', 'geo', 'rf', 'wrf'],
-                          [tasks.eucdist_task, tasks.geodist_task, tasks.rfdist_task, tasks.wrfdist_task]))
-    task = tasks_dict[metric]
-
-    # Dispatch
-    msg = 'Inter-tree distances ({})'.format(metric)
-    map_result = jobhandler(task, args, msg, batchsize)
-
-    return squareform(map_result)
 
 class Aggregator(object):
 
