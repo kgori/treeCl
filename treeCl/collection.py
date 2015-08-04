@@ -67,15 +67,7 @@ class NoRecordsError(Exception):
         return msg
 
 
-class Collection(object):
-    """ Call:
-
-    c = Collection(input_dir, file_format, datatype, tmpdir ...)
-    c.calc_distances(), c.calc_TC_trees(), ...
-    dm = c.distance_matrix('geo')
-    cl = Clustering(dm)
-    k = cl.spectral(4, prune='estimate', local_scale=7)
-    p = Partition(k) """
+class RecordsHandler(object):
 
     def __init__(
             self,
@@ -103,7 +95,7 @@ class Collection(object):
                                                 header_grep)
 
         else:
-            raise Exception('Provide a list of records, '
+            raise ValueError('Provide a list of records, '
                             'or the path to a set of alignments')
 
         if param_dir is not None:
@@ -204,13 +196,6 @@ class Collection(object):
         trees = [tree.newick if hasattr('newick', tree) else tree for tree in self.trees]
         return Alignment().get_mrp_supertree(trees)
 
-    def num_species(self):
-        """ Returns the number of species found over all records
-        """
-        all_headers = reduce(lambda x, y: set(x) | set(y),
-                             (rec.get_names() for rec in self.records))
-        return len(all_headers)
-
     def read_alignments(self, input_dir, file_format, header_grep=None):
         """ Get list of alignment files from an input directory *.fa, *.fas and
         *.phy files only
@@ -227,7 +212,6 @@ class Collection(object):
 
         else:
             extensions = []
-
 
         extensions = list('.'.join([x,y]) if y else x for x,y in itertools.product(extensions, compression))
 
@@ -317,31 +301,8 @@ class Collection(object):
             with fileIO.fwriter(os.path.join(output_dir, '{}.json'.format(rec.name)), gz=gz) as outfile:
                 rec.parameters.write(outfile, indent=4)
 
-    def permuted_copy(self, partition=None):
-        """ Return a copy of the collection with all alignment columns permuted
-        """
-        def take(n, iterable):
-            return [iterable.next() for _ in range(n)]
 
-        if partition is None:
-            partition = Partition([1] * len(self))
-
-        index_tuples = partition.get_membership()
-
-        alignments = []
-        for ix in index_tuples:
-            concat = Concatenation(self, ix)
-            sites = concat.alignment.get_sites()
-            random.shuffle(sites)
-            d = dict(zip(concat.alignment.get_names(), [iter(x) for x in zip(*sites)]))
-            new_seqs = [[(k, ''.join(take(l, d[k]))) for k in d] for l in concat.lengths]
-
-            for seqs, datatype, name in zip(new_seqs, concat.datatypes, concat.names):
-                alignment = Alignment(seqs, datatype)
-                alignment.name = name
-                alignments.append(alignment)
-
-        return self.__class__(records=sorted(alignments, key=lambda x: SORT_KEY(x.name)))
+class RecordsCalculatorMixin(object):
 
     def calc_distances(self, indices=None, task_interface=None, jobhandler=default_jobhandler, batchsize=1):
         """
@@ -370,7 +331,6 @@ class Collection(object):
             # j = 0
             # pbar.start()
             for rec, result in zip(records, map_result):
-                logger.debug('Map result = {}'.format(result))
                 rec.parameters.partitions.distances = result['partitions'][0]['distances']
                 rec.parameters.partitions.variances = result['partitions'][0]['variances']
                 rec.parameters.nj_tree = result['nj_tree']
@@ -386,7 +346,7 @@ class Collection(object):
             task_interface = tasks.PllTaskInterface()
 
         records = [self[i] for i in indices]
-        
+
         # Scrape args from records
         args, to_delete = task_interface.scrape_args(records, **kwargs)
 
@@ -398,9 +358,6 @@ class Collection(object):
         with fileIO.TempFileList(to_delete):
             for rec, result in zip(records, map_result):
                 rec.parameters.construct_from_dict(result)
-
-    def concatenate(self, indices):
-        return Concatenation(self, indices)
 
     def get_inter_tree_distances(self, metric, jobhandler=default_jobhandler, normalise=False, batchsize=100):
         """ Generate a distance matrix from a fully-populated Collection """
@@ -415,73 +372,60 @@ class Collection(object):
         array = jobhandler(task_interface.get_task(), args, msg, batchsize)
         return DistanceMatrix.from_array(squareform(array), self.names)
 
-    def get_tree_collection_strings(self, indices, scale=1, guide_tree=None):
-        """ Function to get input strings for tree_collection
-        tree_collection needs distvar, genome_map and labels -
-        these are returned in the order above
+
+class Collection(RecordsHandler, RecordsCalculatorMixin):
+    """ Call:
+
+    c = Collection(input_dir, file_format, datatype, tmpdir ...)
+    c.calc_distances(), c.calc_TC_trees(), ...
+    dm = c.distance_matrix('geo')
+    cl = Clustering(dm)
+    k = cl.spectral(4, prune='estimate', local_scale=7)
+    p = Partition(k) """
+
+    def num_species(self):
+        """ Returns the number of species found over all records
         """
+        all_headers = reduce(lambda x, y: set(x) | set(y),
+                             (rec.get_names() for rec in self.records))
+        return len(all_headers)
 
-        # local lists
-        distances = []
-        variances = []
-        headers = []
-        for i in indices:
-            distances.append(self.distances[i])
-            variances.append(self.variances[i])
-            headers.append(self.headers[i])
+    def permuted_copy(self, partition=None):
+        """ Return a copy of the collection with all alignment columns permuted
+        """
+        def take(n, iterable):
+            return [iterable.next() for _ in range(n)]
 
-        num_matrices = len(indices)
-        label_set = reduce(lambda x, y: x.union(y), (set(l) for l in headers))
-        labels_len = len(label_set)
+        if partition is None:
+            partition = Partition([1] * len(self))
 
-        # labels string can be built straight away
-        labels_string = '{0}\n{1}\n'.format(labels_len, ' '.join(label_set))
+        index_tuples = partition.get_membership()
 
-        # distvar and genome_map need to be built up
-        distvar_list = [str(num_matrices)]
-        genome_map_list = ['{0} {1}'.format(num_matrices, labels_len)]
+        alignments = []
+        for ix in index_tuples:
+            concat = Concatenation(self, ix)
+            sites = concat.alignment.get_sites()
+            random.shuffle(sites)
+            d = dict(zip(concat.alignment.get_names(), [iter(x) for x in zip(*sites)]))
+            new_seqs = [[(k, ''.join(take(l, d[k]))) for k in d] for l in concat.lengths]
 
-        # build up lists to turn into strings
-        for i in range(num_matrices):
-            labels = headers[i]
-            dim = len(labels)
-            dmatrix = np.array(distances[i])
-            vmatrix = np.array(variances[i])
-            matrix = np.zeros(dmatrix.shape)
-            matrix[np.triu_indices(len(dmatrix), 1)] = dmatrix[np.triu_indices(len(dmatrix), 1)]
-            matrix[np.tril_indices(len(vmatrix), -1)] = vmatrix[np.tril_indices(len(vmatrix), -1)]
-            if scale:
-                matrix[np.triu_indices(dim, 1)] *= scale
-                matrix[np.tril_indices(dim, -1)] *= scale * scale
+            for seqs, datatype, name in zip(new_seqs, concat.datatypes, concat.names):
+                alignment = Alignment(seqs, datatype)
+                alignment.name = name
+                alignments.append(alignment)
 
-            if isinstance(matrix, np.ndarray):
-                matrix_string = '\n'.join([' '.join(str(x) for x in row)
-                                           for row in matrix]) + '\n'
-            else:
-                matrix_string = matrix
-            distvar_list.append('{0} {0} {1}\n{2}'.format(dim, i + 1,
-                                                          matrix_string))
-            genome_map_entry = ' '.join((str(labels.index(lab) + 1)
-                                         if lab in labels else '-1')
-                                        for lab in label_set)
-            genome_map_list.append(genome_map_entry)
+        return self.__class__(records=sorted(alignments, key=lambda x: SORT_KEY(x.name)))
 
-        distvar_string = '\n'.join(distvar_list)
-        genome_map_string = '\n'.join(genome_map_list)
-
-        if guide_tree is None:
-            guide_tree = Tree.new_iterative_rtree(labels_len, names=label_set, rooted=True)
-
-        tree_string = guide_tree.scale(scale).newick
-
-        return distvar_string, genome_map_string, labels_string, tree_string
+    def concatenate(self, indices):
+        return Concatenation(self, indices)
 
 
-class Aggregator(object):
+class Scorer(object):
 
     def __init__(self, collection, cache_dir):
         self.collection = collection
-        self.cache = {}
+        self.results_cache = {}
+
         self.cache_dir = cache_dir
         if not os.path.exists(cache_dir):
             os.makedirs(cache_dir)
@@ -537,8 +481,49 @@ class Aggregator(object):
                 raise
         return sum(result)
 
+    def simulate(self, partition, outdir, batchsize=1, **kwargs):
+        """
+        Simulate a set of alignments from the parameters inferred on a partition
+        :param partition:
+        :return:
+        """
+        indices = partition.get_membership()
+        self.add_lnl_partitions(partition, **kwargs)
+        results = [self.lnl_cache[ix] for ix in indices]
+        places = dict((j,i) for (i,j) in enumerate(rec.name for rec in self.collection.records))
 
-class Scorer(object):
+        # Collect argument list
+        args = [None] * len(self.collection)
+        for result in results:
+            for partition in result['partitions'].values():
+                place = places[partition['name']]
+                args[place] = (len(self.collection[place]),
+                               model_translate(partition['model']),
+                               partition['frequencies'],
+                               partition['alpha'],
+                               result['ml_tree'],
+                               partition['rates'] if 'rates' in partition else None)
+
+        # Distribute work
+        msg = 'Simulating'
+        client = get_client()
+        if client is None:
+            map_result = sequential_map(client, tasks.simulate_task, args, msg)
+        else:
+            map_result = parallel_map(client, tasks.simulate_task, args, msg, batchsize, background)
+            if background:
+                return map_result
+
+        # Process results
+        for i, result in enumerate(map_result):
+            orig = self.collection[i]
+            simseqs = gapmask(result, orig.get_sequences())
+            al = Alignment(simseqs, 'protein' if orig.is_protein() else 'dna')
+            outfile = os.path.join(outdir, orig.name + '.phy')
+            al.write_alignment(outfile, 'phylip', True)
+
+
+class Scorer_old(object):
     """ Takes an index list, generates a concatenated SequenceRecord, calculates
     a tree and score """
 
@@ -668,19 +653,6 @@ class Scorer(object):
         results = [self.minsq_cache[ix] for ix in indices]
         return math.fsum(x['sse'] for x in results)
 
-    # def get_fit(self, partition):
-    #     """
-    #                          harmonic mean of variances     sum of sq err
-    #     Dimensionless fit ~  -------------------------- * ------------------
-    #                            variance of distances      degrees of freedom
-    #
-    #     Return the dimensionless fit index for a partition
-    #     in the tree.
-    #     :param partition: Partition object
-    #     :return: score (float)
-    #     """
-    #     results = self.get_results(partition, 'minsq')
-    #     return math.fsum(x['fit'] for x in results)
 
     def simulate(self, partition, outdir, batchsize=1, **kwargs):
         """
@@ -722,3 +694,4 @@ class Scorer(object):
             al = Alignment(simseqs, 'protein' if orig.is_protein() else 'dna')
             outfile = os.path.join(outdir, orig.name + '.phy')
             al.write_alignment(outfile, 'phylip', True)
+
