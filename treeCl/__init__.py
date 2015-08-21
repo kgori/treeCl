@@ -1,7 +1,7 @@
 # from __future__ import print_function
 
 from alignment import Alignment
-from clustering import Clustering, Spectral
+from clustering import Spectral, Hierarchical, MultidimensionalScaling, Automatic, Evaluation
 from collection import Collection, Scorer
 from concatenation import Concatenation
 from distance_matrix import DistanceMatrix

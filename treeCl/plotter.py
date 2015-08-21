@@ -11,7 +11,7 @@ import numpy as np
 
 # treeCl
 from .collection import Collection
-from .clustering import Clustering
+from .clustering import Spectral, MultidimensionalScaling
 from .distance_matrix import DistanceMatrix
 from .partition import Partition
 from .errors import optioncheck

@@ -177,7 +177,6 @@ class SequentialJobHandler(JobHandler):
     """
     Jobs are handled using a simple map
     """
-
     def __call__(self, task, args, message, batchsize):
         if batchsize > 1:
             logger.warn("Setting batchsize > 1 has no effect when using a SequentialJobHandler")

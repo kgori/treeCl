@@ -74,7 +74,7 @@ class RecordsHandler(object):
             records=None,
             input_dir=None,
             param_dir=None,
-            file_format='fasta',
+            file_format='phylip',
             header_grep=None,
             show_progressbars=True,
     ):
@@ -357,9 +357,10 @@ class RecordsCalculatorMixin(object):
         # Process results
         with fileIO.TempFileList(to_delete):
             for rec, result in zip(records, map_result):
+                #logger.debug('Result - {}'.format(result))
                 rec.parameters.construct_from_dict(result)
 
-    def get_inter_tree_distances(self, metric, jobhandler=default_jobhandler, normalise=False, batchsize=100):
+    def get_inter_tree_distances(self, metric, jobhandler=default_jobhandler, normalise=False, batchsize=1):
         """ Generate a distance matrix from a fully-populated Collection """
         metrics = {'euc': tasks.EuclideanTreeDistance,
                    'geo': tasks.GeodesicTreeDistance,
@@ -422,66 +423,159 @@ class Collection(RecordsHandler, RecordsCalculatorMixin):
 
 class Scorer(object):
 
-    def __init__(self, collection, cache_dir):
+    def __init__(self, collection, cache_dir, task_interface):
+        """
+        Coordinates scoring of (usually) multilocus alignments in a partition
+        """
         self.collection = collection
-        self.results_cache = {}
-
         self.cache_dir = cache_dir
+        self.task_interface = task_interface
+        self.cache = {}
         if not os.path.exists(cache_dir):
             os.makedirs(cache_dir)
         if not os.path.exists(cache_dir):
             raise IOError('\'{}\' does not exist'.format(cache_dir))
 
-    @staticmethod
-    def get_id(grp):
-        return hashlib.sha1(hex(hash(grp))).hexdigest()
+    def get_id(self, grp):
+        """
+        Return a hash of the tuple of indices that specify the group
+        """
+        return self.cache.get(grp, hashlib.sha1(hex(hash(grp))).hexdigest())
 
-    def write_group(self, grp, **kwargs):
+    def check_work_done(self, grp):
+        """
+        Check for the existence of alignment and result files.
+        """
+        id_ = self.get_id(grp)
+        concat_file = os.path.join(self.cache_dir, '{}.phy'.format(id_))
+        result_file = os.path.join(self.cache_dir, '{}.{}.json'.format(id_, self.task_interface.name))
+        return os.path.exists(concat_file), os.path.exists(result_file)
+
+    def write_group(self, grp, overwrite=False, **kwargs):
+        """
+        Write the concatenated alignment to disk in the location specified by
+        self.cache_dir
+        """
+        id_ = self.get_id(grp)
+        alignment_done, result_done = self.check_work_done(grp)
+        self.cache[grp] = id_
+        al_filename = os.path.join(self.cache_dir, '{}.phy'.format(id_))
+        qfile_filename = os.path.join(self.cache_dir, '{}.partitions.txt'.format(id_))
+        if overwrite or not (alignment_done or result_done):
+            conc = self.collection.concatenate(grp)
+            al = conc.alignment
+            al.write_alignment(al_filename, 'phylip', True)
+            q = conc.qfile(**kwargs)
+            with open(qfile_filename, 'w') as fl:
+                fl.write(q + '\n')
+
+    def get_group_result(self, grp, **kwargs):
+        """
+        Retrieve the results for a group. Needs this to already be calculated -
+        errors out if result not available.
+        """
         id_ = self.get_id(grp)
         self.cache[grp] = id_
-        conc = self.collection.concatenate(grp)
-        al = conc.alignment
-        al.write_alignment(os.path.join(self.cache_dir, '{}.phy'.format(id_)),
-                           'phylip', True)
-        q = conc.qfile(**kwargs)
-        with open(os.path.join(self.cache_dir, '{}.partitions.txt'.format(id_)), 'w') as fl:
-            fl.write(q + '\n')
 
-    def write_partition(self, p, **kwargs):
-        for grp in p.get_membership():
-            if not grp in self.cache:
+        # Check if this file is already processed
+        alignment_written, results_written = self.check_work_done(grp)
+
+        if not results_written:
+            if not alignment_written:
                 self.write_group(grp, **kwargs)
+            logger.error('Alignment {} has not been analysed - run analyse_cache_dir'.format(id_))
+            raise ValueError('Missing result')
+        else:
+            with open(self.get_result_file(id_)) as fl:
+                return json.load(fl)
 
-    def analyse_cache_dir(self, jobhandler=None):
+    def get_result_file(self, id_):
+        f = os.path.join(self.cache_dir, id_ + '.phy')
+        return f.replace('.phy', '.{}.json'.format(self.task_interface.name))
+
+    def write_partition(self, p, overwrite=False, **kwargs):
+        for grp in p.get_membership():
+            self.write_group(grp, overwrite, **kwargs)
+
+    def analyse_cache_dir(self, jobhandler=None, batchsize=1, **kwargs):
+        """
+        Scan the cache directory and launch analysis for all unscored alignments
+        using associated task handler. KWargs are passed to the tree calculating
+        task managed by the TaskInterface in self.task_interface.
+        Example kwargs:
+          TreeCollectionTaskInterface: scale=1, guide_tree=None, 
+                                       niters=10, keep_topology=False
+          RaxmlTaskInterface: -------- partition_files=None, model=None, threads=1
+          FastTreeTaskInterface: ----- No kwargs
+        """
         if jobhandler is None:
             jobhandler = SequentialJobHandler()
         files = glob.glob(os.path.join(self.cache_dir, '*.phy'))
-        args = []
+        logger.debug('Files - {}'.format(files))
+        records = []
+        outfiles = []
         dna = self.collection[0].is_dna() # THIS IS ONLY A GUESS AT SEQ TYPE!!
         for infile in files:
-            outfile = f.replace('.phy', '.json')
-            logger.log('Looking for {}: {}'.format(outfile, os.path.exists(outfile)))
+            id_ = fileIO.strip_extensions(infile)
+            outfile = self.get_result_file(id_)
+            logger.debug('Looking for {}: {}'.format(outfile, os.path.exists(outfile)))
             if not os.path.exists(outfile):
-                args.append(infile)
-        result = jobhandler(tasks.fasttree_task, args, 'Cache dir analysis', 1)
+                record = Alignment(infile, 'phylip', True)
+                records.append(record)
+                outfiles.append(outfile)
+
+        if len(records) == 0:
+            return []
+
+        args, to_delete = self.task_interface.scrape_args(records, outfiles=outfiles, **kwargs)
+        logger.debug('Args - {}'.format(args))
+
+        with fileIO.TempFileList(to_delete):
+            result = jobhandler(self.task_interface.get_task(), args, 'Cache dir analysis', batchsize)
+            for (out, res) in zip(outfiles, result):
+                if not os.path.exists(out) and res:
+                    with open(out, 'w') as outfl:
+                        json.dump(res, outfl)
+
         return result
 
-    def get_partition_score(self, p, jobhandler=None):
+    def get_partition_score(self, p):
         """
         Assumes analysis is done and written to id.json!
         """
-        result = []
+        scores = []
         for grp in p.get_membership():
-            id_ = self.cache.get(grp, self.get_id(grp))
-            filename = os.path.join(self.cache_dir, '{}.json'.format(id_))
             try:
-                with open(filename) as fl:
-                    result.append(json.load(fl))
-            except IOError:
-                raise
-        return sum(result)
+                result = self.get_group_result(grp)
+                scores.append(result['likelihood'])
+            except ValueError:
+                scores.append(None)
+        return sum(scores)
 
-    def simulate(self, partition, outdir, batchsize=1, **kwargs):
+    def get_partition_trees(self, p):
+        """
+        Return the trees associated with a partition, p
+        """
+        trees = []
+        for grp in p.get_membership():
+            try:
+                result = self.get_group_result(grp)
+                trees.append(result['ml_tree'])
+            except ValueError:
+                trees.append(None)
+                logger.error('No tree found for group {}'.format(grp))
+        return trees
+
+    def clean_cache(self):
+        files = glob.glob(os.path.join(self.cache_dir, '*.json'))
+        for f in files:
+            id_ = fileIO.strip_extensions(f)
+            alfile = os.path.join(self.cache_dir, '{}.phy'.format(id_))
+            qfile = os.path.join(self.cache_dir, '{}.partitions.txt'.format(id_))
+            if os.path.exists(alfile): os.remove(alfile)
+            if os.path.exists(qfile): os.remove(qfile)
+
+    def simulate(self, partition, outdir, jobhandler=default_jobhandler, batchsize=1, **kwargs):
         """
         Simulate a set of alignments from the parameters inferred on a partition
         :param partition:
@@ -506,13 +600,7 @@ class Scorer(object):
 
         # Distribute work
         msg = 'Simulating'
-        client = get_client()
-        if client is None:
-            map_result = sequential_map(client, tasks.simulate_task, args, msg)
-        else:
-            map_result = parallel_map(client, tasks.simulate_task, args, msg, batchsize, background)
-            if background:
-                return map_result
+        map_result = jobhandler(tasks.simulate_task, args, msg, batchsize)
 
         # Process results
         for i, result in enumerate(map_result):
@@ -521,177 +609,3 @@ class Scorer(object):
             al = Alignment(simseqs, 'protein' if orig.is_protein() else 'dna')
             outfile = os.path.join(outdir, orig.name + '.phy')
             al.write_alignment(outfile, 'phylip', True)
-
-
-class Scorer_old(object):
-    """ Takes an index list, generates a concatenated SequenceRecord, calculates
-    a tree and score """
-
-    def __init__(
-        self,
-        collection,
-        verbosity=0,
-    ):
-
-        self.collection = collection
-        self.verbosity = verbosity
-        self.minsq_cache = {}
-        self.lnl_cache = {}
-
-    @property
-    def records(self):
-        return self.collection.records
-
-    def add_lnl_partitions(self, partitions, threads=1, use_calculated_freqs=True, tree_search=True, batchsize=1, background=False):
-        self.add_minsq_partitions(partitions)
-        if isinstance(partitions, Partition):
-            partitions = (partitions,)
-        index_tuples = set(ix for partition in partitions for ix in partition.get_membership()).difference(
-            self.lnl_cache.keys())
-        if len(index_tuples) == 0:
-            return
-
-        # Collect argument list
-        args = []
-        to_delete = []
-        try:
-            for ix in index_tuples:
-                conc = self.concatenate(ix)
-                al = conc.alignment
-                filename, delete = al.get_alignment_file(as_phylip=True)
-                if delete:
-                    to_delete.append(filename)
-                partition = conc.qfile(default_dna="GTR", default_protein="LG", ml_freqs=True)
-                tree = self.minsq_cache[ix]['tree']
-                if use_calculated_freqs:
-                    args.append((filename, partition, tree, tree_search, threads, PLL_RANDOM_SEED, conc.frequencies))
-                else:
-                    args.append((filename, partition, tree, tree_search, threads, PLL_RANDOM_SEED, None))
-
-            # Distribute work
-            with fileIO.TempFileList(to_delete):
-                msg = 'Adding ML cluster trees'
-                client = get_client()
-                if client is None:
-                    map_result = sequential_map(tasks.pll_task, args, msg)
-                else:
-                    map_result = parallel_map(client, tasks.pll_task, args, msg, batchsize, background)
-                    if background:
-                        return map_result
-
-            # Process results
-            pbar = setup_progressbar('Processing results', len(map_result))
-            pbar.start()
-            for i, (ix, result) in enumerate(zip(index_tuples, map_result)):
-                self.lnl_cache[ix] = result
-                pbar.update(i)
-            pbar.finish()
-        except:
-            with fileIO.TempFileList(to_delete):
-                pass
-
-    def add_minsq_partitions(self, partitions, batchsize=1, background=False, **kwargs):
-        if isinstance(partitions, Partition):
-            partitions = (partitions,)
-        index_tuples = set(ix for partition in partitions for ix in partition.get_membership()).difference(
-            self.minsq_cache.keys())
-
-        if len(index_tuples) == 0:
-            return
-
-        # Collect argument list
-        args = []
-        for ix in index_tuples:
-            conc = self.concatenate(ix)
-            args.append(conc.get_tree_collection_strings(**kwargs))
-
-        # Distribute work
-        msg = 'Adding MinSq cluster trees'
-        client = get_client()
-        if client is None:
-            map_result = sequential_map(tasks.minsq_task, args, msg)
-        else:
-            map_result = parallel_map(client, tasks.minsq_task, args, msg, batchsize, background)
-            if background:
-                return map_result
-        # Process results
-        pbar = setup_progressbar('Processing results', len(map_result))
-        pbar.start()
-        for i, (ix, result) in enumerate(zip(index_tuples, map_result)):
-            self.minsq_cache[ix] = result
-            pbar.update(i)
-        pbar.finish()
-
-    def concatenate(self, index_tuple):
-        """ Returns a Concatenation object that stitches together
-        the alignments picked out by the index tuple """
-        return self.collection.concatenate(index_tuple)
-
-    def members(self, index_tuple):
-        """ Gets records by their index, contained in the index_tuple """
-        return [self.records[n] for n in index_tuple]
-
-    def get_likelihood(self, partition, batchsize=1, **kwargs):
-        """
-        Return the sum of log-likelihoods for a partition.
-        :param partition: Partition object
-        :return: score (float)
-        """
-        indices = partition.get_membership()
-        self.add_lnl_partitions(partition, batchsize=batchsize, **kwargs)
-        results = [self.lnl_cache[ix] for ix in indices]
-        return math.fsum(x['likelihood'] for x in results)
-
-    def get_sse(self, partition, **kwargs):
-        """
-        Return the sum of squared errors score for a partition
-        :param partition: Partition object
-        :return: score (float)
-        """
-        indices = partition.get_membership()
-        self.add_minsq_partitions(partition, **kwargs)
-        results = [self.minsq_cache[ix] for ix in indices]
-        return math.fsum(x['sse'] for x in results)
-
-
-    def simulate(self, partition, outdir, batchsize=1, **kwargs):
-        """
-        Simulate a set of alignments from the parameters inferred on a partition
-        :param partition:
-        :return:
-        """
-        indices = partition.get_membership()
-        self.add_lnl_partitions(partition, **kwargs)
-        results = [self.lnl_cache[ix] for ix in indices]
-        places = dict((j,i) for (i,j) in enumerate(rec.name for rec in self.collection.records))
-
-        # Collect argument list
-        args = [None] * len(self.collection)
-        for result in results:
-            for partition in result['partitions'].values():
-                place = places[partition['name']]
-                args[place] = (len(self.collection[place]),
-                               model_translate(partition['model']),
-                               partition['frequencies'],
-                               partition['alpha'],
-                               result['ml_tree'],
-                               partition['rates'] if 'rates' in partition else None)
-
-        # Distribute work
-        msg = 'Simulating'
-        client = get_client()
-        if client is None:
-            map_result = sequential_map(client, tasks.simulate_task, args, msg)
-        else:
-            map_result = parallel_map(client, tasks.simulate_task, args, msg, batchsize, background)
-            if background:
-                return map_result
-
-        # Process results
-        for i, result in enumerate(map_result):
-            orig = self.collection[i]
-            simseqs = gapmask(result, orig.get_sequences())
-            al = Alignment(simseqs, 'protein' if orig.is_protein() else 'dna')
-            outfile = os.path.join(outdir, orig.name + '.phy')
-            al.write_alignment(outfile, 'phylip', True)
-

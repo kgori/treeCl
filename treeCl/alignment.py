@@ -23,8 +23,9 @@ class Alignment(bpp.Alignment):
         self.name = None
         self.parameters = Parameters()
         if len(args) > 0 and isinstance(args[0], basestring) and fileIO.can_locate(args[0]):
-            self.infile = args[0]
+            self.infile = os.path.abspath(args[0])
             self.parameters.filename = args[0]
+            self.name = os.path.splitext(os.path.basename(self.infile))[0]
 
     def __add__(self, other):
         return self.__class__([self, other])

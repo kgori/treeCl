@@ -70,7 +70,11 @@ class TempFileList(object):
         return self._filelist
 
     def __exit__(self, type, value, tb):
-        [os.remove(fl) for fl in self._filelist]
+        for fl in self._filelist:
+            try:
+                os.remove(fl)
+            except:
+                pass  # No need to crash if deletion fails, just ignore
 
 
 class ChDir(object):
