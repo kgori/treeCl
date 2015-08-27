@@ -574,6 +574,10 @@ class Scorer(object):
             qfile = os.path.join(self.cache_dir, '{}.partitions.txt'.format(id_))
             if os.path.exists(alfile): os.remove(alfile)
             if os.path.exists(qfile): os.remove(qfile)
+            alfile = os.path.join(self.cache_dir, '{}.phy.reduced'.format(id_))
+            qfile = os.path.join(self.cache_dir, '{}.partitions.txt.reduced'.format(id_))
+            if os.path.exists(alfile): os.remove(alfile)
+            if os.path.exists(qfile): os.remove(qfile)
 
     def simulate(self, partition, outdir, jobhandler=default_jobhandler, batchsize=1, **kwargs):
         """

@@ -140,8 +140,8 @@ def raxml_task(alignment_file, model, partitions_file=None, outfile=None, thread
         if pfl:
             cmd += ' -q {}'.format(pfl)
         rax(cmd, wait=True)
-        logger.debug('RaxML standard out = {}'.format(rax.get_stdout()))
-        logger.debug('RaxML standard err = {}'.format(rax.get_stderr()))
+        #logger.debug('RaxML standard out = {}'.format(rax.get_stdout()))
+        #logger.debug('RaxML standard err = {}'.format(rax.get_stderr()))
         logger.debug('RaxML command - {}'.format(cmd))
         parser = RaxmlParser()
         logger.debug('Temp dir exists - {} ({})'.format(os.path.exists(tmpd), os.path.abspath(tmpd)))
@@ -252,6 +252,7 @@ class RaxmlTaskInterface(TaskInterface):
             filename, delete = rec.get_alignment_file(as_phylip=True)
             if delete:
                 to_delete.append(filename)
+                to_delete.append(filename + '.reduced')
 
             if qfile is None:
                 # Attempt to find partition file on disk, using extension 'partitions.txt'

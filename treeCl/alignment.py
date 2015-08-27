@@ -71,7 +71,7 @@ class Alignment(bpp.Alignment):
             file_format = 'phylip-relaxed'
         AlignIO.write(b, filename, file_format)
 
-    def get_alignment_file(self, as_phylip=False):
+    def get_alignment_file(self, as_phylip=True):
         try:
             with open(self.infile) as fl:
                 if as_phylip:

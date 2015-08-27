@@ -23,7 +23,7 @@ from sklearn.manifold import spectral_embedding
 
 # treeCl
 from .distance_matrix import DistanceMatrix, rbf, binsearch_mask, kmask, kscale, affinity, laplace, eigen, double_centre, \
-    normalise_rows
+    normalise_rows, CoordinateMatrix
 from .partition import Partition
 from .utils import enum
 from .errors import OptionError, isnumbercheck, rangecheck
@@ -228,9 +228,9 @@ class Spectral(ClusteringManager, EMMixin):
         else:
             raise OptionError(algo, list(spectral.reverse.values()))
         if method == methods.KMEANS:
-            p = self.kmeans(n, self._coords)
+            p = self.kmeans(n, self._coords.df.values)
         elif method == methods.GMM:
-            p = self.gmm(n, self._coords)
+            p = self.gmm(n, self._coords.df.values)
         else:
             raise OptionError(method, list(methods.reverse.values()))
         if self._verbosity > 0:
@@ -248,7 +248,7 @@ class Spectral(ClusteringManager, EMMixin):
                 The number of dimensions
         """
         coords = spectral_embedding(self._affinity, n)
-        return normalise_rows(coords)
+        return CoordinateMatrix(normalise_rows(coords))
 
     def kpca_embedding(self, n):
         """
@@ -259,7 +259,7 @@ class Spectral(ClusteringManager, EMMixin):
         n:      int
                 The number of dimensions
         """
-        return self.dm.embedding(n, 'kpca', affinity_matrixy=self._affinity)
+        return self.dm.embedding(n, 'kpca', affinity_matrix=self._affinity)
 
     @property
     def affinity(self):
@@ -302,13 +302,13 @@ class MultidimensionalScaling(ClusteringManager, EMMixin):
             raise OptionError(algo, list(mds.reverse.values()))
 
         if method == methods.KMEANS:
-            p = self.kmeans(n, self._coords)
+            p = self.kmeans(n, self._coords.df.values)
         elif method == methods.GMM:
-            p = self.gmm(n, self._coords)
+            p = self.gmm(n, self._coords.df.values)
         else:
             raise OptionError(method, list(methods.reverse.values()))
-        if self._verbosity > 0:
-            print('Using clustering method: {}'.format(methods.reverse[method]))
+        #if self._verbosity > 0:
+        #    print('Using clustering method: {}'.format(methods.reverse[method]))
         return p
 
 
