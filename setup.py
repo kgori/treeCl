@@ -100,6 +100,7 @@ setup(name="treeCl",
       },
       scripts=[
           'bin/simulator',
+          'bin/collapse',
           'bin/treeCl',
           'bin/seqconvert',
           'bin/bootstrap',
