@@ -14,8 +14,8 @@ from treeCl.utils.pll_helpers import pll_to_dict
 from treeCl.parameters import Parameters
 from treeCl.utils import fileIO, smooth_freqs
 from treeCl.constants import PLL_RANDOM_SEED
-from treeCl.wrappers.phylogenetics import FastTree, parse_fasttree_output, Raxml
-from treeCl.parsers import RaxmlParser
+from treeCl.wrappers.phylogenetics import FastTree, parse_fasttree_output, Raxml, Phyml
+from treeCl.parsers import RaxmlParser, PhymlParser
 import logging
 logger = logging.getLogger(__name__)
 import numpy as np
@@ -111,6 +111,31 @@ def pll_task(alignment_file, partition_string, guidetree=None, tree_search=True,
                 parameters.write(fl)
         except:
             pass  # fail silently
+    return result
+
+def phyml_task(alignment_file, model):
+    import re
+    fl = os.path.abspath(alignment_file)
+    ph = Phyml(verbose=False)
+    if model in ['JC69', 'K80', 'F81', 'F84', 'HKY85', 'TN93', 'GTR']:
+        datatype = 'nt'
+    elif re.search('[01]{6}', model) is not None:
+        datatype = 'nt'
+    else:
+        datatype = 'aa'
+    cmd = '-i {} -m {} -d {} -f m'.format(alignment_file, model, datatype)
+    ph(cmd, wait=True)
+    parser = PhymlParser()
+    expected_outfiles = ['{}_phyml_stats'.format(alignment_file), '{}_phyml_tree'.format(alignment_file)]
+    with fileIO.TempFileList(expected_outfiles):
+        try:
+            result = parser.to_dict(*expected_outfiles)
+        except IOError as ioerr:
+            logger.error('File IO error', ioerr)
+            result = None
+        except ParseException as parseerr:
+            logger.error('Other parse error', parseerr)
+            result = None
     return result
 
 def fasttree_task(alignment_file, dna=False):
@@ -234,6 +259,27 @@ class PllTaskInterface(TaskInterface):
 
     def get_task(self):
         return pll_task
+
+
+class PhymlTaskInterface(TaskInterface):
+    _name = 'Phyml'
+
+    def scrape_args(self, records, model=None):
+        DEFAULT_DNA_MODEL = 'GTR'
+        DEFAULT_PROTEIN_MODEL = 'LG'
+        args = []
+        to_delete = []
+        for rec in records:
+            if model is None:
+                model = DEFAULT_DNA_MODEL if rec.is_dna() else DEFAULT_PROTEIN_MODEL
+            filename, delete = rec.get_alignment_file(as_phylip=True)
+            if delete:
+                to_delete.append(filename)
+            args.append((filename, model))
+        return args, to_delete
+
+    def get_task(self):
+        return phyml_task
 
 
 class RaxmlTaskInterface(TaskInterface):

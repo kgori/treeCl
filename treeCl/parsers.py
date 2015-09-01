@@ -8,7 +8,7 @@ WORD = Word(alphanums)
 
 class PhymlParser(object):
     """
-    Simple phyml result parser. Assumes GTR model for nucleotide analyses.
+    Simple phyml result parser. Assumes one of the standard models for nucleotide analyses.
     """
 
     def __init__(self):
@@ -17,13 +17,16 @@ class PhymlParser(object):
         self.LNL_LABEL = Regex(r'Log-likelihood:\s+')
         self.F_LABEL = Regex(r'f\(([ACGT])\)=\s+')
         self.R_LABEL = Regex(r'[ACGT]\s+<->\s+[ACGT]\s+')
+        self.TSTV_LABEL = Regex(r'Transition/transversion ratio.*:\s+')
         self.model = Suppress(SkipTo(self.MODEL_LABEL)) + Suppress(self.MODEL_LABEL) + WORD
         self.lnl = Suppress(SkipTo(self.LNL_LABEL)) + Suppress(self.LNL_LABEL) + FLOAT
         self.alpha = Suppress(SkipTo(self.ALPHA_LABEL)) + Suppress(self.ALPHA_LABEL) + FLOAT
         self.common = self.model + self.lnl + self.alpha
-        self.freq = OneOrMore(Group(Suppress(SkipTo(self.F_LABEL)) + Suppress(self.F_LABEL) + FLOAT))
-        self.rates = OneOrMore(Group(Suppress(SkipTo(self.R_LABEL)) + Suppress(self.R_LABEL) + FLOAT))
+        self.tstv = OneOrMore(Suppress(SkipTo(self.TSTV_LABEL)) + Suppress(self.TSTV_LABEL) + FLOAT)
+        self.freq = OneOrMore(Suppress(SkipTo(self.F_LABEL)) + Suppress(self.F_LABEL) + FLOAT)
+        self.rates = OneOrMore(Suppress(SkipTo(self.R_LABEL)) + Suppress(self.R_LABEL) + FLOAT)
         self.gtr_specific = Group(self.freq) + Group(self.rates)
+        self.hky_specific = Group(self.tstv) + Group(self.freq)
 
     def parse(self, filename):
         model = None
@@ -41,9 +44,41 @@ class PhymlParser(object):
         except ParseException as err:
             logger.error(err)
 
-        if model == 'GTR':
+        if model == 'JC69':
+            freq = [0.25, 0.25, 0.25, 0.25]
+            rates = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+
+        elif model == 'K80':
+            freq = [0.25, 0.25, 0.25, 0.25]
             try:
-                freq, rates = self.gtr_specific.parseString(s).asList()
+                tstv = self.tstv.parseString(s).asList()
+            except ParseException as err:
+                logger.error(err)
+            
+            rates = [1.0, tstv[0], 1.0, 1.0, tstv[0], 1.0]
+
+        elif model == 'F81':
+            try:
+                freq = self.freq.parseString(s).asList()
+            except ParseException as err:
+                logger.error(err)
+            rates = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+
+        elif model == 'F84' or model == 'HKY85' or model == 'TN93':
+            parser = Group(self.tstv) + Group(self.freq)
+            try:
+                tstv, freq = parser.parseString(s).asList()
+            except ParseException as err:
+                logger.error(err)
+            if model == 'TN93':
+                rates = [1.0, tstv[0], 1.0, 1.0, tstv[1], 1.0]
+            else:
+                rates = [1.0, tstv[0], 1.0, 1.0, tstv[0], 1.0]
+
+        elif model == 'GTR':
+            parser = Group(self.freq) + Group(self.rates)
+            try:
+                freq, rates = parser.parseString(s).asList()
             except ParseException as err:
                 logger.error(err)
 
@@ -58,17 +93,14 @@ class PhymlParser(object):
             logger.error(err)
             return
 
-        result = {'likelihood': lnl[0],
+        result = {'likelihood': lnl,
                   'partitions': {0: {'alpha': alpha,
-                                     'frequencies': freq},
+                                     'frequencies': freq,
                                      'rates': rates,
-                                     'model': model},
+                                     'model': model}},
                   'ml_tree': tree}
         return result
 
-pp = PhymlParser()
-res_aa = pp.parse('class1_1.phy_phyml_stats')
-res_nt = pp.parse('/nfs/research/goldman/kevin/testing_incomplete_taxon_occupancy/scripts/1/concats/415ce5a8740af3a4d5e33dfe5e73f7df00c0d889.phy_phyml_stats')
 
 class RaxmlParser(object):
 
@@ -144,4 +176,3 @@ class RaxmlParser(object):
 
         return result
 
-rp = RaxmlParser()
