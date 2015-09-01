@@ -566,6 +566,24 @@ class Scorer(object):
                 logger.error('No tree found for group {}'.format(grp))
         return trees
 
+    def get_partition_members(self, p):
+        result = []
+        for grp in p.get_membership():
+            members = [self.collection[i].name for i in grp]
+            result.append(members)
+        return result
+
+    def get_partition_results(self, p):
+        results = []
+        for grp in p.get_membership():
+            try:
+                result = self.get_group_result(grp)
+                results.append(result)
+            except ValueError:
+                results.append(None)
+                logger.error('No result found for group {}'.format(grp))
+        return results
+
     def clean_cache(self):
         files = glob.glob(os.path.join(self.cache_dir, '*.json'))
         for f in files:
