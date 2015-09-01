@@ -110,7 +110,7 @@ def model_translate(model):
 
     translation = {'LG' : 'LG08',
                    'WAG': 'WAG01'}
-    return translation[model]
+    return translation.get(model, model)
 
 def smooth_freqs(freqs):
     """

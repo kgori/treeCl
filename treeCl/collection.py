@@ -26,7 +26,7 @@ from .parameters import PartitionParameters
 from .partition import Partition
 from .parutils import SequentialJobHandler
 from .tree import Tree
-from .utils import fileIO, setup_progressbar, model_translate
+from .utils import fileIO, setup_progressbar, model_translate, smooth_freqs
 from .utils.decorators import lazyprop
 
 import json
@@ -603,22 +603,52 @@ class Scorer(object):
         :param partition:
         :return:
         """
-        indices = partition.get_membership()
-        self.add_lnl_partitions(partition, **kwargs)
-        results = [self.lnl_cache[ix] for ix in indices]
-        places = dict((j,i) for (i,j) in enumerate(rec.name for rec in self.collection.records))
+
+        results = self.get_partition_results(partition)
+        DEFAULT_DNA_MODEL = 'GTR'
+        DEFAULT_PROTEIN_MODEL = 'LG08'
 
         # Collect argument list
         args = [None] * len(self.collection)
+
         for result in results:
-            for partition in result['partitions'].values():
-                place = places[partition['name']]
-                args[place] = (len(self.collection[place]),
-                               model_translate(partition['model']),
-                               partition['frequencies'],
-                               partition['alpha'],
-                               result['ml_tree'],
-                               partition['rates'] if 'rates' in partition else None)
+            if len(result['partitions']) > 1:
+                places = dict((j,i) for (i,j) in enumerate(rec.name for rec in self.collection.records))
+                for partition in result['partitions'].values():
+                    place = places[partition['name']]
+                    model = partition.get('model')
+                    freqs = partition.get('frequencies')
+                    rates = partition.get('rates')
+                    alpha = partition.get('alpha')
+                    tree  = str(result['ml_tree'])
+                    if model is None:
+                        model = DEFAULT_DNA_MODEL if self.collection[place].is_dna() else DEFAULT_PROTEIN_MODEL
+                    if freqs is not None:
+                        freqs = smooth_freqs(freqs)
+                    args[place] = (len(self.collection[place]),
+                                   model_translate(model),
+                                   freqs,
+                                   alpha,
+                                   tree,
+                                   rates)
+            else:
+                model = result['partitions']['0'].get('model')
+                freqs = result['partitions']['0'].get('frequencies')
+                rates = result['partitions']['0'].get('rates')
+                alpha = result['partitions']['0'].get('alpha')
+                tree  = str(result['ml_tree'])
+                if freqs is not None:
+                    freqs = smooth_freqs(freqs)
+                use_default_model = (model is None)
+                for i in range(len(self.collection)):
+                    if use_default_model:
+                        model = DEFAULT_DNA_MODEL if self.collection[i].is_dna() else DEFAULT_PROTEIN_MODEL
+                    args[i] = (len(self.collection[i]),
+                               model_translate(model),
+                               freqs,
+                               alpha,
+                               tree,
+                               rates)
 
         # Distribute work
         msg = 'Simulating'
@@ -631,3 +661,38 @@ class Scorer(object):
             al = Alignment(simseqs, 'protein' if orig.is_protein() else 'dna')
             outfile = os.path.join(outdir, orig.name + '.phy')
             al.write_alignment(outfile, 'phylip', True)
+
+    # def simulate(self, partition, outdir, jobhandler=default_jobhandler, batchsize=1, **kwargs):
+    #     """
+    #     Simulate a set of alignments from the parameters inferred on a partition
+    #     :param partition:
+    #     :return:
+    #     """
+    #     indices = partition.get_membership()
+    #     self.add_lnl_partitions(partition, **kwargs)
+    #     results = [self.lnl_cache[ix] for ix in indices]
+    #     places = dict((j,i) for (i,j) in enumerate(rec.name for rec in self.collection.records))
+
+    #     # Collect argument list
+    #     args = [None] * len(self.collection)
+    #     for result in results:
+    #         for partition in result['partitions'].values():
+    #             place = places[partition['name']]
+    #             args[place] = (len(self.collection[place]),
+    #                            model_translate(partition['model']),
+    #                            partition['frequencies'],
+    #                            partition['alpha'],
+    #                            result['ml_tree'],
+    #                            partition['rates'] if 'rates' in partition else None)
+
+    #     # Distribute work
+    #     msg = 'Simulating'
+    #     map_result = jobhandler(tasks.simulate_task, args, msg, batchsize)
+
+    #     # Process results
+    #     for i, result in enumerate(map_result):
+    #         orig = self.collection[i]
+    #         simseqs = gapmask(result, orig.get_sequences())
+    #         al = Alignment(simseqs, 'protein' if orig.is_protein() else 'dna')
+    #         outfile = os.path.join(outdir, orig.name + '.phy')
+    #         al.write_alignment(outfile, 'phylip', True)

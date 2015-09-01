@@ -164,6 +164,8 @@ def raxml_task(alignment_file, model, partitions_file=None, outfile=None, thread
             outdir=os.path.abspath(tmpd))
         if pfl:
             cmd += ' -q {}'.format(pfl)
+        if threads > 1:
+            cmd += ' -T {}'.format(threads)
         rax(cmd, wait=True)
         #logger.debug('RaxML standard out = {}'.format(rax.get_stdout()))
         #logger.debug('RaxML standard err = {}'.format(rax.get_stderr()))
