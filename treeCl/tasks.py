@@ -164,8 +164,6 @@ def raxml_task(alignment_file, model, partitions_file=None, outfile=None, thread
             outdir=os.path.abspath(tmpd))
         if pfl:
             cmd += ' -q {}'.format(pfl)
-        if threads > 1:
-            cmd += ' -T {}'.format(threads)
         rax(cmd, wait=True)
         #logger.debug('RaxML standard out = {}'.format(rax.get_stdout()))
         #logger.debug('RaxML standard err = {}'.format(rax.get_stderr()))
@@ -266,7 +264,7 @@ class PllTaskInterface(TaskInterface):
 class PhymlTaskInterface(TaskInterface):
     _name = 'Phyml'
 
-    def scrape_args(self, records, model=None):
+    def scrape_args(self, records, model=None, **kwargs):
         DEFAULT_DNA_MODEL = 'GTR'
         DEFAULT_PROTEIN_MODEL = 'LG'
         args = []
@@ -450,6 +448,9 @@ class MLDistanceTaskInterface(TaskInterface):
 
 
 class SimulatorTaskInterface(TaskInterface):
+    """
+    BROKEN
+    """
     _name = 'Simulator'
 
     def scrape_args(self, results_list):

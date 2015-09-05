@@ -511,14 +511,14 @@ class Scorer(object):
         if jobhandler is None:
             jobhandler = SequentialJobHandler()
         files = glob.glob(os.path.join(self.cache_dir, '*.phy'))
-        logger.debug('Files - {}'.format(files))
+        #logger.debug('Files - {}'.format(files))
         records = []
         outfiles = []
         dna = self.collection[0].is_dna() # THIS IS ONLY A GUESS AT SEQ TYPE!!
         for infile in files:
             id_ = fileIO.strip_extensions(infile)
             outfile = self.get_result_file(id_)
-            logger.debug('Looking for {}: {}'.format(outfile, os.path.exists(outfile)))
+            #logger.debug('Looking for {}: {}'.format(outfile, os.path.exists(outfile)))
             if not os.path.exists(outfile):
                 record = Alignment(infile, 'phylip', True)
                 records.append(record)
@@ -661,38 +661,3 @@ class Scorer(object):
             al = Alignment(simseqs, 'protein' if orig.is_protein() else 'dna')
             outfile = os.path.join(outdir, orig.name + '.phy')
             al.write_alignment(outfile, 'phylip', True)
-
-    # def simulate(self, partition, outdir, jobhandler=default_jobhandler, batchsize=1, **kwargs):
-    #     """
-    #     Simulate a set of alignments from the parameters inferred on a partition
-    #     :param partition:
-    #     :return:
-    #     """
-    #     indices = partition.get_membership()
-    #     self.add_lnl_partitions(partition, **kwargs)
-    #     results = [self.lnl_cache[ix] for ix in indices]
-    #     places = dict((j,i) for (i,j) in enumerate(rec.name for rec in self.collection.records))
-
-    #     # Collect argument list
-    #     args = [None] * len(self.collection)
-    #     for result in results:
-    #         for partition in result['partitions'].values():
-    #             place = places[partition['name']]
-    #             args[place] = (len(self.collection[place]),
-    #                            model_translate(partition['model']),
-    #                            partition['frequencies'],
-    #                            partition['alpha'],
-    #                            result['ml_tree'],
-    #                            partition['rates'] if 'rates' in partition else None)
-
-    #     # Distribute work
-    #     msg = 'Simulating'
-    #     map_result = jobhandler(tasks.simulate_task, args, msg, batchsize)
-
-    #     # Process results
-    #     for i, result in enumerate(map_result):
-    #         orig = self.collection[i]
-    #         simseqs = gapmask(result, orig.get_sequences())
-    #         al = Alignment(simseqs, 'protein' if orig.is_protein() else 'dna')
-    #         outfile = os.path.join(outdir, orig.name + '.phy')
-    #         al.write_alignment(outfile, 'phylip', True)
