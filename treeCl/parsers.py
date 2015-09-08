@@ -3,8 +3,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 FLOAT = Word(nums + '.-').setParseAction(lambda x: float(x[0]))
-INT = Word(nums).setParseAction(lambda x: float(x[0]))
-WORD = Word(alphanums)
+INT = Word(nums).setParseAction(lambda x: int(x[0]))
+WORD = Word(alphanums+'_')
 
 class PhymlParser(object):
     """
@@ -116,6 +116,27 @@ class RaxmlParser(object):
         self.names = OneOrMore(Suppress(SkipTo(self.NAMES_LABEL)) + Suppress(self.NAMES_LABEL) + CharsNotIn('\n') + Suppress(LineEnd()))
         self.rates = OneOrMore(Group(Suppress(SkipTo(self.RATES_LABEL)) + Suppress(self.RATES_LABEL) + OneOrMore(FLOAT)))
 
+        MODEL_LABEL = Literal('Substitution Matrix:')
+        SCORE_LABEL = Literal('Final GAMMA  likelihood:')
+        DESC_LABEL = Literal('Model Parameters of Partition')
+        NAME_LEADIN = Literal(', Name:')
+        DATATYPE_LEADIN = Literal(', Type of Data:')
+        ALPHA_LEADIN = Literal('alpha:')
+        TREELENGTH_LEADIN = Literal('Tree-Length:')
+        RATES_LABEL = Regex(r'rate \w <-> \w:')
+        FREQS_LABEL = Regex(r'freq pi\(\w\):')
+
+        model = Suppress(SkipTo(MODEL_LABEL)) + Suppress(MODEL_LABEL) + WORD
+        likelihood = Suppress(SkipTo(SCORE_LABEL)) + Suppress(SCORE_LABEL) + FLOAT
+        description = Suppress(SkipTo(DESC_LABEL)) + Suppress(DESC_LABEL) + INT + Suppress(NAME_LEADIN) + WORD + Suppress(DATATYPE_LEADIN) + WORD
+        alpha = Suppress(ALPHA_LEADIN) + FLOAT
+        rates = Suppress(RATES_LABEL) + FLOAT
+        freqs = Suppress(FREQS_LABEL) + FLOAT
+
+        self._dash_f_e_parser = (Group(OneOrMore(model)) +
+                                 likelihood +
+                                 Group(OneOrMore(Group(description + alpha + Suppress(TREELENGTH_LEADIN) + Suppress(FLOAT) + Group(OneOrMore(rates)) + Group(OneOrMore(freqs))))))
+
     def parse(self, filename):
         with open(filename) as fl:
             s = fl.read()
@@ -147,7 +168,43 @@ class RaxmlParser(object):
 
         return alphas, freqs, names, rates, lnl
 
-    def to_dict(self, info_filename, tree_filename):
+    def _dash_f_e_to_dict(self, info_filename, tree_filename):
+        """
+        Raxml provides an option to fit model params to a tree,
+        selected with -f e.
+        The output is different and needs a different parser.
+        """
+        with open(info_filename) as fl:
+            models, likelihood, partition_params = self._dash_f_e_parser.parseFile(fl).asList()
+
+        with open(tree_filename) as fl:
+            tree = fl.read()
+
+        d = {'likelihood': likelihood, 'ml_tree': tree, 'partitions': {}}
+
+        for model, params in zip(models, partition_params):
+            subdict = {}
+            index, name, _, alpha, rates, freqs = params
+            subdict['alpha'] = alpha
+            subdict['name'] = name
+            subdict['rates'] = rates
+            subdict['frequencies'] = freqs
+            d['partitions'][index] = subdict
+
+        return d
+
+    def to_dict(self, info_filename, tree_filename, dash_f_e=False):
+        """
+        Parse raxml output and return a dict
+        Option dash_f_e=True will parse the output of a raxml -f e run,
+        which has different output
+        """
+        if dash_f_e:
+            return self._dash_f_e_to_dict(info_filename, tree_filename)
+        else:
+            return self._to_dict(info_filename, tree_filename)
+
+    def _to_dict(self, info_filename, tree_filename):
         alpha, freqs, names, rates, lnl = self.parse(info_filename)
         try:
             with open(tree_filename) as fl:
@@ -175,4 +232,3 @@ class RaxmlParser(object):
             result['partitions'][i] = subdict
 
         return result
-
