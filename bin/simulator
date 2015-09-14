@@ -32,7 +32,10 @@ if __name__ == '__main__':
                               'generated from an autocorrelated lognormal '
                               'relaxed clock, an uncorrelated lognormal relaxed '
                               'clock, or scaled uniformly by a parameter, drawn '
-                              'randomly from [0.666, 1.333]'))
+                              'randomly from [0.666, 1.333] (so vary by up to 2x)'))
+    parser.add_argument('-f', '--scale_factor', type=float, default=2,
+                        help=('If --within_variation=scaled is selected, this parameter '
+                              'controls the'))
     parser.add_argument('-v', '--verbosity', type=int)
     args = parser.parse_args()
 

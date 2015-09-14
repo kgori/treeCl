@@ -14,6 +14,10 @@ from tree_distance import PhyloTree
 from errors import optioncheck
 from utils import fileIO
 from utils.decorators import lazyprop
+from utils.math import truncated_exponential
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 def cast(dendropy_tree):
@@ -74,6 +78,16 @@ def logn_correlated_rate(parent_rate, branch_length, autocorrel_param, size=1):
                                           scale=stdev, size=size)
     descendant_rate = np.exp(ln_descendant_rate)
     return float(descendant_rate) if size == 1 else descendant_rate
+
+def _weighted_choice(choices):
+    total = sum(w for c, w in choices)
+    r = random.uniform(0, total)
+    upto = 0
+    for c, w in choices:
+        if upto + w > r:
+            return c
+        upto += w
+    assert False, "Shouldn't get here"
 
 
 class TreeError(Exception):
@@ -260,6 +274,374 @@ class LGT(object):
 class NNI(object):
     def __init__(self, tree):
         self.tree = tree
+
+    def _validate(self):
+        excludes = [self.tree.seed_node] + self.tree.leaf_nodes()
+        if self.tree.rooted:
+            child_a, child_b = self.tree.seed_node.child_nodes()
+        if child_a in excludes:
+            excludes.append(child_b)
+        if child_b in excludes:
+            excludes.append(child_a)
+        self.valid_nodes = self.tree.get_node_set(filter_fn=lambda x: not x in excludes)
+
+    def choose_node(self, weighted_choice=False, transform=None):
+        self._validate()
+        if weighted_choice:
+            weights = np.array([n.edge.length for n in self.valid_nodes])
+            if any(weight is None for weight in weights):
+                logger.debug('Not all weights were valid: {}'.format(weights))
+                weights = np.array([1.0 for n in self.valid_nodes])
+            logger.debug('Weights (weighted choice=True): {}'.format(weights))
+            if transform is not None:
+                weights = transform(weights)
+                logger.debug('Weights (transform=not None): {}'.format(weights))
+        else:
+            weights = np.array([1.0 for n in self.valid_nodes])
+            logger.debug('Weights (weighted choice=False): {}'.format(weights))
+
+        return _weighted_choice(zip(self.valid_nodes, weights))
+
+    def get_exchangeable_nodes(self, n):
+        """
+            A      C    | Subtrees A, B, C and D are the exchangeable nodes
+             \    /     | around the edge headed by n
+              -->n      | The NNI exchanges either A or B with either C or D
+             /    \ 
+            B      D
+
+            A      C                        C      A    | Subtree A is exchanged
+             \    /        +NNI(A,C)         \    /     | with subtree C.
+              -->n        ==========>         -->n
+             /    \                          /    \ 
+            B      D                        B      D
+        """
+        parent = n.parent_node
+        a, b = random.sample(n.child_nodes(), 2)
+        if parent.parent_node is None:
+            if self.tree.rooted:
+                c, d = random.sample(n.sister_nodes()[0].child_nodes(), 2)
+            else:
+                c, d = random.sample(n.sister_nodes(), 2)
+        else:
+            c = random.choice(n.sister_nodes())
+            d = random.choice(parent.sister_nodes())
+
+        return a, b, c, d
+
+    def do_nni(self, node_1, node_2):
+        parent_1 = node_1.parent_node
+        parent_2 = node_2.parent_node
+        parent_1.remove_child(node_1)
+        parent_2.remove_child(node_2)
+        parent_1.add_child(node_2)
+        parent_2.add_child(node_1)
+        self.tree.update_splits()
+
+    def rnni(self, weighted_choice=False, transform=None):
+        n = self.choose_node(weighted_choice, transform)
+        a, b, c, d = self.get_exchangeable_nodes(n)
+        self.do_nni(random.choice([a, b]), random.choice([c, d]))
+
+
+def collapse(t, threshold=None, keep_lengths=True, support_key=None, length_threshold=0.0):
+
+    to_collapse = []
+    for node in t.postorder_node_iter():
+        if node.is_leaf():
+            if node.edge_length < length_threshold:
+                node.edge_length = 0
+            continue
+        if node is t.seed_node:
+            continue
+        if threshold is not None:
+            try:
+                if support_key:
+                    support = float(node.annotations.get_value(support_key))
+                    node.label = support
+                else:
+                    support = float(node.label)
+            except TypeError as e:
+                raise SupportValueError('Inner node with length {} has no support value'.format(node.edge_length), e)
+            except ValueError as e:
+                raise SupportValueError(
+                    'Inner node with length {} has a non-numeric support value {}'.format(node.edge_length), e)
+            if support < threshold:
+                to_collapse.append(node.edge)
+        if node.edge_length < length_threshold:
+            to_collapse.append(node.edge)
+
+    for edge in to_collapse:
+        if keep_lengths:
+            for child in edge.head_node.child_nodes():
+                child.edge.length += edge.length
+        edge.collapse()
+    return t
+
+
+class UltrametricNNI(NNI):
+    def __init__(self, tree):
+        super(UltrametricNNI, self).__init__(tree)
+
+    def _make_ultrametric(self):
+        leaves = list(self.tree.leaf_iter())
+        root_tip_dists = [leaf.distance_from_root() for leaf in leaves]
+        mean_tip_dist = np.mean(root_tip_dists)
+        for dist, leaf in zip(root_tip_dists, leaves):
+            leaf.edge.length += (mean_tip_dist - dist)
+
+    def _validate(self):
+        super(UltrametricNNI, self)._validate()
+        self._make_ultrametric()
+        self.tree.calc_node_ages()
+
+    def do_nni(self, node1, node2, node3, node4):
+        pass
+
+
+class ILS(object):
+    def __init__(self, tree):
+        self.minlen=0
+        self.tree = tree
+        self._validate()
+
+
+    def _make_ultrametric(self):
+        leaves = list(self.tree.leaf_iter())
+        root_tip_dists = [leaf.distance_from_root() for leaf in leaves]
+        mean_tip_dist = np.mean(root_tip_dists)
+        for dist, leaf in zip(root_tip_dists, leaves):
+            leaf.edge.length += (mean_tip_dist - dist)
+
+    def _break_ties(self):
+        collapse(self.tree, keep_lengths=True, length_threshold=self.minlen)
+        self.tree.resolve_polytomies()
+
+    def _validate(self):
+        for edge in self.tree.preorder_edge_iter():
+            if np.isnan(edge.length) or edge.length <= self.minlen:
+                edge.length = self.minlen
+        self._break_ties()
+        self._make_ultrametric()
+        self.tree.calc_node_ages()
+        excludes = [self.tree.seed_node] + self.tree.seed_node.child_nodes() + self.tree.leaf_nodes()
+        self.valid_nodes = self.tree.get_node_set(filter_fn=lambda x: not x in excludes)
+
+    def choose_node(self, weighted_choice=False, transform=None):
+        self._validate()
+        if weighted_choice:
+            weights = np.array([n.edge.length for n in self.valid_nodes])
+            if any(weight is None for weight in weights):
+                logger.debug('Not all weights were valid: {}'.format(weights))
+                weights = np.array([1.0 for n in self.valid_nodes])
+            logger.debug('Weights (weighted choice=True): {}'.format(weights))
+            if transform is not None:
+                weights = transform(weights)
+                logger.debug('Weights (transform=not None): {}'.format(weights))
+        else:
+            weights = np.array([1.0 for n in self.valid_nodes])
+            logger.debug('Weights (weighted choice=False): {}'.format(weights))
+
+        return _weighted_choice(zip(self.valid_nodes, weights))
+
+    def get_matching_edge(self, starting_node, time):
+        def edge_matches_time(edge):
+            if edge.tail_node is None:
+                return False
+            return edge.head_node.age < time < edge.tail_node.age
+
+        if time > starting_node.parent_node.age:
+            for node in starting_node.parent_node.ancestor_iter():
+                if edge_matches_time(node.edge):
+                    return node.edge
+        else:
+            sister = starting_node.sister_nodes()[0].edge
+            if edge_matches_time(sister):
+                return sister
+            else:
+                raise ValueError('No matching edge was found')
+
+
+    def ils(self, node, sorting_times=None, force_topology_change=True):
+        """
+        A constrained and approximation of ILS using nearest-neighbour interchange
+
+        Process
+        -------
+        A node with at least three descendents is selected from an ultrametric tree
+        (node '2', below)
+
+                   ---0--...              ---0--...           ---0--...
+                  |        |             |        |        --1--      |
+                  |        R           --1--      R       |     |     R
+       age        |                   |     |            -2-    |
+        ^         |                   |     |           |   |   |
+        |       --1--                -2-    |           |   |   |
+        |      |     |       or     |   |   |     or    |   |   |
+        |      |     |              |   |   |           |   |   |
+        |     -2-    |              |   |   |           |   |   |
+        |    |   |   |              |   |   |           |   |   |
+        |    A   B   C              C   B   A           A   C   B
+
+        Nodes 'A', 'B' and 'C' are rearranged into one of the three configurations
+        [(A, B), C], [A, (B, C)], [(A, C), B]
+
+        Nodes 1 and 2 are slid further up the tree, but no further than node 0
+        (this is why it's a constrained version), by an amount drawn from a 
+        truncated exponential distribution.
+
+        This is approximately corresponds to the case where A and B failed to 
+        coalesce in the branch 1->2, so they coalesce with C in the branch
+        0 -> 1 instead
+        """
+        # node = '2', par = '1', gpar = '0' -- in above diagram
+        n_2 = node
+        n_1 = n_2.parent_node
+        if n_1 == self.tree.seed_node:
+            logger.warn('Node 1 is the root - calling again on child')
+            self.ils(n_2.child_nodes())
+        n_0 = n_1.parent_node
+        a, b = node.child_nodes()
+        c, = node.sister_nodes()
+
+        ages = [a.age, b.age, c.age, n_2.age, n_1.age, n_0.age]
+
+        # Do topology changes
+        if force_topology_change:
+            swap_mode = random.choice([1, 2])
+        else:
+            swap_mode = random.choice([0, 1, 2])
+
+        if swap_mode == 1:
+            # Exchange 'a' and 'c'
+            n_2.remove_child(a)
+            n_1.remove_child(c)
+            n_2.add_child(c)
+            n_1.add_child(a)
+
+        elif swap_mode == 2:
+            # Exchange 'b' and 'c'
+            n_2.remove_child(b)
+            n_1.remove_child(c)
+            n_2.add_child(c)
+            n_1.add_child(b)
+
+        # Do branch length adjustments
+        # Bounds - between node 0 (upper) and node 1 (lower)
+        min_unsorted_age = n_1.age
+        max_unsorted_age = n_0.age
+        if sorting_times is None:
+            sorting_times = truncated_exponential(max_unsorted_age-min_unsorted_age, 
+                                              scale=0.1*(max_unsorted_age-min_unsorted_age),
+                                              sample_size=2) # E(t) = n(n-1)/2, n = 3
+            sorting_times += min_unsorted_age
+            sorting_times = np.array([min_unsorted_age, ages[3]])
+
+        # Adjust node 1 edge length
+        new_n1_age = max(sorting_times)
+        prev_age = ages[4]
+        slide = (new_n1_age - prev_age)
+        if slide < 1e-6: 
+            slide = 0
+            new_n1_age = prev_age
+        n_1.edge.length -= slide
+        n_2.edge.length += slide
+
+        # Adjust node 2 edge length
+        new_n2_age = min(sorting_times)
+        prev_age = ages[3]
+        slide = (new_n2_age - prev_age)
+        if slide < 1e-6: 
+            slide = 0
+            new_n2_age = prev_age
+        n_2.edge.length -= slide
+
+        # Adjust a, b and c edge lengths
+        if swap_mode == 0:
+            a.edge.length = (new_n2_age - ages[0])
+            b.edge.length = (new_n2_age - ages[1])
+            c.edge.length = (new_n1_age - ages[2])
+
+        elif swap_mode == 1:
+            a.edge.length = (new_n1_age - ages[0])
+            b.edge.length = (new_n2_age - ages[1])
+            c.edge.length = (new_n2_age - ages[2])
+
+        else:
+            a.edge.length = (new_n2_age - ages[0])
+            b.edge.length = (new_n1_age - ages[1])
+            c.edge.length = (new_n2_age - ages[2])
+
+        self.tree.reindex_taxa()
+        self.tree.update_splits()
+        self._validate()
+        logger.debug(self.tree)
+
+    def rils(self, weighted_choice=True, transform=None):
+        n = self.choose_node(weighted_choice, transform)
+        logger.debug('Chosen node = {} age = {} parent age = {}'.format([leaf.taxon.label for leaf in n.leaf_nodes()], n.age, n.parent_node.age))
+        self.ils(n)
+
+    # def ils_(self, node, sorting_times=None):
+    #     unsorted_descendants = node.child_nodes()
+    #     logger.info('Child 1 = {} age = {}'.format([leaf.taxon.label for leaf in unsorted_descendants[0].leaf_nodes()], unsorted_descendants[0].age))
+    #     logger.info('Child 1 = {} age = {}'.format([leaf.taxon.label for leaf in unsorted_descendants[1].leaf_nodes()], unsorted_descendants[1].age))
+
+    #     min_unsorted_age = max(node.age, node.sister_nodes()[0].age)
+    #     logger.debug('Node age = {}, sister age = {}'.format(node.age, node.sister_nodes()[0].age))
+    #     max_unsorted_age = self.tree.seed_node.age
+
+    #     if sorting_times is None:
+    #         sorting_times = truncated_exponential(max_unsorted_age-min_unsorted_age, 
+    #                                           scale=0.5*(max_unsorted_age-min_unsorted_age),
+    #                                           sample_size=2) # E(t) = n(n-1)/2, n = 2
+    #         sorting_times += min_unsorted_age
+
+    #     if np.any(sorting_times > max_unsorted_age): logger.error('Sorting times too large: {}'.format(sorting_times))
+    #     logger.info('Min/Max ages = {} {}'.format(min_unsorted_age, max_unsorted_age))
+    #     logger.info('Sorting occurs = {} {}'.format(*sorting_times))
+
+    #     random.shuffle(unsorted_descendants)
+    #     c1, c2 = unsorted_descendants
+    #     time1 = max(sorting_times)
+    #     time2 = min(sorting_times)
+    #     donor1 = self.get_matching_edge(node, time1)
+    #     donor2 = self.get_matching_edge(node, time2)
+
+    #     logger.info('Stage 0 - initial tree')
+    #     logger.info('Stage 1 - remove c1')
+    #     self.tree.print_plot(plot_metric='length')
+    #     node.remove_child(c1)
+        
+    #     logger.info('Stage 2 - remove c2')
+    #     self.tree.print_plot(plot_metric='length')
+    #     node.remove_child(c2)
+        
+    #     c1.edge.length = time1 - c1.age
+    #     c2.edge.length = time2 - c2.age
+        
+    #     logger.info('Stage 3 - regraft c1 at time={}'.format(time1))
+    #     self.tree.print_plot(plot_metric='length')
+    #     self.SPR.regraft(donor1, c1, time1 - donor1.head_node.age)
+        
+    #     logger.info('Stage 4 - regraft c2 at time={}'.format(time2))
+    #     self.tree.print_plot(plot_metric='length')
+    #     self.SPR.regraft(donor2, c2, time2 - donor2.head_node.age)
+        
+    #     self.tree.print_plot(plot_metric='length')
+    #     self.tree.prune_subtree(node, delete_outdegree_one=True)
+        
+    #     logger.info('Stage Final')
+    #     self.tree.print_plot(plot_metric='length')
+    #     self.tree.update_splits()
+    #     self.tree.reindex_taxa()
+    #     self.tree.calc_node_ages()
+    #     self._validate()
+
+
+class NNI2(object):
+    def __init__(self, tree):
+        self.tree = tree
         if tree.rooted:
             self.reroot = True
             self.rooting_info = self.tree.reversible_deroot()
@@ -345,8 +727,17 @@ class NNI(object):
             self.tree._dirty = True
         return self.tree
 
-    def rnni(self):
-        e = random.choice(self.tree.get_inner_edges())
+    def rnni(self, weighted_choice=False, invert_weights=False):
+        """
+        Apply a random NNI operation at a randomly selected edge
+        The edge can be chosen uniformly, or weighted by length --
+        invert_weights favours short edges.
+        """
+        if weighted_choice:
+            leaves = list(self.tree.leaf_edge_iter())
+            e, _ = self.tree.map_event_onto_tree(excluded_edges=leaves, invert_weights=invert_weights)
+        else:
+            e = random.choice(self.tree.get_inner_edges())
         children = self.get_children(e)
         h = random.choice(children['head'])
         t = random.choice(children['tail'])
@@ -497,7 +888,7 @@ class Tree(dendropy.Tree):
         taxa2 = other.labels
         return taxa1 & taxa2
 
-    def map_event_onto_tree(self, excluded_edges=None):
+    def map_event_onto_tree(self, excluded_edges=None, invert_weights=False):
         edge_list = list(self.preorder_edge_iter())
         if excluded_edges is not None:
             if not isinstance(excluded_edges, list):
@@ -510,6 +901,8 @@ class Tree(dendropy.Tree):
                     print('that aren\'t in the tree')
                     print('like this one:', excl)
         lengths = np.array([edge.length for edge in edge_list])
+        if invert_weights:
+            lengths = 1/lengths
         cumulative_lengths = lengths.cumsum()
         rnum = np.random.random() * cumulative_lengths[-1]
         index = cumulative_lengths.searchsorted(rnum)
@@ -702,12 +1095,15 @@ class Tree(dendropy.Tree):
             lgt.rlgt(time, disallow_sibling_lgts)
         return lgt.tree
 
-    def rnni(self, times=1):
-        """ Applies a NNI operation on a randomly chosen edge. """
+    def rnni(self, times=1, **kwargs):
+        """ Applies a NNI operation on a randomly chosen edge. 
+        keyword args: weighted_choice (True/False)
+                      invert_weights (True/False)
+        """
 
         nni = NNI(self.copy())
         for _ in range(times):
-            nni.rnni()
+            nni.rnni(**kwargs)
         nni.reroot_tree()
         return nni.tree
 
