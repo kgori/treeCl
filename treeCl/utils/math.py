@@ -1,4 +1,5 @@
 import numpy as np
+import scipy
 
 def _preprocess_inputs(x, weights):
     """
@@ -34,3 +35,10 @@ def hmean(x, weights=None):
     """
     w_arr, x_arr = _preprocess_inputs(x, weights)
     return w_arr.sum(axis=0) / (w_arr/x_arr).sum(axis=0)
+
+def truncated_exponential(max_x=np.inf, scale=1, sample_size=1):
+    dist = scipy.stats.expon(scale=scale)
+    normalisation_factor = dist.cdf(max_x) - dist.cdf(0)
+    uniform_sample = np.random.rand(sample_size) * (normalisation_factor) + dist.cdf(0)
+    transformed_sample = dist.ppf(uniform_sample)
+    return transformed_sample
