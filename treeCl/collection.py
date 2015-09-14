@@ -661,3 +661,23 @@ class Scorer(object):
             al = Alignment(simseqs, 'protein' if orig.is_protein() else 'dna')
             outfile = os.path.join(outdir, orig.name + '.phy')
             al.write_alignment(outfile, 'phylip', True)
+
+class Optimiser(object):
+    def __init__(self, scorer):
+        self.scorer = scorer
+        self.insts = init_perlocus_likelihood_objects()
+
+    def init_perlocus_likelihood_objects(self):
+        from pllpy import pll
+        c = self.scorer.collection
+        insts = []
+        to_delete = []
+        for rec in c:
+            alignment_file, delete = rec.get_alignment_file()
+            if delete:
+                to_delete.append(alignment_file)
+            model = 'GTR' if rec.is_dna() else 'LG'
+            partition_string = '{}, {} = 1 - {}'.format(model, rec.name, len(rec))
+            inst = pll(alignment_file, partition_string, rec.tree, 1, 12345)
+            insts.append(inst)
+        return insts
