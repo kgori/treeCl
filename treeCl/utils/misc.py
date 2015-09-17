@@ -1,6 +1,10 @@
 from progressbar import ProgressBar, Percentage, SimpleProgress, Timer, AdaptiveETA, Bar, FormatLabel
 import numpy as np
 import itertools
+from phylo_utils import seq_to_partials
+from phylo_utils.markov import TransitionMatrix
+from phylo_utils.models import LG, GTR
+from phylo_utils.likelihood import GammaMixture
 from Bio.Seq import Seq, UnknownSeq
 from Bio.SeqRecord import SeqRecord
 from Bio.Align import MultipleSeqAlignment
@@ -14,7 +18,9 @@ __all__ = ['concatenate',
            'model_translate',
            'smooth_freqs',
            'grouper',
-           'insort_no_dup']
+           'insort_no_dup',
+           'alignment_to_partials',
+           'biopython_to_partials']
 
 def concatenate(alignments):
     """
@@ -144,3 +150,37 @@ def insort_no_dup(lst, item):
     ix = bisect.bisect_left(lst, item)
     if lst[ix] != item: 
         lst[ix:ix] = [item]
+
+def alignment_to_partials(alignment):
+    """ Generate a partials dictionary from a treeCl.Alignment """
+    partials_dict = {}
+    for (name, sequence) in alignment.get_sequences():
+        datatype = 'dna' if alignment.is_dna() else 'protein'
+        partials_dict[name] = phylo_utils.seq_to_partials(sequence, datatype)
+    return partials_dict
+
+def biopython_to_partials(alignment, datatype):
+    """ Generate a partials dictionary from a treeCl.Alignment """
+    partials_dict = {}
+    for seq in alignment:
+        partials_dict[seq.name] = phylo_utils.seq_to_partials(seq, datatype)
+    return partials_dict
+
+def create_gamma_model(alignment, parameters):
+    """ Create a phylo_utils.likelihood.GammaMixture for calculating
+    likelihood on a tree, from a treeCl.Alignment and its matching 
+    treeCl.Parameters """
+    model = parameters.partitions.model
+    freqs = parameters.partitions.frequencies
+    alpha = parameters.partitions.alpha
+    if model == 'LG':
+        subs_model = LG(frequencies)
+    elif model == 'GTR':
+        rates = parameters.partitions.rates
+        subs_model = GTR(rates, freqs, True)
+    else:
+        raise ValueError("Can't handle this model: {}".format(model))
+    tm = TransitionMatrix(subs_model)
+    gamma = GammaMixture(alpha, 4)
+    gamma.init_models(tm, alignment_to_partials(alignment), scale_freq=20)
+    return gamma

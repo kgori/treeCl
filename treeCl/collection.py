@@ -13,6 +13,7 @@ import sys
 
 # third party
 import numpy as np
+import phylo_utils
 from scipy.spatial.distance import squareform
 
 # treeCl
