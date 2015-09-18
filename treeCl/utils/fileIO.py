@@ -61,6 +61,14 @@ class TempDir(object):
         shutil.rmtree(self._wrapped_tmpdir)
 
 
+class NonDeletingTempFile(TempFile):
+    def __exit__(self, type, value, tb):
+        pass
+
+class NonDeletingTempDir(TempDir):
+    def __exit__(self, type, value, tb):
+        pass
+
 class TempFileList(object):
 
     def __init__(self, filelist):

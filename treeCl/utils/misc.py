@@ -20,7 +20,8 @@ __all__ = ['concatenate',
            'grouper',
            'insort_no_dup',
            'alignment_to_partials',
-           'biopython_to_partials']
+           'biopython_to_partials',
+           'create_gamma_model']
 
 def concatenate(alignments):
     """
@@ -151,36 +152,42 @@ def insort_no_dup(lst, item):
     if lst[ix] != item: 
         lst[ix:ix] = [item]
 
-def alignment_to_partials(alignment):
+def alignment_to_partials(alignment, missing_data=None):
     """ Generate a partials dictionary from a treeCl.Alignment """
     partials_dict = {}
     for (name, sequence) in alignment.get_sequences():
         datatype = 'dna' if alignment.is_dna() else 'protein'
-        partials_dict[name] = phylo_utils.seq_to_partials(sequence, datatype)
+        partials_dict[name] = seq_to_partials(sequence, datatype)
+
+    if missing_data is not None:
+        l = len(alignment)
+        for name in missing_data:
+            if name not in partials_dict:
+                partials_dict[name] = seq_to_partials('-'*l, datatype)
     return partials_dict
 
 def biopython_to_partials(alignment, datatype):
     """ Generate a partials dictionary from a treeCl.Alignment """
     partials_dict = {}
     for seq in alignment:
-        partials_dict[seq.name] = phylo_utils.seq_to_partials(seq, datatype)
+        partials_dict[seq.name] = seq_to_partials(seq, datatype)
     return partials_dict
 
-def create_gamma_model(alignment, parameters):
+def create_gamma_model(alignment, missing_data=None):
     """ Create a phylo_utils.likelihood.GammaMixture for calculating
     likelihood on a tree, from a treeCl.Alignment and its matching 
     treeCl.Parameters """
-    model = parameters.partitions.model
-    freqs = parameters.partitions.frequencies
-    alpha = parameters.partitions.alpha
+    model = alignment.parameters.partitions.model
+    freqs = alignment.parameters.partitions.frequencies
+    alpha = alignment.parameters.partitions.alpha
     if model == 'LG':
-        subs_model = LG(frequencies)
+        subs_model = LG(freqs)
     elif model == 'GTR':
-        rates = parameters.partitions.rates
+        rates = alignment.parameters.partitions.rates
         subs_model = GTR(rates, freqs, True)
     else:
         raise ValueError("Can't handle this model: {}".format(model))
     tm = TransitionMatrix(subs_model)
     gamma = GammaMixture(alpha, 4)
-    gamma.init_models(tm, alignment_to_partials(alignment), scale_freq=20)
+    gamma.init_models(tm, alignment_to_partials(alignment, missing_data), scale_freq=20)
     return gamma
