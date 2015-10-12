@@ -1,7 +1,7 @@
 aa_alignments
 tree_collection/cython/build/
 extensions/cpp/py_seq.*
-
+extensions/tree_collection/cython/py_wrapper.cpp
 
 # Mac cruft
 *.DS_Store*

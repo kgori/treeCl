@@ -77,7 +77,7 @@ string gm("5 10\n"
 string lab("10\n"
         "Sp8 Sp9 Sp1 Sp2 Sp3 Sp4 Sp5 Sp6 Sp7 Sp10");
 
-string tree("((Sp4,(Sp5,(Sp6,Sp7))),(((Sp1,Sp2),Sp3),(Sp10,(Sp8,Sp9))));");
+string tree("((Sp4:1,(Sp5:1,(Sp6:1,Sp7:1):1):1):1,(((Sp1:1,Sp2:1):1,Sp3:1):1,(Sp10:1,(Sp8:1,Sp9:1):1):1):1);");
 
 std::pair<std::string, double> testcompute(std::string matrices, std::string mapping, std::string labels, std::string tree, int iter, bool keep_topology, bool quiet) throw()
 {
@@ -108,9 +108,9 @@ std::pair<std::string, double> testcompute(std::string matrices, std::string map
         cout << "there was an error" << endl;
         cerr << e.what() << endl;
     }
-
-    std::string out_tree(mstc->getTree());
-    double out_score(mstc->getScore());
+    mstc->getTree();
+    std::string out_tree(mstc->newick);
+    double out_score(mstc->getLogLikelihood());
     std::pair<std::string, double> result = std::make_pair(out_tree, out_score);
     cout << "..done" << endl;
     return result;
@@ -120,6 +120,8 @@ std::pair<std::string, double> testcompute(std::string matrices, std::string map
 
 int main(int argc, char const *argv[])
 {
-    auto result = testcompute(dv, gm, lab, tree, 1, false, false);
+    auto result = testcompute(dv, gm, lab, tree, 10, false, false);
+    cout << "Best Tree = " << std::get<0>(result) << endl;
+    cout << "Lnl = " << std::get<1>(result) << endl;
     return 0;
 }

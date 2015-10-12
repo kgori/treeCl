@@ -34,7 +34,8 @@ double fit(std::string matrices, std::string mapping, std::string labels, std::s
     return result;
 }
 
-std::pair<std::string, double> compute(std::string matrices, std::string mapping, std::string labels, std::string tree, int iter, bool keep_topology, bool quiet) throw()
+std::pair<std::string, double> compute(std::string matrices, std::string mapping, std::string labels, std::string tree,
+                                       int iter, bool loglik, bool keep_topology, bool quiet)
 {
     std::vector<MinSquareTreeCollection::DblMatrix> pmatrices;
     MinSquareTreeCollection::IntMatrix pmapping;
@@ -51,6 +52,9 @@ std::pair<std::string, double> compute(std::string matrices, std::string mapping
     MinSquareTreeCollection mstc(pmatrices, pmapping, plabels, *ptree);
     mstc.compute(keep_topology, iter, quiet);
     mstc.getTree();
-    result = std::make_pair(mstc.newick, mstc.getScore());
+    if (loglik)
+        result = std::make_pair(mstc.newick, mstc.getLogLikelihood());
+    else
+        result = std::make_pair(mstc.newick, mstc.getScore());
     return result;
 }

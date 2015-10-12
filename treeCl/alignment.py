@@ -8,6 +8,12 @@ import bpp
 from treeCl.utils import pll_helpers
 from parameters import Parameters, PartitionParameters
 from utils import fileIO
+from Bio.Seq import Seq, UnknownSeq
+from Bio.SeqRecord import SeqRecord
+from Bio.Align import MultipleSeqAlignment
+from Bio.Alphabet import IUPAC
+from Bio import AlignIO
+from collections import defaultdict
 
 
 class Alignment(bpp.Alignment):
@@ -17,8 +23,9 @@ class Alignment(bpp.Alignment):
         self.name = None
         self.parameters = Parameters()
         if len(args) > 0 and isinstance(args[0], basestring) and fileIO.can_locate(args[0]):
-            self.infile = args[0]
+            self.infile = os.path.abspath(args[0])
             self.parameters.filename = args[0]
+            self.name = os.path.splitext(os.path.basename(self.infile))[0]
 
     def __add__(self, other):
         return self.__class__([self, other])
@@ -52,7 +59,19 @@ class Alignment(bpp.Alignment):
         super(Alignment, self).read_alignment(*args, **kwargs)
         self.infile = args[0]
 
-    def get_alignment_file(self, as_phylip=False):
+    def write_alignment(self, filename, file_format, interleaved=None):
+        """
+        Overloads the base class function.
+        Uses Bio AlignIO to write because biopp writes
+        phylip interleaved in a way that causes an error
+        with FastTree
+        """
+        b = self.to_biopython_msa()
+        if file_format == 'phylip':
+            file_format = 'phylip-relaxed'
+        AlignIO.write(b, filename, file_format)
+
+    def get_alignment_file(self, as_phylip=True):
         try:
             with open(self.infile) as fl:
                 if as_phylip:
@@ -91,3 +110,10 @@ class Alignment(bpp.Alignment):
             if v > 1:
                 ucl += v * log(v)
         return ucl - n * log(n)
+
+    def to_biopython_msa(self):
+        alph = IUPAC.extended_dna if self.is_dna() else IUPAC.extended_protein
+        msa = MultipleSeqAlignment([SeqRecord(Seq(sequence, alphabet=IUPAC.extended_dna), id=key) for (key, sequence) in self.get_sequences()])
+        for seq in msa: seq.description=''
+        return msa
+

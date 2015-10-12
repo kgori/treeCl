@@ -20,6 +20,7 @@ using namespace std;
 #define nSpecies(k)               (aDistVar[k].rows())
 #define aDIST(k, i, j)              (aMap(k,i) < aMap(k,j) ? (aDistVar[k](aMap(k,i)-1,aMap(k,j)-1)) : (aDistVar[k](aMap(k,j)-1,aMap(k,i)-1)))
 #define aVAR(k, i, j)               (dinv(aMap(k,i) < aMap(k,j) ? (aDistVar[k](aMap(k,j)-1,aMap(k,i)-1)) : (aDistVar[k](aMap(k,i)-1,aMap(k,j)-1))))
+#define VAR(k,i,j)                (aMap(k,i) < aMap(k,j) ? (aDistVar[k](aMap(k,j)-1,aMap(k,i)-1)) : (aDistVar[k](aMap(k,i)-1,aMap(k,j)-1)))
 
 /* if we want to replace the macro by inline function, will need to solve
  * the scope problem of aMap and aDistVar
@@ -31,7 +32,7 @@ using namespace std;
  : aDistVar[k](i1-1,j1-1)
 	return dinv(var);
  }
- 
+
  inline double aDIST(int k, int i, int j) {
 	int i1 = aMap(k,i);
 	int j1 = aMap(k,j);
@@ -69,7 +70,7 @@ int MinSquareTreeCollection::BestRestrictionRemoval(const DblMatrix &Z, const Db
     int bestrestr, i, k;
     DblVector L2(n);
     DblVector bestL(n);
-    
+
     bestnorm = DBL_MAX;
     bestrestr = restr;
     for (k = 0; k < n; k++)
@@ -79,7 +80,7 @@ int MinSquareTreeCollection::BestRestrictionRemoval(const DblMatrix &Z, const Db
             eps = 50 * DBL_EPSILON * max;
             for (i = 0; i < n; i++) if (L2[i] < MinLen - eps) break;
             if (i < n) /* removing restriction was not good */ continue;
-            
+
             bestrestr = BestRestrictionRemoval(Z, B, L2, n, restr - (1 << k));
             if (bestrestr == restr) continue;
             /* The norm of the error is btb - x*Atb (for Ax ~ b) */
@@ -131,14 +132,14 @@ double MinSquareTreeCollection::FourSubtree(double Wab, double Mab, double Wac, 
     Wad + Wbd,
     Wcd,
     Wad + Wbd + Wcd;
-    
+
     B1 <<
     Mab + Mac + Mad,
     Mab + Mbc + Mbd,
     Mac + Mad + Mbc + Mbd,
     Mac + Mbc + Mcd,
     Mad + Mbd + Mcd;
-    
+
     for (restr = it = 0; it < 5; it++) {
     restart:
         SolveRestricted(Z1, B1, L, 5, restr);
@@ -161,7 +162,7 @@ double MinSquareTreeCollection::FourSubtree(double Wab, double Mab, double Wac, 
     for (max = i = 0; i < 5; i++) if (abs(L[i]) > max) max = abs(L[i]);
     eps = 50 * DBL_EPSILON * max;
     for (i = 0; i < 5; i++) assert(L[i] >= MinLen - eps);
-    
+
     {
         double t1, t4, t7, t10, t13, t20;
         t1 = L[2] + L[3] + L[0];
@@ -212,7 +213,7 @@ void MinSquareTreeCollection::MS_ShortestPathCollection(int from, int ExcludedEd
         ShortestLabel[from] = label;
         return;
     }
-    
+
     for (int j = 0; j < 3; j++) {
         int e1 = inc(from - ne, j);
         if (e1 != ExcludedEdge) {
@@ -240,7 +241,7 @@ void MinSquareTreeCollection::MS_ShortestPathOne(int from, int ExcludedEdge, int
         ShortestLabel[from] = label;
         return;
     }
-    
+
     for (int j = 0; j < 3; j++) {
         int e1 = inc(from - ne, j);
         if (e1 != ExcludedEdge) {
@@ -254,11 +255,45 @@ void MinSquareTreeCollection::MS_ShortestPathOne(int from, int ExcludedEdge, int
             }
             ConShortestPathC(dest, k) = ConShortestPathC(orig, k)
             + abs(EdgeC[e1].len[k]);
-            
+
             MS_ShortestPathOne(dest, e1, k, label);
         }
     }
     return;
+}
+
+/* computes the sum of log-likelihoods of the distance errors as given in Edge
+*  assumes normally-distributed errors */
+double MinSquareTreeCollection::LogLikelihoodFitCollection()
+/* requires inc[][] vector */
+{
+   int e1, e2, e3;
+   double error, r, variance, l;
+   r = 0;
+   for(e3=0; e3 < 2*ne-3; e3++ ) {
+      if(    EdgeC[e3].From < ne-1 ){ e1 = EdgeC[e3].From; e2 = EdgeC[e3].To;}
+      else if( EdgeC[e3].To < ne-1 ){ e1 = EdgeC[e3].To;   e2 = EdgeC[e3].From;}
+      else continue;
+
+      for(int k=0; k<NT; k++) {
+         ConShortestPathC(e2,k) = abs(EdgeC[e3].len[k]);
+      }
+      MS_ShortestPathCollection( e2, e3, 0 );
+
+      for(int k=0; k<NT; k++) {
+         if( isNA(k,e1) )
+            continue;
+         for(int j=e1+1; j<ne; j++ ) {
+            if( isNA(k,j) )
+               continue;
+            error = ConShortestPathC(j,k) - aDIST(k,e1,j);
+            variance = VAR(k,e1,j);
+            l = -0.5*(log(2*M_PI*variance) + error*error/variance);
+            r += l;
+         }
+      }
+   }
+   return(r);
 }
 
 /* computes the sum of squares of the distance errors as given in Edge */
@@ -281,12 +316,12 @@ double MinSquareTreeCollection::DistanceFitCollection()
             e2 = EdgeC[e3].From;
         }
         else continue;
-        
+
         for (int k = 0; k < NT; k++) {
             ConShortestPathC(e2, k) = abs(EdgeC[e3].len[k]);
         }
         MS_ShortestPathCollection(e2, e3, 0);
-        
+
         for (int k = 0; k < NT; k++) {
             if (isNA(k, e1))
                 continue;
@@ -325,14 +360,14 @@ void MinSquareTreeCollection::IncidencesC() {
 }
 
 /*
- 
+
  Code to fit a branches of subtrees of orthologous groups. All branches
  labeled with negative length in the len-field are optimized.
- 
+
  Main procedure: FitLabeledEdgesC
  Sub routines: getSons, LabelNonExistEdgesR, LabelNonExistEdges,
  FindQuartet, CountOrLabelPath, FitQuartet
- 
+
  */
 
 void MinSquareTreeCollection::getSons(int e0, int n, int *e1, int *e2) {
@@ -355,9 +390,9 @@ void MinSquareTreeCollection::getSons(int e0, int n, int *e1, int *e2) {
 
 void MinSquareTreeCollection::LabelNonExistEdgesR(int e0, int n_papa) {
     int n, e1, e2;
-    
+
     n = (EdgeC[e0].From != n_papa) ? EdgeC[e0].From : EdgeC[e0].To;
-    
+
     if (n < ne) {
         for (int k = 0; k < NT; k++) {
             if (isNA(k, n)) EdgeC[e0].len[k] = DBL_MAX;
@@ -369,12 +404,12 @@ void MinSquareTreeCollection::LabelNonExistEdgesR(int e0, int n_papa) {
         if (EdgeC[e0].len[k] == DBL_MAX)
             EdgeC[e0].len[k] = -1;
     }
-    
+
     getSons(e0, n, &e1, &e2);
-    
+
     LabelNonExistEdgesR(e1, n);
     LabelNonExistEdgesR(e2, n);
-    
+
     for (int k = 0; k < NT; k++) {
         if ((EdgeC[e1].len[k] == DBL_MAX) && (EdgeC[e2].len[k] == DBL_MAX))
             EdgeC[e0].len[k] = DBL_MAX;
@@ -384,12 +419,12 @@ void MinSquareTreeCollection::LabelNonExistEdgesR(int e0, int n_papa) {
 
 void MinSquareTreeCollection::Fix001Case(int er, int e0, int n_papa) {
     int e1, e2, n;
-    
+
     n = (EdgeC[e0].From != n_papa) ? EdgeC[e0].From : EdgeC[e0].To;
     if (n < ne) return;
-    
+
     getSons(e0, n, &e1, &e2);
-    
+
     for (int k = 0; k < NT; k++) {
         if (EdgeC[er].len[k] == -DBL_MAX) {
             if (e0 != er) EdgeC[e0].len[k] = DBL_MAX;
@@ -397,16 +432,16 @@ void MinSquareTreeCollection::Fix001Case(int er, int e0, int n_papa) {
                 EdgeC[er].len[k] = DBL_MAX;
         }
     }
-    
+
     Fix001Case(er, e1, n);
     Fix001Case(er, e2, n);
-    
+
     return;
 }
 
 void MinSquareTreeCollection::LabelNonExistEdges() {
     int e0, e1, e2, n = 0, n2 = 0;
-    
+
     for (e0 = 0; e0 <= 2 * ne - 4; e0++) {
         n = EdgeC[e0].From;
         n2 = EdgeC[e0].To;
@@ -415,10 +450,10 @@ void MinSquareTreeCollection::LabelNonExistEdges() {
         n2 = EdgeC[e0].From;
         if (n < ne) break;
     }
-    
-    
+
+
     LabelNonExistEdgesR(e0, n);
-    
+
     getSons(e0, n2, &e1, &e2);
     for (int k = 0; k < NT; k++) {
         if (isNA(k, n)) {
@@ -430,21 +465,21 @@ void MinSquareTreeCollection::LabelNonExistEdges() {
             }
         }
     }
-    
+
     Fix001Case(e0, e0, n);
     for (int k = 0; k < NT; k++)
         if (EdgeC[e0].len[k] == -DBL_MAX)
             throw RuntimeException("LabelNonExistEdges -- inconsistency");
-    
+
     return;
 }
 
 void MinSquareTreeCollection::FindQuartet(int i, int e0, int n_papa, int *at, int *et, int *x, int *ia,
                                           int *ix, int *a2, int *ee2, int *ia2, int *ex2) {
     int n_next, e1, e2, n1, n2;
-    
+
     n_next = (EdgeC[e0].To == n_papa) ? EdgeC[e0].From : EdgeC[e0].To;
-    
+
     /* Leaf */
     if (n_next < ne) {
         (*ia)++;
@@ -458,11 +493,11 @@ void MinSquareTreeCollection::FindQuartet(int i, int e0, int n_papa, int *at, in
         }
         return;
     }
-    
+
     getSons(e0, n_next, &e1, &e2);
     n1 = (EdgeC[e1].To == n_next) ? EdgeC[e1].From : EdgeC[e1].To;
     n2 = (EdgeC[e2].To == n_next) ? EdgeC[e2].From : EdgeC[e2].To;
-    
+
     /* Path */
     if (EdgeC[e1].len[i] == DBL_MAX) {
         FindQuartet(i, e2, n_next, at, et, x, ia, ix, a2, ee2, ia2, ex2);
@@ -471,7 +506,7 @@ void MinSquareTreeCollection::FindQuartet(int i, int e0, int n_papa, int *at, in
         FindQuartet(i, e1, n_next, at, et, x, ia, ix, a2, ee2, ia2, ex2);
         return;
     }
-    
+
     /* Split */
     if (*ix < 2) {
         (*ix)++;
@@ -479,7 +514,7 @@ void MinSquareTreeCollection::FindQuartet(int i, int e0, int n_papa, int *at, in
         if (*ix == 2) *ex2 = e0;
         FindQuartet(i, e1, n_next, at, et, x, ia, ix, a2, ee2, ia2, ex2);
         FindQuartet(i, e2, n_next, at, et, x, ia, ix, a2, ee2, ia2, ex2);
-        
+
         return;
     } else {
         (*ia)++;
@@ -497,7 +532,7 @@ void MinSquareTreeCollection::FindQuartet(int i, int e0, int n_papa, int *at, in
 void MinSquareTreeCollection::FindSplit(int i, int e0, int n_papa, int *x, int *ix, int *at, int *ia,
                                         int *et, int *ex) {
     int n_next, e1, e2, n1, n2;
-    
+
     n_next = (EdgeC[e0].To == n_papa) ? EdgeC[e0].From : EdgeC[e0].To;
     if (n_next < ne) {
         (*ia)++;
@@ -505,11 +540,11 @@ void MinSquareTreeCollection::FindSplit(int i, int e0, int n_papa, int *x, int *
         et[(*ia) - 1] = e0;
         return;
     }
-    
+
     getSons(e0, n_next, &e1, &e2);
     n1 = (EdgeC[e1].To == n_next) ? EdgeC[e1].From : EdgeC[e1].To;
     n2 = (EdgeC[e2].To == n_next) ? EdgeC[e2].From : EdgeC[e2].To;
-    
+
     if (EdgeC[e1].len[i] == DBL_MAX) {
         FindSplit(i, e2, n_next, x, ix, at, ia, et, ex);
         return;
@@ -517,7 +552,7 @@ void MinSquareTreeCollection::FindSplit(int i, int e0, int n_papa, int *x, int *
         FindSplit(i, e1, n_next, x, ix, at, ia, et, ex);
         return;
     }
-    
+
     /* Split */
     if (*ix < 1) { /* inner split */
         (*ix)++;
@@ -538,7 +573,7 @@ int MinSquareTreeCollection::CountOrLabelPath(int i, int x2, int x1, int ex2, do
     int e1, e2, np = 0, ep, l;
     int isToBeFitted = 0;
     l = 0;
-    
+
     if (EdgeC[ex2].From == x2) {np = EdgeC[ex2].To;}
     else if (EdgeC[ex2].To == x2) {np = EdgeC[ex2].From;}
     else {throw RuntimeException("CountOrLabelPath -- inconsistent input");}
@@ -546,7 +581,7 @@ int MinSquareTreeCollection::CountOrLabelPath(int i, int x2, int x1, int ex2, do
     if (ep == (*ise0)) (*ise0) = -1;
     if (dL != -1) EdgeC[ep].len[i] = dL;
     l++;
-    
+
     while (np != x1) {
         if (np < ne) {
             /*            printf("x2 %d x1 %d ex2 %d\n", x2, x1, ex2); */
@@ -564,7 +599,7 @@ int MinSquareTreeCollection::CountOrLabelPath(int i, int x2, int x1, int ex2, do
         if (EdgeC[ep].From == np) {np = EdgeC[ep].To;}
         else {np = EdgeC[ep].From;}
     }
-    
+
     return (isToBeFitted ? -l : l);
 }
 
@@ -604,15 +639,15 @@ void MinSquareTreeCollection::ThreeOptimSubset(double wab, double mab, double wa
             T[0] = t1;
             min = tmp;
         }
-        
+
         t3 = pow(wab * wbc, 2) + pow(wac * wab, 2) + pow(wac * wbc, 2);
         // 0 1 1
         t1 = (-wbc * wbc * wac * wac * ac + wab * wab * ab * wac * wac + wac
               * wac * wbc * wbc * bc + wbc * wbc * wab * wab * ab) / t3;
         t2 = -(-wab * wab * wac * wac * ac - wbc * wbc * wac * wac * ac + wbc
                * wbc * wab * wab * ab - wab * wab * wbc * wbc * bc) / t3;
-        
-        
+
+
         tmp = pow(ab - t1, 2) + pow(ac - t2, 2) + pow(bc - t1 - t2, 2);
         if (tmp < min && t1 > 0 && t2 > 0) {
             T[0] = 0;
@@ -650,12 +685,12 @@ void MinSquareTreeCollection::ThreeOptimSubset(double wab, double mab, double wa
 int MinSquareTreeCollection::CountOrLabelPathTriplet(int i, int A, int x0, int eA, double dL) {
     int e1, e2, np = 0, ep, l;
     l = 1;
-    
+
     if (EdgeC[eA].From == A) {np = EdgeC[eA].To;}
     else if (EdgeC[eA].To == A) {np = EdgeC[eA].From;}
     else {throw RuntimeException("CountOrLabelPathTriplet -- inconsistent input");}
     ep = eA;
-    
+
     EdgeC[ep].len[i] = dL;
     while (np != x0) {
         getSons(ep, np, &e1, &e2);
@@ -671,7 +706,7 @@ int MinSquareTreeCollection::CountOrLabelPathTriplet(int i, int A, int x0, int e
         if (EdgeC[ep].From == np) {np = EdgeC[ep].To;}
         else {np = EdgeC[ep].From;}
     }
-    
+
     return (l);
 }
 
@@ -704,16 +739,16 @@ int MinSquareTreeCollection::CountOrLabelPathTriplet(int i, int A, int x0, int e
 
 void MinSquareTreeCollection::FitTriplet(int k, int A, int B, int C, int eA, int eB, int eC, int x0) {
     double W[7], M[7], T[3], dd, Wei;
-    
+
     ConShortestPathC(A, k) = 0;
     ConShortestPathC(B, k) = 0;
     ConShortestPathC(C, k) = 0;
     MS_ShortestPathOne(A, eA, k, a);
     MS_ShortestPathOne(B, eB, k, b);
     MS_ShortestPathOne(C, eC, k, c);
-    
+
     for (int j = 0; j <= 6; j++) {W[j] = M[j] = 0.0;}
-    
+
     for (int si = 0; si < ne; si++) {
         if (!isNA(k, si)) {
             for (int sj = si + 1; sj < ne; sj++) {
@@ -737,11 +772,11 @@ void MinSquareTreeCollection::FitTriplet(int k, int A, int B, int C, int eA, int
             }
         }
     }
-    
+
     ThreeOptimSubset(W[a + b], M[a + b], W[a + c], M[a + c], W[b + c], M[b + c], T);
     int l = CountOrLabelPathTriplet(k, A, x0, eA, 0);
     CountOrLabelPathTriplet(k, A, x0, eA, T[0] / l);
-    
+
     return;
 }
 
@@ -751,7 +786,7 @@ void MinSquareTreeCollection::FitQuartet(int k, int A, int B, int C, int D, int 
     int l, e0f;
     double W[7], M[7], dd, Wei;
     DblVector L(5);
-    
+
     ConShortestPathC(A, k) = 0;
     ConShortestPathC(B, k) = 0;
     ConShortestPathC(C, k) = 0;
@@ -760,9 +795,9 @@ void MinSquareTreeCollection::FitQuartet(int k, int A, int B, int C, int D, int 
     MS_ShortestPathOne(B, eB, k, b);
     MS_ShortestPathOne(C, eC, k, c);
     MS_ShortestPathOne(D, eD, k, d);
-    
+
     for (int j = 0; j <= 6; j++) {W[j] = M[j] = 0.0;}
-    
+
     for (int si = 0; si < ne; si++) {
         if (!isNA(k, si)) {
             for (int sj = si + 1; sj < ne; sj++) {
@@ -786,15 +821,15 @@ void MinSquareTreeCollection::FitQuartet(int k, int A, int B, int C, int D, int 
             }
         }
     }
-    
+
     FourSubtree(W[a + b], M[a + b],
                 W[a + c], M[a + c],
                 W[a + d], M[a + d],
                 W[b + c], M[b + c],
                 W[b + d], M[b + d],
                 W[c + d], M[c + d], L);
-    
-    
+
+
     /* middle branch */
     l = abs(CountOrLabelPath(k, x2, x1, ex2, 0, &e0f));
     CountOrLabelPath(k, x2, x1, ex2, L[2] / l, &e0f);
@@ -807,21 +842,21 @@ void MinSquareTreeCollection::FitQuartet(int k, int A, int B, int C, int D, int 
             CountOrLabelPath(k, A, x1, eA, L[0] / abs(l), &e0f);
         else
             CountOrLabelPath(k, A, x1, eA, L[0] / l, &e0f);
-        
+
         e0f = e0;
         l = CountOrLabelPath(k, B, x1, eB, -1, &e0f);
         if (l > 0 || e0f == -1)
             CountOrLabelPath(k, B, x1, eB, L[1] / abs(l), &e0f);
         else
             CountOrLabelPath(k, B, x1, eB, L[1] / l, &e0f);
-        
+
         e0f = e0;
         l = CountOrLabelPath(k, C, x2, eC, -1, &e0f);
         if (l > 0 || e0f == -1)
             CountOrLabelPath(k, C, x2, eC, L[3] / abs(l), &e0f);
         else
             CountOrLabelPath(k, C, x2, eC, L[3] / l, &e0f);
-        
+
         e0f = e0;
         l = CountOrLabelPath(k, D, x2, eD, -1, &e0f);
         if (l > 0 || e0f == -1)
@@ -832,24 +867,24 @@ void MinSquareTreeCollection::FitQuartet(int k, int A, int B, int C, int D, int 
     if (allEdges) {
         l = abs(CountOrLabelPath(k, A, x1, eA, -1, &e0f));
         CountOrLabelPath(k, A, x1, eA, L[0] / l, &e0f);
-        
+
         l = abs(CountOrLabelPath(k, B, x1, eB, -1, &e0f));
         CountOrLabelPath(k, B, x1, eB, L[1] / l, &e0f);
-        
+
         l = abs(CountOrLabelPath(k, C, x2, eC, -1, &e0f));
         CountOrLabelPath(k, C, x2, eC, L[3] / l, &e0f);
-        
+
         l = abs(CountOrLabelPath(k, D, x2, eD, -1, &e0f));
         CountOrLabelPath(k, D, x2, eD, L[4] / l, &e0f);
     }
-    
+
     return;
 }
 
 /*
- 
- 
- 
+
+
+
  A = at[i]                  C = at[j]
  \ et[i]                 / et[j]
  o                     o
@@ -863,28 +898,28 @@ void MinSquareTreeCollection::FitQuartet(int k, int A, int B, int C, int D, int 
  '                     '
  / et[l]                 \ et[k]
  B = at[l]                  D = at[k]
- 
+
  */
 
 void MinSquareTreeCollection::GotoLeaf(int i, int e0, int n_papa, int *eL, int *L) {
     int np = 0, ep, e1, e2;
-    
+
     if (n_papa < ne) {
         (*eL) = e0;
         (*L) = n_papa;
         return;
     }
-    
+
     if (EdgeC[e0].From == n_papa) {np = EdgeC[e0].To;}
     else if (EdgeC[e0].To == n_papa) {np = EdgeC[e0].From;}
     else {throw RuntimeException("GotoLeaf -- inconsistent input");}
-    
+
     if (np < ne) {
         (*eL) = e0;
         (*L) = np;
         return;
     }
-    
+
     getSons(e0, np, &e1, &e2);
     if (EdgeC[e1].len[i] == DBL_MAX) {ep = e2;} else {ep = e1;}
     GotoLeaf(i, ep, np, eL, L);
@@ -896,7 +931,7 @@ void MinSquareTreeCollection::FitEdge_SAVE(int i, int e0, int allEdges)
     int j, at[4], et[4], x[2], ia, ix, a2[2], ee2[2], ex2, ia2,
     A, B, C, D, eA, eB, eC, eD, qOk, ex;
     int k, trip;
-    
+
     qOk = 0;
     ia = ix = 0;
     trip = 0;
@@ -922,7 +957,7 @@ void MinSquareTreeCollection::FitEdge_SAVE(int i, int e0, int allEdges)
             throw RuntimeException("FitEdge -- internal inconsistency");
         }
     }
-    
+
     if(qOk == 0) {
         if(trip == 0) {
             GotoLeaf(i, e0, EdgeC[e0].From, &eA, &A);
@@ -937,7 +972,7 @@ void MinSquareTreeCollection::FitEdge_SAVE(int i, int e0, int allEdges)
         FitQuartet(i, A, B, C, D, eA, eB, eC, eD, x[1-1], x[2-1], ex2, qOk, e0,
                    allEdges);
     }
-    
+
     return;
 }
 #endif
@@ -945,7 +980,7 @@ void MinSquareTreeCollection::FitEdge_SAVE(int i, int e0, int allEdges)
 void MinSquareTreeCollection::FitEdge(int i, int e0, int allEdges) {
     int at[4], et[4], x[2], ia, ix, a2[2], ee2[2], ex2, ia2,
     A, B, C, D, eA = 0, eB = 0, eC, eD, qOk, ex;
-    
+
     qOk = 0;
     ia = ix = 0;
     FindSplit(i, e0, EdgeC[e0].To, x, &ix, at, &ia, et, &ex);
@@ -966,7 +1001,7 @@ void MinSquareTreeCollection::FitEdge(int i, int e0, int allEdges) {
             eB = et[1];
         }
     }
-    
+
     if (qOk == 0) {
         ia = ix = ia2 = 0;
         FindQuartet(i, e0, EdgeC[e0].To, at, et, x, &ia, &ix, a2, ee2, &ia2,
@@ -974,7 +1009,7 @@ void MinSquareTreeCollection::FitEdge(int i, int e0, int allEdges) {
         if (ia < 4)
             FindQuartet(i, e0, EdgeC[e0].From, at, et, x, &ia, &ix, a2, ee2,
                         &ia2, &ex2);
-        
+
         /* group the cherries ((A,B),(C,D)) in the at[i] */
         A = B = -1;
         C = a2[1 - 1];
@@ -991,10 +1026,10 @@ void MinSquareTreeCollection::FitEdge(int i, int e0, int allEdges) {
             }
         }
     }
-    
+
     FitQuartet(i, A, B, C, D, eA, eB, eC, eD, x[1 - 1], x[2 - 1], ex2, qOk, e0,
                allEdges);
-    
+
     return;
 }
 
@@ -1009,7 +1044,7 @@ void MinSquareTreeCollection::FitLabeledEdgesC(int allEdges) {
                 }
             }
             /*
-             
+
              for(e0=0; e0<=2*ne-4; e0++) {
              if(EdgeC[e0].len[i] != DBL_MAX) {
              if(EdgeC[e0].From >= ne && EdgeC[e0].To >= ne) {
@@ -1017,7 +1052,7 @@ void MinSquareTreeCollection::FitLabeledEdgesC(int allEdges) {
              }
              }
              }
-             
+
              for(e0=0; e0<=2*ne-4; e0++) {
              if(EdgeC[e0].len[i] != DBL_MAX) {
              if(EdgeC[e0].From < ne && EdgeC[e0].To < ne) {
@@ -1045,7 +1080,7 @@ int MinSquareTreeCollection::FourOptimCollection(int DoNotModify, DblMatrix &L, 
     vd, flag[5], tot, nswap;
     double dd, t1, t2, t3, Wei, tmp; //,lik1,lik2,lik3;
     DblVector Lout = DblVector::Zero(7);
-    
+
     /* Four subtree case:
      #
      #   a                  c
@@ -1061,14 +1096,14 @@ int MinSquareTreeCollection::FourOptimCollection(int DoNotModify, DblMatrix &L, 
      #
      # L: [k][5]  M,W: [k][7]
      #                           */
-    
+
     nswap = 0;
     IncidencesC();
     for (e3 = 2 * ne - 4; e3 >= 0; e3--)
         if (EdgeC[e3].From >= ne && EdgeC[e3].To >= ne) {
             ix = EdgeC[e3].From - ne;
             iy = EdgeC[e3].To - ne;
-            
+
             if (inc(ix, 0) == e3) {
                 e1 = inc(ix, 1);
                 e2 = inc(ix, 2);
@@ -1081,7 +1116,7 @@ int MinSquareTreeCollection::FourOptimCollection(int DoNotModify, DblMatrix &L, 
                 e1 = inc(ix, 0);
                 e2 = inc(ix, 1);
             }
-            
+
             if (inc(iy, 0) == e3) {
                 e4 = inc(iy, 1);
                 e5 = inc(iy, 2);
@@ -1094,12 +1129,12 @@ int MinSquareTreeCollection::FourOptimCollection(int DoNotModify, DblMatrix &L, 
                 e4 = inc(iy, 0);
                 e5 = inc(iy, 1);
             }
-            
+
             va = EdgeC[e1].From == ix + ne ? EdgeC[e1].To : EdgeC[e1].From;
             vb = EdgeC[e2].From == ix + ne ? EdgeC[e2].To : EdgeC[e2].From;
             vc = EdgeC[e4].From == iy + ne ? EdgeC[e4].To : EdgeC[e4].From;
             vd = EdgeC[e5].From == iy + ne ? EdgeC[e5].To : EdgeC[e5].From;
-            
+
             for (int k = 0; k < NT; k++) {
                 ConShortestPathC(va, k) = 0;
                 ConShortestPathC(vb, k) = 0;
@@ -1110,13 +1145,13 @@ int MinSquareTreeCollection::FourOptimCollection(int DoNotModify, DblMatrix &L, 
             MS_ShortestPathCollection(vb, e2, b);
             MS_ShortestPathCollection(vc, e4, c);
             MS_ShortestPathCollection(vd, e5, d);
-            
+
             for (int k = 0; k < NT; k++) {
                 for (int i = 0; i <= 6; i++) {
                     W(k, i) = M(k, i) = 0.0;
                 }
                 flag[a] = flag[b] = flag[c] = flag[d] = 0;
-                
+
                 for (int si = 0; si < ne; si++) {
                     if (isNA(k, si))
                         continue;
@@ -1159,7 +1194,7 @@ int MinSquareTreeCollection::FourOptimCollection(int DoNotModify, DblMatrix &L, 
             for (int k = 0; k < NT; k++)
                 if (Skip[k] == 0)
                     tot++;
-            
+
             /* t1 */
             t1 = 0;
             if (tot > 0) {
@@ -1190,9 +1225,9 @@ int MinSquareTreeCollection::FourOptimCollection(int DoNotModify, DblMatrix &L, 
                 EdgeC[e3].len0 += L(k, 2) / tot;
                 EdgeC[e4].len0 += L(k, 3) / tot;
                 EdgeC[e5].len0 += L(k, 4) / tot;
-                
+
             }
-            
+
             /* t2: (a,c)(b,d)  */
             if (!DoNotModify) {
                 t2 = 0;
@@ -1208,7 +1243,7 @@ int MinSquareTreeCollection::FourOptimCollection(int DoNotModify, DblMatrix &L, 
                                       Lout);
                     L.row(k) = Lout;
                 }
-                
+
                 if (ReallyLessCollection(t2, t1)) {
                     t1 = t2;
                     nswap++;
@@ -1267,12 +1302,12 @@ int MinSquareTreeCollection::FourOptimCollection(int DoNotModify, DblMatrix &L, 
                         }
                     }
 #endif
-                    
+
                     /* this is because we need to recompute the indidences */
                     e3++;
                     continue;
                 }
-                
+
                 /* t3: (a,d)(b,c) */
                 t3 = 0;
                 for (int k = 0; k < NT; k++) {
@@ -1287,7 +1322,7 @@ int MinSquareTreeCollection::FourOptimCollection(int DoNotModify, DblMatrix &L, 
                                       Lout);
                     L.row(k) = Lout;
                 }
-                
+
                 if (ReallyLessCollection(t3, t1)) {
                     t1 = t3;
                     nswap++;
@@ -1325,7 +1360,7 @@ int MinSquareTreeCollection::FourOptimCollection(int DoNotModify, DblMatrix &L, 
 #ifdef DEBUG
                     tmp = DistanceFitCollection();
                     printf("FourOptim: 2, edge %d %.3f\n",e3,tmp);
-                    
+
                     for(int k=0; k<NT; k++) {
                         ConShortestPathC(va,k) = 0;
                         ConShortestPathC(vb,k) = 0;
@@ -1348,8 +1383,8 @@ int MinSquareTreeCollection::FourOptimCollection(int DoNotModify, DblMatrix &L, 
 #endif
                 }
             }
-            
-            
+
+
         }
     return (nswap);
 }
@@ -1385,7 +1420,7 @@ double MinSquareTreeCollection::FiveSubtreeCollection(double Wab, double Mab, do
     int i, it, j;
     DblMatrix Z1(7, 7), Z2(7, 7), Z3(7, 7);
     DblVector B1(7), B2(7), B3(7);
-    
+
     // incomplete family
     if (Skip > 0) {
         if (Skip == 1) {
@@ -1443,8 +1478,8 @@ double MinSquareTreeCollection::FiveSubtreeCollection(double Wab, double Mab, do
             L[4] = L[5] = L4[4] / 2;
             return (t);
         }
-        
-        
+
+
         else {
             // a,b,c
             if (Skip == 24) {
@@ -1556,11 +1591,11 @@ double MinSquareTreeCollection::FiveSubtreeCollection(double Wab, double Mab, do
             else if (Skip == 7) {
                 L[5] = L[6] = max(0.0, Mde / Wde / 2);
             }
-            
+
             return (0);
         }
     }
-    
+
     Z1 <<
     Wab + Wac + Wad + Wae,
     Wab,
@@ -1611,7 +1646,7 @@ double MinSquareTreeCollection::FiveSubtreeCollection(double Wab, double Mab, do
     Wae + Wbe + Wce,
     Wde,
     Wae + Wbe + Wce + Wde;
-    
+
     B1 <<
     Mab + Mac + Mad + Mae,
     Mab + Mbc + Mbd + Mbe,
@@ -1620,16 +1655,16 @@ double MinSquareTreeCollection::FiveSubtreeCollection(double Wab, double Mab, do
     Mad + Mbd + Mcd + Mae + Mbe + Mce,
     Mad + Mbd + Mcd + Mde,
     Mae + Mbe + Mce + Mde;
-    
+
     Z2 = Z1;
     B2 = B1;
-    
+
     for (it = 0; it < 36; it++) {
         //gausselimi(Z3,B3,L,7);
         // eigen2 syntax:
         //    Z2.lu().solve(B2,&L);
         L = Z2.lu().solve(B2);
-        
+
         for (mmax = i = 0; i < 7; i++) if (abs(L[i]) > mmax) mmax = abs(L[i]);
         eps = 50 * DBL_EPSILON * mmax;
         for (i = 0; i < 7; i++) {
@@ -1665,9 +1700,9 @@ double MinSquareTreeCollection::FiveSubtreeCollection(double Wab, double Mab, do
             printf("mmax := %.18g:\n", mmax);
             throw RuntimeException("internal error in LeastSquaresTree -- length < MinLen in 5-Optim");
         }
-    
+
     double t1, t4, t7, t10, t13, t16, t19, t22, t29, t36;
-    
+
     t1 = L[2] + L[4] + L[0] + L[5];
     t4 = L[4] + L[2] + L[1] + L[5];
     t7 = L[2] + L[4] + L[6] + L[0];
@@ -1753,7 +1788,7 @@ int MinSquareTreeCollection::FiveOptimCollectionExtended345(int e3, int e4, int 
         {2, 3, 0, 1, 4},
         {2, 4, 0, 1, 3},
     };
-    
+
     if (inc(ix, 0) == e3) {
         e1 = inc(ix, 1);
         e2 = inc(ix, 2);
@@ -1766,7 +1801,7 @@ int MinSquareTreeCollection::FiveOptimCollectionExtended345(int e3, int e4, int 
         e1 = inc(ix, 0);
         e2 = inc(ix, 1);
     }
-    
+
     if (inc(iy, 0) == e5) {
         e6 = inc(iy, 1);
         e7 = inc(iy, 2);
@@ -1779,7 +1814,7 @@ int MinSquareTreeCollection::FiveOptimCollectionExtended345(int e3, int e4, int 
         e6 = inc(iy, 0);
         e7 = inc(iy, 1);
     }
-    
+
     /*e1*/
     if (EdgeC[e1].From == ix + ne) {
         va = EdgeC[e1].To;
@@ -1821,7 +1856,7 @@ int MinSquareTreeCollection::FiveOptimCollectionExtended345(int e3, int e4, int 
         EdgeC[e7].From = EdgeC[e7].To;
         EdgeC[e7].To = ve;
     }
-    
+
     for (int k = 0; k < NT; k++) {
         ConShortestPathC(va, k) = 0;
         ConShortestPathC(vb, k) = 0;
@@ -1834,16 +1869,16 @@ int MinSquareTreeCollection::FiveOptimCollectionExtended345(int e3, int e4, int 
     MS_ShortestPathCollection(vc, e4, c);
     MS_ShortestPathCollection(vd, e6, d);
     MS_ShortestPathCollection(ve, e7, e);
-    
+
     /* in Skip integer: a->1, b->2, c->4, d->8, e->16 */
     for (int k = 0; k < NT; k++) {
-        
+
         flag[a] = flag[b] = flag[c] = flag[d] = flag[e] = 0;
-        
+
         for (int j = 0; j < ne; j++)
             if (!isNA(k, j))
                 flag[ShortestLabel[j]] = 1;
-        
+
         Skip[k] = 0;
         Skip[k] += flag[a] ? 0 : 1;
         Skip[k] += flag[b] ? 0 : 2;
@@ -1851,13 +1886,13 @@ int MinSquareTreeCollection::FiveOptimCollectionExtended345(int e3, int e4, int 
         Skip[k] += flag[d] ? 0 : 8;
         Skip[k] += flag[e] ? 0 : 16;
     }
-    
+
     E[0] = e1;
     E[1] = e2;
     E[2] = e4;
     E[3] = e6;
     E[4] = e7;
-    
+
     t1 = DistanceFitCollection();
     NewTopology = 0;
     done = 0;
@@ -1890,9 +1925,9 @@ int MinSquareTreeCollection::FiveOptimCollectionExtended345(int e3, int e4, int 
                 }
             }
         }
-        
+
         FitLabeledEdgesC(0);
-        
+
         if (done >= 1) {
             t2 = DistanceFitCollection();
             if (!ReallyLessCollection(t1, t2)) {
@@ -1910,9 +1945,9 @@ int MinSquareTreeCollection::FiveOptimCollectionExtended345(int e3, int e4, int 
                 continue;
             }
         }
-        
+
         t2 = DistanceFitCollection();
-        
+
         if (ReallyLessCollection(t2, t1)) {
             t1 = t2;
             NewTopology = i;
@@ -1923,7 +1958,7 @@ int MinSquareTreeCollection::FiveOptimCollectionExtended345(int e3, int e4, int 
             i = NewTopology;
         }
     }
-    
+
     if (i > 0)
         (*ptrnswap)++;
     return (NewTopology);
@@ -1940,7 +1975,7 @@ inline int MinSquareTreeCollection::ModifySkip(int flag, int p0, int p1, int p2,
     t[2] = (flag & V[2]) == V[2];
     t[3] = (flag & V[3]) == V[3];
     t[4] = (flag & V[4]) == V[4];
-    
+
     res = V[0] * t[p0]
     + V[1] * t[p1]
     + V[2] * t[p2]
@@ -1951,7 +1986,7 @@ inline int MinSquareTreeCollection::ModifySkip(int flag, int p0, int p1, int p2,
 
 /* the following sets EdgeC[k].len[eX] to 0 for all eX until a split
  with two existing branches is encountered
- 
+
  /
  (missing, i.e. len=DBL_MAX)
  -> start      /
@@ -1963,15 +1998,15 @@ inline int MinSquareTreeCollection::ModifySkip(int flag, int p0, int p1, int p2,
  |        \
  (missing)           \
  |
- 
- 
+
+
  */
 void MinSquareTreeCollection::delPathLength(int k, int from, int ExcludedEdge) {
     int dest, tmp, t;
-    
+
     if (from < ne)
         return;
-    
+
     tmp = 0;
     t = -1;
     for (int j = 0; j < 3; j++) {
@@ -1994,7 +2029,7 @@ void MinSquareTreeCollection::delPathLength(int k, int from, int ExcludedEdge) {
         }
         delPathLength(k, dest, t);
     }
-    
+
 }
 
 int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int e4, int e5, int vc, int ix,
@@ -2005,11 +2040,11 @@ int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int
     int e1, e2, e6, e7, va, vb, vd, ve, flag[8], tot;
     int NewTopology;
     DblVector Lout = DblVector::Zero(7);
-    
+
 #ifdef DEBUG
     double tmp;
 #endif
-    
+
     if (inc(ix, 0) == e3) {
         e1 = inc(ix, 1);
         e2 = inc(ix, 2);
@@ -2022,7 +2057,7 @@ int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int
         e1 = inc(ix, 0);
         e2 = inc(ix, 1);
     }
-    
+
     if (inc(iy, 0) == e5) {
         e6 = inc(iy, 1);
         e7 = inc(iy, 2);
@@ -2035,14 +2070,14 @@ int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int
         e6 = inc(iy, 0);
         e7 = inc(iy, 1);
     }
-    
+
     va = EdgeC[e1].From == ix + ne ? EdgeC[e1].To : EdgeC[e1].From;
     vb = EdgeC[e2].From == ix + ne ? EdgeC[e2].To : EdgeC[e2].From;
     vd = EdgeC[e6].From == iy + ne ? EdgeC[e6].To : EdgeC[e6].From;
     ve = EdgeC[e7].From == iy + ne ? EdgeC[e7].To : EdgeC[e7].From;
-    
+
     LabelNonExistEdges();
-    
+
     for (int k = 0; k < NT; k++) {
         ConShortestPathC(va, k) = 0;
         ConShortestPathC(vb, k) = 0;
@@ -2054,28 +2089,28 @@ int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int
         delPathLength(k, vc, e4);
         delPathLength(k, vd, e6);
         delPathLength(k, ve, e7);
-        
+
     }
-    
+
     MS_ShortestPathCollection(va, e1, a);
     MS_ShortestPathCollection(vb, e2, b);
     MS_ShortestPathCollection(vc, e4, c);
     MS_ShortestPathCollection(vd, e6, d);
     MS_ShortestPathCollection(ve, e7, e);
-    
-    
+
+
     /* in Skip integer: a=1, b=2, c=4, d=8, e=16 */
     for (int k = 0; k < NT; k++) {
         for (int i = 0; i <= 11; i++)
             W(k, i) = M(k, i) = 0.0;
-        
+
         flag[a] = flag[b] = flag[c] = flag[d] = flag[e] = 0;
-        
+
         for (int si = 0; si < ne; si++) {
             if (isNA(k, si))
                 continue;
             flag[ShortestLabel[si]]++;
-            
+
             for (int sj = si + 1; sj < ne; sj++) {
                 if (ShortestLabel[si] != ShortestLabel[sj]) {
                     if (isNA(k, sj))
@@ -2116,7 +2151,7 @@ int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int
         EdgeC[e6].len0 = 0;
         EdgeC[e7].len0 = 0;
     }
-    
+
     NewTopology = 0;
     t1 = 0;
     for (int k = 0; k < NT; k++) {
@@ -2132,10 +2167,10 @@ int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int
         EdgeC[e5].len[k] = L(k, 4);
         EdgeC[e6].len[k] = L(k, 5);
         EdgeC[e7].len[k] = L(k, 6);
-        
+
         /* replacement idea:
          */
-        
+
         if (Skip[k] == 0) {
             EdgeC[e1].len0 += L(k, 0) / tot;
             EdgeC[e2].len0 += L(k, 1) / tot;
@@ -2146,10 +2181,10 @@ int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int
             EdgeC[e7].len0 += L(k, 6) / tot;
         }
     }
-    
+
     if (DoNotModify)
         return (0);
-    
+
     t2 = 0;
     for (int k = 0; k < NT; k++) {
         t2 += FiveSubtreeCollection(W(k, a + d), M(k, a + d), W(k, a + c), M(k, a + c),
@@ -2195,7 +2230,7 @@ int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int
         IncidencesC();
         tmp = DistanceFitCollection();
         printf("FiveOptim: 1, edge %d %.3f\n",e3,tmp);
-        
+
         if (ReallyLessCollection(globmin,tmp)) {
             printf("  warning: min increased from %.3f\n",globmin);
         }
@@ -2206,9 +2241,9 @@ int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int
             }
         }
 #endif
-        
+
     }
-    
+
     t2 = 0;
     for (int k = 0; k < NT; k++) {
         t2 += FiveSubtreeCollection(W(k, a + e), M(k, a + e), W(k, a + c), M(k, a + c), W(k, a + d), M(k, a + d), W(k, a + b), M(k, a + b), W(k, c + e), M(k, c + e), W(k, d + e), M(k, d + e), W(k, b + e), M(k, b + e), W(k, c + d), M(k, c + d), W(k, b + c), M(k, b + c), W(k, b + d), M(k, b + d), Lout, ModifySkip(Skip[k], 0, 4, 2, 3, 1));
@@ -2250,7 +2285,7 @@ int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int
         IncidencesC();
         tmp = DistanceFitCollection();
         printf("FiveOptim: 2, edge %d %.3f\n",e3,tmp);
-        
+
         if (ReallyLessCollection(globmin,tmp)) {
             printf("  warning: min increased from %.3f\n",globmin);
         }
@@ -2262,7 +2297,7 @@ int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int
         }
 #endif
     }
-    
+
     t2 = 0;
     for (int k = 0; k < NT; k++) {
         t2 += FiveSubtreeCollection(W(k, b + c), M(k, b + c), W(k, a + c), M(k, a + c),
@@ -2308,7 +2343,7 @@ int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int
         IncidencesC();
         tmp = DistanceFitCollection();
         printf("FiveOptim: 3, edge %d %.3f\n",e3,tmp);
-        
+
         if (ReallyLessCollection(globmin,tmp)) {
             printf("  warning: min increased from %.3f\n",globmin);
         }
@@ -2320,7 +2355,7 @@ int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int
         }
 #endif
     }
-    
+
     t2 = 0;
     for (int k = 0; k < NT; k++) {
         t2 += FiveSubtreeCollection(W(k, c + d), M(k, c + d), W(k, a + c), M(k, a + c), W(k, b + c), M(k, b + c), W(k, c + e), M(k, c + e), W(k, a + d), M(k, a + d), W(k, b + d), M(k, b + d), W(k, d + e), M(k, d + e), W(k, a + b), M(k, a + b), W(k, a + e), M(k, a + e), W(k, b + e), M(k, b + e), Lout, ModifySkip(Skip[k], 2, 3, 0, 1, 4));
@@ -2362,7 +2397,7 @@ int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int
         IncidencesC();
         tmp = DistanceFitCollection();
         printf("FiveOptim: 4, edge %d %.3f\n",e3,tmp);
-        
+
         if (ReallyLessCollection(globmin,tmp)) {
             printf("  warning: min increased from %.3f\n",globmin);
         }
@@ -2374,7 +2409,7 @@ int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int
         }
 #endif
     }
-    
+
     t2 = 0;
     for (int k = 0; k < NT; k++) {
         t2 += FiveSubtreeCollection(W(k, c + e), M(k, c + e), W(k, a + c), M(k, a + c),
@@ -2420,7 +2455,7 @@ int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int
         IncidencesC();
         tmp = DistanceFitCollection();
         printf("FiveOptim: 5, edge %d %.3f\n",e3,tmp);
-        
+
         if (ReallyLessCollection(globmin,tmp)) {
             printf("  warning: min increased from %.3f\n",globmin);
         }
@@ -2432,7 +2467,7 @@ int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int
         }
 #endif
     }
-    
+
     t2 = 0;
     for (int k = 0; k < NT; k++) {
         t2 += FiveSubtreeCollection(W(k, a + c), M(k, a + c), W(k, a + b), M(k, a + b),
@@ -2478,7 +2513,7 @@ int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int
         IncidencesC();
         tmp = DistanceFitCollection();
         printf("FiveOptim: 6, edge %d %.3f\n",e3,tmp);
-        
+
         if (ReallyLessCollection(globmin,tmp)) {
             printf("  warning: min increased from %.3f\n",globmin);
         }
@@ -2490,7 +2525,7 @@ int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int
         }
 #endif
     }
-    
+
     t2 = 0;
     for (int k = 0; k < NT; k++) {
         t2 += FiveSubtreeCollection(W(k, a + d), M(k, a + d), W(k, a + b), M(k, a + b),
@@ -2536,7 +2571,7 @@ int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int
         IncidencesC();
         tmp = DistanceFitCollection();
         printf("FiveOptim: 7, edge %d %.3f\n",e3,tmp);
-        
+
         if (ReallyLessCollection(globmin,tmp)) {
             printf("  warning: min increased from %.3f\n",globmin);
         }
@@ -2548,7 +2583,7 @@ int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int
         }
 #endif
     }
-    
+
     t2 = 0;
     for (int k = 0; k < NT; k++) {
         t2 += FiveSubtreeCollection(W(k, a + e), M(k, a + e), W(k, a + b), M(k, a + b),
@@ -2594,7 +2629,7 @@ int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int
         IncidencesC();
         tmp = DistanceFitCollection();
         printf("FiveOptim: 8, edge %d %.3f\n",e3,tmp);
-        
+
         if (ReallyLessCollection(globmin,tmp)) {
             printf("  warning: min increased from %.3f\n",globmin);
         }
@@ -2606,7 +2641,7 @@ int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int
         }
 #endif
     }
-    
+
     t2 = 0;
     for (int k = 0; k < NT; k++) {
         t2 += FiveSubtreeCollection(W(k, a + b), M(k, a + b), W(k, a + d), M(k, a + d),
@@ -2652,7 +2687,7 @@ int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int
         IncidencesC();
         tmp = DistanceFitCollection();
         printf("FiveOptim: 9, edge %d %.3f\n",e3,tmp);
-        
+
         if (ReallyLessCollection(globmin,tmp)) {
             printf("  warning: min increased from %.3f\n",globmin);
         }
@@ -2664,7 +2699,7 @@ int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int
         }
 #endif
     }
-    
+
     t2 = 0;
     for (int k = 0; k < NT; k++) {
         t2 += FiveSubtreeCollection(W(k, a + c), M(k, a + c), W(k, a + d), M(k, a + d),
@@ -2710,7 +2745,7 @@ int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int
         IncidencesC();
         tmp = DistanceFitCollection();
         printf("FiveOptim: 10, edge %d %.3f\n",e3,tmp);
-        
+
         if (ReallyLessCollection(globmin,tmp)) {
             printf("  warning: min increased from %.3f\n",globmin);
         }
@@ -2722,7 +2757,7 @@ int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int
         }
 #endif
     }
-    
+
     t2 = 0;
     for (int k = 0; k < NT; k++) {
         t2 += FiveSubtreeCollection(W(k, a + e), M(k, a + e), W(k, a + d), M(k, a + d),
@@ -2768,7 +2803,7 @@ int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int
         IncidencesC();
         tmp = DistanceFitCollection();
         printf("FiveOptim: 11, edge %d %.3f\n",e3,tmp);
-        
+
         if (ReallyLessCollection(globmin,tmp)) {
             printf("  warning: min increased from %.3f\n",globmin);
         }
@@ -2780,7 +2815,7 @@ int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int
         }
 #endif
     }
-    
+
     t2 = 0;
     for (int k = 0; k < NT; k++) {
         t2 += FiveSubtreeCollection(W(k, a + b), M(k, a + b), W(k, a + e), M(k, a + e),
@@ -2826,7 +2861,7 @@ int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int
         IncidencesC();
         tmp = DistanceFitCollection();
         printf("FiveOptim: 12, edge %d %.3f\n",e3,tmp);
-        
+
         if (ReallyLessCollection(globmin,tmp)) {
             printf("  warning: min increased from %.3f\n",globmin);
         }
@@ -2838,7 +2873,7 @@ int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int
         }
 #endif
     }
-    
+
     t2 = 0;
     for (int k = 0; k < NT; k++) {
         t2 += FiveSubtreeCollection(W(k, a + d), M(k, a + d), W(k, a + e), M(k, a + e),
@@ -2884,7 +2919,7 @@ int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int
         IncidencesC();
         tmp = DistanceFitCollection();
         printf("FiveOptim: 13, edge %d %.3f\n",e3,tmp);
-        
+
         if (ReallyLessCollection(globmin,tmp)) {
             printf("  warning: min increased from %.3f\n",globmin);
         }
@@ -2896,7 +2931,7 @@ int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int
         }
 #endif
     }
-    
+
     t2 = 0;
     for (int k = 0; k < NT; k++) {
         t2 += FiveSubtreeCollection(W(k, a + c), M(k, a + c), W(k, a + e), M(k, a + e),
@@ -2942,7 +2977,7 @@ int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int
         IncidencesC();
         tmp = DistanceFitCollection();
         printf("FiveOptim: 14, edge %d %.3f\n",e3,tmp);
-        
+
         if (ReallyLessCollection(globmin,tmp)) {
             printf("  warning: min increased from %.3f\n",globmin);
         }
@@ -2960,7 +2995,7 @@ int MinSquareTreeCollection::FiveOptimCollection345(int DoNotModify, int e3, int
 int MinSquareTreeCollection::FiveOptimCollection(int mode, DblMatrix &L, IntVector &Skip, DblMatrix &M, DblMatrix &W) {
     int b1, e3, e4, e5, i, ix, iy, vc, nswap, DoNotModify;
     IntVector DoEdge = IntVector::Zero(ne - 2);
-    
+
     /***************************************
      #
      #   a              c              d
@@ -2975,9 +3010,9 @@ int MinSquareTreeCollection::FiveOptimCollection(int mode, DblMatrix &L, IntVect
      #
      #*************************************/
     nswap = 0;
-    
+
     DoNotModify = mode == 1 ? 1 : 0;
-    
+
     IncidencesC();
 #ifdef DEBUG
     double d1 = DistanceFitCollection();
@@ -2991,24 +3026,24 @@ int MinSquareTreeCollection::FiveOptimCollection(int mode, DblMatrix &L, IntVect
         }
     }
 #endif
-    
-    
+
+
     for (i = ne - 3; i >= 0; i--) DoEdge[i] = 1;
-    
+
     /* in very rare ill-conditioned cases, it may loop despite of
      * ReallyLessCollection(a,b).  Hence we limit the number of iterations
      * over the whole set of internal nodes to 5 */
     for (int iter = 0; iter < 5; iter++) {
         for (i = ne - 3; i >= 0 && !DoEdge[i]; i--);
         if (i < 0) break;  /* no more edges to process */
-        
+
         for (int iw = ne - 3; iw >= 0; iw--)
             if (DoEdge[iw]) {
                 DoEdge[iw] = 0;
                 e3 = inc(iw, 0);
                 e4 = inc(iw, 1);
                 e5 = inc(iw, 2);
-                
+
                 if (EdgeC[e3].From < ne || EdgeC[e3].To < ne) {
                     if (EdgeC[e4].From >= ne && EdgeC[e4].To >= ne) {
                         i = e4;
@@ -3025,18 +3060,18 @@ int MinSquareTreeCollection::FiveOptimCollection(int mode, DblMatrix &L, IntVect
                     }
                     else continue;
                 }
-                
+
                 vc = EdgeC[e4].From == iw + ne ? EdgeC[e4].To : EdgeC[e4].From;
                 ix = (EdgeC[e3].From == iw + ne ? EdgeC[e3].To : EdgeC[e3].From) - ne;
                 iy = (EdgeC[e5].From == iw + ne ? EdgeC[e5].To : EdgeC[e5].From) - ne;
-                
+
                 if (mode == 2)
                     b1 = FiveOptimCollectionExtended345(e3, e4, e5, vc, ix, iy, iw,
                                                         L, Skip, M, W, &nswap);
                 else
                     b1 = FiveOptimCollection345(DoNotModify, e3, e4, e5, vc, ix, iy, iw,
                                                 L, Skip, M, W, &nswap);
-                
+
                 if (!b1 && vc >= ne) {
                     if (mode == 2)
                         b1 = FiveOptimCollectionExtended345(e4, e3, e5, ix + ne, vc - ne,
@@ -3055,9 +3090,9 @@ int MinSquareTreeCollection::FiveOptimCollection(int mode, DblMatrix &L, IntVect
                                                     vc - ne, iw, L, Skip, M, W, &nswap);
                     if (b1) b1 += 200;
                 }
-                
+
                 if (b1) {
-                    
+
                     IncidencesC();
                     DoEdge[iw] = DoEdge[ix] = DoEdge[iy] = 1;
 #ifdef DEBUG
@@ -3074,12 +3109,12 @@ int MinSquareTreeCollection::FiveOptimCollection(int mode, DblMatrix &L, IntVect
                     if( ReallyLessCollection(d1,d2) )
                         printf( "LeastSquaresTree increases error - initial tree may not respect MinLen\n");
                     printf("FiveOptim: %d, node %d, lse=%.15g\n", b1,iw,d2);
-                    
+
 #endif
                 }
             }
     }
-    
+
     return (nswap);
 }
 
@@ -3095,11 +3130,11 @@ int MinSquareTreeCollection::MapTree2InternalC(const PhyTree &t) throw(Parameter
     if (t.n_children() != 2) {
         throw ParameterException("Tree node is too short");
     }
-    
+
     in3 = NewInternalNode++;
     in1 = MapTree2InternalC(t[0]);
     in2 = MapTree2InternalC(t[1]);
-    
+
     inc(in3, 0) = e1 = NewEdgeIndex++;
     EdgeC[e1].From = in1;
     EdgeC[e1].To = in3 + ne;
@@ -3108,7 +3143,7 @@ int MinSquareTreeCollection::MapTree2InternalC(const PhyTree &t) throw(Parameter
         EdgeC[e1].len[k] = t[0].getBranchLength();
     }
     if (in1 >= ne) inc(in1 - ne, 2) = e1;
-    
+
     inc(in3, 1) = e2 = NewEdgeIndex++;
     EdgeC[e2].From = in2;
     EdgeC[e2].To = in3 + ne;
@@ -3117,16 +3152,16 @@ int MinSquareTreeCollection::MapTree2InternalC(const PhyTree &t) throw(Parameter
         EdgeC[e2].len[k] = t[1].getBranchLength();
     }
     if (in2 >= ne) inc(in2 - ne, 2) = e2;
-    
+
     return (in3 + ne);
 }
 
 double MinSquareTreeCollection::EdgeCLength(int i) {
     int ct;
     double t;
-    
+
     return (EdgeC[i].len0);
-    
+
     /**** JUNK BELOW
      t = ct = 0;
      for (int k = 0; k < NT; k++) {
@@ -3149,10 +3184,10 @@ static string to_str(T x) {
 
 PhyTree::TreePtr MinSquareTreeCollection::MST_TreeCR(int node, int edgefrom) {
     int e1, e2;
-    
+
     if (node < ne)
         return (make_shared<PhyTree>(Labels.size() == 0 ? to_str(node + 1) : Labels[node]));
-    
+
     if (inc(node - ne, 0) == edgefrom) {
         e1 = inc(node - ne, 1);
         e2 = inc(node - ne, 2);
@@ -3165,21 +3200,21 @@ PhyTree::TreePtr MinSquareTreeCollection::MST_TreeCR(int node, int edgefrom) {
         e1 = inc(node - ne, 0);
         e2 = inc(node - ne, 1);
     }
-    
-    
+
+
     auto tree = make_shared<PhyTree>();
     tree->addChild(MST_TreeCR(EdgeC[e1].From == node ? EdgeC[e1].To : EdgeC[e1].From, e1), EdgeCLength(e1));
     tree->addChild(MST_TreeCR(EdgeC[e2].From == node ? EdgeC[e2].To : EdgeC[e2].From, e2), EdgeCLength(e2));
-    
+
     return (tree);
-    
+
 }
 
 /* Build a Darwin Tree from Edge list */
 PhyTree::TreePtr MinSquareTreeCollection::getPhyTree() {
     int e1, n[2], bestE = 0;
     double p[2], bestDiff;
-    
+
     IncidencesC();
     bestDiff = DBL_MAX;
     for (e1 = 0; e1 < 2 * ne - 3; e1++) {
@@ -3208,7 +3243,7 @@ PhyTree::TreePtr MinSquareTreeCollection::getPhyTree() {
     PhyTree::TreePtr tree = make_shared<PhyTree>();
     tree->addChild(MST_TreeCR(EdgeC[e1].From, e1), EdgeCLength(e1) / 2.0);
     tree->addChild(MST_TreeCR(EdgeC[e1].To, e1), EdgeCLength(e1) / 2.0);
-    
+
     return (tree);
 }
 
@@ -3216,25 +3251,25 @@ PhyTree::TreePtr MinSquareTreeCollection::getPhyTree() {
 MinSquareTreeCollection::MinSquareTreeCollection(const vector<DblMatrix> &matrices, const IntMatrix &mapping, const vector<string> &labels, const PhyTree &tree) throw(ParameterException) {
     initialized = false;
     computed = false;
-    
+
     //    Edge = BestEdge = NULL;
     //    EdgeC = NULL;
-    
+
     aDistVar = matrices;
     NT = aDistVar.size();
     aMap = mapping;
     if (NT != aMap.rows()) {
         throw ParameterException("the arrays of distance and vars have different lengths");
     }
-    
-    
+
+
     ne = aMap.cols();
-    
+
     if ((int) labels.size() != 0 && (int) labels.size() != ne) {
         throw ParameterException("incorrect dimensions in arguments for MinSquareTree");
     }
     Labels = labels;
-    
+
     for (int k = 0; k < NT; k++) {
         /* verify the bounds of mapping array */
         int mmax = -1;
@@ -3249,19 +3284,19 @@ MinSquareTreeCollection::MinSquareTreeCollection(const vector<DblMatrix> &matric
             throw ParameterException("mapping array has inconsistent entries");
         }
     }
-    
+
     MinLen = 1e-6; // Reduced MinLen from 1e-2 - KG
-    
+
     /* allocate working storage */
     /* EdgeC.len for all Edges */
-    
+
     /* verify all variances */
     for (int k = 0; k < NT; k++) {
         if ((aDistVar[k].array() < 0).any()) {
             throw ParameterException("distances/variances cannot be < 0");
         }
     }
-    
+
     /* process additional arguments */
     NewInternalNode = NewEdgeIndex = 0;
     for (int i = 0; i < ne; i++)
@@ -3270,11 +3305,11 @@ MinSquareTreeCollection::MinSquareTreeCollection(const vector<DblMatrix> &matric
                 throw ParameterException("duplicate Leaf label \"" + Labels[i] + "\", cannot use initial tree");
             }
         }
-    
+
     if (ne == 3) {
         throw ParameterException("Sorry, this procedure makes no sense for 3 leaves only.");
     }
-    
+
     /* allocate internal working memory */
     //Edge = new edge_t[2 * ne - 3];
     //BestEdge = new edge_t[2 * ne - 3];
@@ -3284,14 +3319,14 @@ MinSquareTreeCollection::MinSquareTreeCollection(const vector<DblMatrix> &matric
     EdgeC = vector<edgec_t> (2 * ne - 3);
     for (int i = 0; i < 2 * ne - 3; i++)
         EdgeC[i].alloc(NT);
-    
+
     ShortestLabel = IntVector::Zero(ne);
     inc = IntMatrix::Zero(ne - 2, 3);
     ConShortestPathC = DblMatrix::Zero(2 * ne - 2, NT);
     globminA = DblVector::Zero(NT);
     tmpA = DblVector::Zero(NT);
-    
-    
+
+
     if (tree.n_children() != 2) {
         throw ParameterException("Initial tree is not bifurcating");
     } else {
@@ -3308,7 +3343,7 @@ MinSquareTreeCollection::MinSquareTreeCollection(const vector<DblMatrix> &matric
             throw ParameterException("Initial tree is not of the right size");
         }
     }
-    
+
     initialized = true;
 }
 
@@ -3325,27 +3360,34 @@ MinSquareTreeCollection::MinSquareTreeCollection(const vector<DblMatrix> &matric
 //}
 
 void MinSquareTreeCollection::compute(bool KeepTopology, int iter, bool quiet) throw(RuntimeException) {
-    int nswap, i;
-    double d1, d2;
+    int nswap, i, loop_counter=0;
+    double d1, d2, d0;
     IntVector Skip;
     DblMatrix L, M, W;
-    
+
     if (!initialized) {
         throw RuntimeException("Not initialised.");
     }
-    
+
     Skip = IntVector::Zero(NT);  // flag for incomplete families
-    L = DblMatrix::Zero(NT, 7); // stores the 7 branch lengths
+    L = DblMatrix::Zero(NT, 7);  // stores the 7 branch lengths
     M = DblMatrix::Zero(NT, 12); // for 10 distances per family
     W = DblMatrix::Zero(NT, 12); // for 10 weights per family
-    
+
     IncidencesC();
-    
-    globmin = d1 = DistanceFitCollection();
-    
-    if (!quiet) printf("initial distance fit: %.8g\n", d1);
-    
+
+    globmin = d1 = d0 = DistanceFitCollection();
+
+    if (!quiet) {
+        printf("TreeCollection\n");
+        printf("--> initial distance fit: %.8g\n", d1);
+        printf("--> initial log-likelihood: %.8g\n", LogLikelihoodFitCollection());
+    }
+
     if (KeepTopology) {
+        if (!quiet) {
+            printf("Beginning branch length optimisation on fixed topology with max %d iterations\n", iter);
+        }
         IncidencesC();
         d1 = DBL_MAX;
         i = 4;
@@ -3361,47 +3403,108 @@ void MinSquareTreeCollection::compute(bool KeepTopology, int iter, bool quiet) t
             if (!quiet) printf("after fitting edges with FitLabeledEdgesC, fit %.12g (d1=%.12g)\n", d2, d1);
         }
         IncidencesC();
+        nswap = FiveOptimCollection(1, L, Skip, M, W);
     }
     else {
         i = iter;
+        if (!quiet) {
+            printf("Beginning topology optimisation with up to %d iterations of branch length optimisation per topology\n", i);
+        }
         IncidencesC();
-        FitLabeledEdgesC(1);
-        
-        d2 = DistanceFitCollection();
-        if (!quiet) printf("after fitting edges with FitLabeledEdgesC, fit %.12g\n", d2);
-        
+
+        for (int i=0; i < iter; ++i){
+            FitLabeledEdgesC(1);
+            d2 = DistanceFitCollection();
+            if (ReallyLessCollection(d2, d0))
+                d0 = d2;
+            else
+                break;
+        }
+        if (!quiet) {
+            printf("--> Distance fit   = %.12g\n", d2);
+            printf("--> log-likelihood = %.12g\n", LogLikelihoodFitCollection());
+        }
+
         while (i-- > 0) {
+            loop_counter += 1;
+            if (!quiet) {
+                printf("\n\nLOOP %d\n", loop_counter);
+                printf("1) Topology optimisation (i = %d)\n", i);
+            }
             if (ne > 4) {
                 nswap = FiveOptimCollection(0, L, Skip, M, W);
                 IncidencesC();
+                FitLabeledEdgesC(1);
                 d2 = DistanceFitCollection();
-                if (!quiet) printf("after FiveOptim, dst fit %.8g (%d swaps)\n", d2, nswap);
+                if (!quiet) {
+                    printf("--> Distance fit   = %.8g (%d swaps)\n", d2, nswap);
+                    printf("--> log-likelihood = %.12g\n", LogLikelihoodFitCollection());
+                }
             } else {
                 nswap = FourOptimCollection(0, L, Skip, M, W);
                 IncidencesC();
+                FitLabeledEdgesC(1);
                 d2 = DistanceFitCollection();
-                if (!quiet) printf("after FourOptim, dst fit %.8g (%d swaps)\n", d2, nswap);
+                if (!quiet) {
+                    printf("--> Distance fit   = %.8g (%d swaps)\n", d2, nswap);
+                    printf("--> log-likelihood = %.12g\n", LogLikelihoodFitCollection());
+                }
             }
-            
+            if (!quiet) {
+                printf("2) Branch length optimisation\n");
+            }
             IncidencesC();
             FitLabeledEdgesC(1);
-            
             d2 = DistanceFitCollection();
-            if (!quiet) printf("after fitting edges with FitLabeledEdgesC, %.8g\n", d2);
-            
-            if (nswap > 0)
+
+            for (int i=0; i < iter; ++i) {
+                FitLabeledEdgesC(1);
+                d2 = DistanceFitCollection();
+                if (!quiet) printf("after fitting edges with FitLabeledEdgesC, %.8g\n", d2);
+                if (ReallyLessCollection(d2, d0))
+                    d0 = d2;
+                else
+                    break;
+            }
+
+            if (!quiet) {
+                printf("--> Distance fit   = %.8g\n", d2);
+                printf("--> log-likelihood = %.12g\n", LogLikelihoodFitCollection());
+            }
+            if (!quiet) {
+                printf("3) Check if topology changed\n");
+            }
+            if (nswap > 0) {
                 i = iter;
-            
-            if (ReallyLessCollection(d2, d1)) {
-                d1 = d2;
+                if (!quiet) {
+                    printf("--> Topology changed: reset i to %d\n", i);
+                }
                 continue;
+            }
+
+            if (!quiet) {
+                printf("4) Check for convergence (d1 = %f, d2 = %f)\n   If d2 < d1, continue optimising, else terminate\n", d1,
+                       d2);
+            }
+            if (ReallyLessCollection(d2, d1)) {
+                if (!quiet) {
+                    printf("--> Continue\n");
+                }
+                d1 = d2;
+                bestTree = getPhyTree();
+                bestScore = d2;
+                bestLnL = LogLikelihoodFitCollection();
+                continue;
+            }
+            if (!quiet) {
+                printf("--> Terminate\n");
             }
             break;
         }
     }
     if (i <= 0)
         printf("Warning: stopped after %d iterations without swap, not yet at minimum\n", iter);
-    
+
     d1 = ne<=3 ? d1 : d1/(ne-2)/(ne-3)*2;
     MST_Qual = d1;
     computed = true;
@@ -3416,10 +3519,14 @@ bool MinSquareTreeCollection::isComputed() {
 }
 
 double MinSquareTreeCollection::getScore() {
-    return DistanceFitCollection();
+    return bestScore;
+}
+
+double MinSquareTreeCollection::getLogLikelihood() {
+   return bestLnL;
 }
 
 void MinSquareTreeCollection::getTree() {
-    PhyTree::TreePtr tree = getPhyTree();
-    tree->print(this->newick);
+    PhyTree::TreePtr tree = bestTree;
+    if (tree) tree->print(this->newick);
 }

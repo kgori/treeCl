@@ -13,9 +13,12 @@ import numpy as np
 
 # treeCl
 from collection import Collection, Scorer
-from clustering import Partition
+from treeCl import tasks
+from treeCl.parutils import sequential_map
+from partition import Partition
 from constants import EPS, NEGINF, TMPDIR, ANALYSES
 from errors import optioncheck
+from utils import fileIO, pll_helpers
 
 
 def get_clusters(assignment):
@@ -24,6 +27,203 @@ def get_clusters(assignment):
     for (position, value) in enumerate(pvec):
         index_dict[value].append(position)
     return index_dict
+
+def tr2dst(nwk):
+    t = treeCl.Tree(nwk)
+    taxa = t.patristic._pat_dists.keys()
+    dm = np.zeros((len(taxa), len(taxa)))
+    for i in range(len(taxa)):
+        for j in range(i+1, len(taxa)):
+            try:
+                dst = t.patristic._pat_dists[taxa[i]][taxa[j]]
+            except KeyError:
+                dst = t.patristic._pat_dists[taxa[j]][taxa[i]]
+            dm[i,j]=dm[j,i]=dst
+    return treeCl.DistanceMatrix(dm, names=[taxon.label for taxon in taxa])
+
+def read_model(al):
+    model = al.parameters.partitions.model
+    if model is None:
+        if al.is_dna():
+            model = 'DNA'
+        else:
+            model = 'LG'
+    return model
+
+def get_distance_based_likelihood(al, nwk):
+    seqnames = al.get_names()
+    al_dists = treeCl.DistanceMatrix(np.array(al.parameters.partitions.distances), names=seqnames)
+    al_vars = treeCl.DistanceMatrix(np.array(al.parameters.partitions.variances), names=seqnames)
+    tree_dists = tr2dst(nwk)
+    lnl = 0
+    for (seq1, seq2) in itertools.combinations(seqnames, 2):
+        err = tree_dists.df[seq1][seq2] - al_dists.df[seq1][seq2]
+        sdev = np.sqrt(al_vars.df[seq1][seq2])
+        lnl += ss.norm.logpdf(err, scale=sdev)
+    return lnl
+
+def get_markov_based_likelihood(al, nwk):
+    model = al.parameters.partitions.model
+    if model is None and al.is_protein():
+        model = 'LG08'
+    al.set_substitution_model(model)
+    freqs = al.parameters.partitions.frequencies
+    al.set_frequencies(freqs)
+    alpha = al.parameters.partitions.alpha
+    if alpha:
+        al.set_gamma_rate_model(4, alpha)
+    else:
+        al.set_constant_rate_model()
+    if al.is_dna():
+        rates = al.parameters.partitions.rates
+        al.set_rates(rates, 'acgt')
+    al.initialise_likelihood(nwk)
+    lk = al.get_likelihood()
+    # Hack to clear likelihood and free memory
+    al.set_substitution_model(model)
+    return lk
+
+def get_markov_based_likelihood2(al, nwk):
+    alignment_file, to_delete = al.get_alignment_file(as_phylip=True)
+    if to_delete:
+        filelist = [alignment_file]
+    else:
+        filelist = []
+    model = read_model(al)
+    partitions = '{}, al = 1 - {}'.format(model, len(al))
+    freqs = al.parameters.partitions.frequencies
+    alpha = al.parameters.partitions.alpha
+    rates = al.parameters.partitions.rates if al.is_dna() else None
+    with treeCl.utils.fileIO.TempFileList(filelist):
+        inst = pllpy.pll(alignment_file, qfile, nwk, 1, 12345)
+        inst.set_frequencies(freqs, 0, False)
+        inst.set_alpha(alpha, 0, False)
+        if rates: inst.set_rates(rates, 0, False)
+    return inst.get_likelihood()
+
+def get_markov_based_likelihood3(al, treelist):
+    alignment_file, to_delete = al.get_alignment_file(as_phylip=True)
+    if to_delete:
+        filelist = [alignment_file]
+    else:
+        filelist = []
+    model = al.parameters.partitions.model
+    if model is None and al.is_protein():
+        model = 'LG'
+    partitions = '{}, al = 1 - {}'.format(model, len(al))
+    with treeCl.utils.fileIO.TempFileList(filelist):
+        inst = pllpy.pll(alignment_file, partitions, treelist[0], 1, 12345)
+        freqs = al.parameters.partitions.frequencies
+        alpha = al.parameters.partitions.alpha
+        inst.set_frequencies(freqs, 0, False)
+        inst.set_alpha(1, 0, False)
+        results = [inst.get_likelihood()]
+        for nwk in treelist[1:]:
+            inst.set_tree(nwk)
+            results.append(inst.get_likelihood())
+    return results
+
+def load_instances(collection):
+    lst = []
+    for al in collection:
+        alignment_file, to_delete = al.get_alignment_file(as_phylip=True)
+        if to_delete:
+            filelist = [alignment_file]
+        else:
+            filelist = []
+        with fileIO.TempFileList(filelist):
+            model = read_model(al)
+            partitions = '{}, {} = 1 - {}'.format(model, al.name, len(al))
+            freqs = al.parameters.partitions.frequencies
+            alpha = al.parameters.partitions.alpha
+            rates = al.parameters.partitions.rates if al.is_dna() else None
+            ml_tree = al.parameters.ml_tree
+            inst = pll_helpers.create_instance(alignment_file, partitions, ml_tree, 1)
+            inst.set_frequencies(freqs, 0, False)
+            inst.set_alpha(alpha, 0, False)
+            if rates: inst.set_rates(rates, 0, False)
+            lst.append(inst)
+    return lst
+
+def _check_for_required_info(collection):
+    """
+    Raises an exception if required info is missing for an alignment.
+    Info required is:
+      ml tree (al.parameters.ml_tree)
+      ml parameters (al.parameters.partitions.{frequencies,rates,alpha}
+      likelihood model (al.parameters.partitions.model)
+    :param collection:
+    :return:
+    """
+    for al in collection:
+        if not hasattr(al, 'parameters'):
+            raise AttributeError('No parameters for alignment {}'.format(al.name))
+        if not hasattr(al.parameters, 'ml_tree'):
+            raise AttributeError('No ML tree for alignment {}'.format(al.name))
+        if al.parameters.ml_tree is None:
+            raise AttributeError('No ML tree for alignment {}'.format(al.name))
+        if not hasattr(al.parameters, 'partitions'):
+            raise AttributeError('No partition information for alignment {}'.format(al.name))
+        if not al.parameters.partitions:
+            raise AttributeError('No partition information for alignment {}'.format(al.name))
+
+
+
+class EM(object):
+
+    def __init__(self, collection):
+        """
+        Sets data
+        """
+        _check_for_required_info(collection)
+        self.collection = collection
+
+    
+    def get_likelihood(self, i, instances, tree):
+        """
+        Return the log likelihood == logP(alignment[i] | tree, parameters)
+        :param i: index of the alignment under test
+        :param tree: newick string of the tree under test
+        :return: log-likelihood (float)
+        """
+        inst = instances[i]
+        inst.set_tree(tree)
+        return inst.get_likelihood()
+
+    def get_avg_per_site_likelihood(self, i, instances, tree):
+        return self.get_likelihood(i, instances, tree) / len(self.collection[i])
+
+    def initialise_groups(self):
+        pass
+
+    def mstep(self):
+        """
+        In general, the process of maximising the likelihood by tuning the partition parameter
+        Uses the following strategies:
+          single reassignment
+          batch reassignment
+          split-and-merge
+        :return:
+        """
+        pass
+
+    def estep(self, partition):
+        """
+        In general, estimating the likelihood of the data using the current partition parameter value
+        This involves computing new trees based on the partition assignments. Theoretically, this
+        should be done by maximising the likelihood of each tree using the full set of parameters,
+        but some shortcuts are taken:
+          tree search: least-square trees + rough ML branch length optimisation
+          model parameters: fixed at pre-estimated values
+
+        :return:
+        """
+        memberships = partition.get_membership()
+        args = []
+        for mbl in memberships:
+            args.append(self.collection.get_tree_collection_strings(mbl))
+        msg = 'ESTEP'
+        trees = [result['tree'] for result in sequential_map(tasks.minsq_task, args, msg)]
 
 
 class Optimiser(object):

@@ -11,7 +11,7 @@ from scipy.spatial.distance import squareform
 
 # treeCl
 import errors
-
+from utils import fileIO
 
 # Utilities
 def isconnected(mask):
@@ -290,8 +290,7 @@ def _embedding_spectral(matrix, dimensions=3, unit_length=True,
         aff = rbf(matrix, sigma=sigma)
     else:
         aff = affinity_matrix
-    decomp = eigen(laplace(aff))
-    coords = decomp.vecs[:, :dimensions]
+    coords = sklearn.manifold.spectral_embedding(aff, dimensions)
     return normalise_rows(coords) if unit_length else coords
 
 
@@ -384,22 +383,12 @@ class CoordinateMatrix(object):
 
     @property
     def values(self):
-        return self.df.values
+        return self.to_array()
 
 
 class DistanceMatrix(object):
-    def __init__(self, array, names=None):
-        s = array.shape
-        if len(s) == 1:
-            try:
-                array = squareform(array)
-            except ValueError:
-                message = '{} elements don\'t fit into the upper triangle of a square matrix'.format(len(array))
-                raise ValueError(message)
-
-        if names is not None and len(names) != s[0]:
-            raise ValueError('Names array and square matrix have different dimensions ({},{})'.format(len(names), s[0]))
-        self.df = pd.DataFrame(array, index=names, columns=names)
+    def __init__(self):
+        self.df = pd.DataFrame()
 
     def __repr__(self):
         return repr(self.df)
@@ -408,25 +397,58 @@ class DistanceMatrix(object):
         if (np.abs(self.sort().values - other.sort().values) < 1e-10).all():
             return True
 
-    @property
-    def values(self):
+    @classmethod
+    def from_csv(cls, filename, **kwargs):
+        with fileIO.freader(filename) as handle:
+            new_instance = cls()
+            new_instance.df = pd.DataFrame.from_csv(handle, **kwargs)
+        return new_instance
+
+    def to_csv(self, filename, **kwargs):
+        with fileIO.fwriter(filename) as handle:
+            self.df.to_csv(handle)
+
+    @classmethod
+    def from_array(cls, array, names=None):
+        nrow, ncol = array.shape
+        if nrow != ncol:
+            errmsg = 'Not a square array'
+            raise ValueError(errmsg)
+        new_instance = cls()
+        new_instance.df = pd.DataFrame(array)
+        try:
+            new_instance.set_names(names)
+            return new_instance
+        except ValueError, err:
+            sys.stderr.write(str(err))
+            return new_instance
+
+    def to_array(self):
         return self.df.values
+
+    def set_names(self, names):
+        if names is None:
+            return
+        if len(names) != self.df.index.size:
+            errmsg = 'Expected {} names, got {}'.format(self.df.index.size, len(names))
+            raise ValueError(errmsg)
+        self.df.index = self.df.columns = names
 
     def add_noise(self, std=0.0001):
         ix = np.triu_indices(len(self.df), 1)
         rev_ix = ix[::-1]
         noise = np.random.normal(0, std, len(ix[0]))
-        noisy = self.df.values.copy()
+        noisy = self.to_array().copy()
         noisy[ix] += noise
         noisy[rev_ix] += noise
         noisy[noisy < 0] = np.abs(noisy[noisy < 0])
         return self.__class__(noisy, self.df.index)
 
     def affinity(self, mask=None, scale=None):
-        return affinity(self.df.values, mask, scale)
+        return affinity(self.to_array(), mask, scale)
 
     def double_centre(self, square_input=True):
-        return double_centre(self.df.values, square_input)
+        return double_centre(self.to_array(), square_input)
 
     def embedding(self, dimensions, method, **kwargs):
         """
@@ -453,23 +475,30 @@ class DistanceMatrix(object):
         """
         errors.optioncheck(method, ['cmds', 'kpca', 'mmds', 'nmmds', 'spectral'])
         if method == 'cmds':
-            array =  _embedding_classical_mds(self.df.values, dimensions)
+            array =  _embedding_classical_mds(self.to_array(), dimensions)
         elif method == 'kpca':
-            array = _embedding_kernel_pca(self.df.values, dimensions, **kwargs)
+            array = _embedding_kernel_pca(self.to_array(), dimensions, **kwargs)
         elif method == 'mmds':
-            array = _embedding_metric_mds(self.df.values, dimensions)
+            array = _embedding_metric_mds(self.to_array(), dimensions)
         elif method == 'nmmds':
-            array = _embedding_nonmetric_mds(self.df.values, dimensions, **kwargs)
+            array = _embedding_nonmetric_mds(self.to_array(), dimensions, **kwargs)
         elif method == 'spectral':
-            array = _embedding_spectral(self.df.values, dimensions, **kwargs)
+            array = _embedding_spectral(self.to_array(), dimensions, **kwargs)
 
         return CoordinateMatrix(array, names=self.df.index)
 
     def reorder(self, new_order):
-        reordered_df = self.df[new_order].ix[new_order]
+        reordered_df = self.df.reindex(columns=new_order, index=new_order)
         reordered_names = reordered_df.columns
-        return self.__class__(reordered_df.values, reordered_names)
+        newobj = self.__class__()
+        newobj.df = reordered_df
+        return newobj
 
     def sort(self):
         order = self.df.index.argsort()
         return self.reorder(order)
+
+    @property
+    def values(self):
+        return self.df.values
+

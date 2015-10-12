@@ -10,7 +10,7 @@ import sys
 import numpy as np
 
 # treeCl
-from clustering import Partition
+from treeCl import Partition
 from tree import Tree
 import errors
 from utils import fileIO, print_and_return

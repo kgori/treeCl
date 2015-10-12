@@ -6,6 +6,7 @@ import cPickle
 import glob
 import gzip
 import os
+import shutil
 import tempfile
 from subprocess import Popen, PIPE
 
@@ -14,6 +15,9 @@ from ..errors import filecheck, directorycheck
 
 __all__ = [
     'TempFile',
+    'TempDir',
+    'ChDir',
+    'TempFileList'
     'basename',
     'can_locate',
     'can_open',
@@ -34,13 +38,36 @@ __all__ = [
 
 class TempFile(object):
 
+    def __init__(self, dir_=None):
+        if dir_ is not None and not os.path.exists(dir_):
+            raise IOError('Directory "{}" does not exist'.format(dir_))
+        self.dir = dir_
+
     def __enter__(self):
-        self._wrapped_tmp = tempfile.mkstemp()[1]
+        self._wrapped_tmp = tempfile.mkstemp(dir=self.dir)[1]
         return os.path.abspath(self._wrapped_tmp)
 
     def __exit__(self, type, value, tb):
         os.remove(self._wrapped_tmp)
 
+
+class TempDir(object):
+
+    def __enter__(self):
+        self._wrapped_tmpdir = tempfile.mkdtemp()
+        return os.path.abspath(self._wrapped_tmpdir)
+
+    def __exit__(self, type, value, tb):
+        shutil.rmtree(self._wrapped_tmpdir)
+
+
+class NonDeletingTempFile(TempFile):
+    def __exit__(self, type, value, tb):
+        pass
+
+class NonDeletingTempDir(TempDir):
+    def __exit__(self, type, value, tb):
+        pass
 
 class TempFileList(object):
 
@@ -51,7 +78,25 @@ class TempFileList(object):
         return self._filelist
 
     def __exit__(self, type, value, tb):
-        [os.remove(fl) for fl in self._filelist]
+        for fl in self._filelist:
+            try:
+                os.remove(fl)
+            except:
+                pass  # No need to crash if deletion fails, just ignore
+
+
+class ChDir(object):
+    def __init__(self, working_dir):
+        if not os.path.exists(working_dir):
+            raise IOError('Directory "{}"" does not exist'.format(working_dir))
+        self._cdir = os.getcwd()
+        self._wdir = working_dir
+
+    def __enter__(self):
+        os.chdir(self._wdir)
+
+    def __exit__(self, type, value, tb):
+        os.chdir(self._cdir)
 
 
 def basename(filename):

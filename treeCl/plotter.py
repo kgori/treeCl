@@ -10,9 +10,15 @@ from matplotlib import cm as CM
 import numpy as np
 
 # treeCl
-from collection import Collection
-from clustering import Clustering, Partition
-from errors import optioncheck
+from .collection import Collection
+from .clustering import Spectral, MultidimensionalScaling
+from .distance_matrix import DistanceMatrix
+from .partition import Partition
+from .errors import optioncheck
+from .utils import flatten_list
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 class Plotter(object):
@@ -47,7 +53,7 @@ class Plotter(object):
     def _warnings(self):
         if self.collection:
             if any([(r.tree is None) for r in self.collection.records]):
-                print('No trees have been calculated for these records')
+                logger.warn('No trees have been calculated for these records')
 
     # def calc_dm(self, method='geo'):
     #
@@ -91,13 +97,16 @@ class Plotter(object):
     def heatmap(self, partition=None, cmap=CM.Blues):
         """ Plots a visual representation of a distance matrix """
 
-        length = self.dm.shape[0]
+        if isinstance(self.dm, DistanceMatrix):
+            length = self.dm.values.shape[0]
+        else:
+            length = self.dm.shape[0]
         datamax = float(np.abs(self.dm).max())
         fig = plt.figure()
         ax = fig.add_subplot(111)
         ticks_at = [0, 0.5 * datamax, datamax]
         if partition:
-            sorting = partition.get_membership(flatten=True)
+            sorting = flatten_list(partition.get_membership())
             self.dm = self.dm.reorder(sorting)
         cax = ax.imshow(
             self.dm.values,

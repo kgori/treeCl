@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from treeCl.clustering import Partition
+from treeCl.partition import Partition
 
 
 class Silhouette(object):
