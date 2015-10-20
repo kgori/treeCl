@@ -368,7 +368,19 @@ class Decomp(object):
         return coords_matrix, varexp
 
 
-class CoordinateMatrix(object):
+class Matrix(object):
+    def __repr__(self):
+        return repr(self.df)
+
+    @property
+    def values(self):
+        return self.to_array()
+
+    def to_array(self):
+        return self.df.values
+
+
+class CoordinateMatrix(Matrix):
     def __init__(self, array, names=None):
         nrow = array.shape[0]
         if names is not None and len(names) != nrow:
@@ -378,20 +390,10 @@ class CoordinateMatrix(object):
 
         self.df = pd.DataFrame(array, index=names)
 
-    def __repr__(self):
-        return repr(self.df)
 
-    @property
-    def values(self):
-        return self.to_array()
-
-
-class DistanceMatrix(object):
+class DistanceMatrix(Matrix):
     def __init__(self):
         self.df = pd.DataFrame()
-
-    def __repr__(self):
-        return repr(self.df)
 
     def __eq__(self, other):
         if (np.abs(self.sort().values - other.sort().values) < 1e-10).all():
@@ -422,9 +424,6 @@ class DistanceMatrix(object):
         except ValueError, err:
             sys.stderr.write(str(err))
             return new_instance
-
-    def to_array(self):
-        return self.df.values
 
     def set_names(self, names):
         if names is None:
@@ -497,8 +496,3 @@ class DistanceMatrix(object):
     def sort(self):
         order = self.df.index.argsort()
         return self.reorder(order)
-
-    @property
-    def values(self):
-        return self.df.values
-
