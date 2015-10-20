@@ -27,7 +27,7 @@ from .parameters import PartitionParameters
 from .partition import Partition
 from .parutils import SequentialJobHandler
 from .tree import Tree
-from .utils import fileIO, setup_progressbar, model_translate, smooth_freqs
+from .utils import fileIO, setup_progressbar, model_translate, smooth_freqs, alignment_to_partials, create_gamma_model
 from .utils.decorators import lazyprop
 
 import json
@@ -385,6 +385,10 @@ class Collection(RecordsHandler, RecordsCalculatorMixin):
     k = cl.spectral(4, prune='estimate', local_scale=7)
     p = Partition(k) """
 
+    def species_set(self):
+        return reduce(lambda x, y: set(x) | set(y),
+                      (rec.get_names() for rec in self.records))
+
     def num_species(self):
         """ Returns the number of species found over all records
         """
@@ -529,7 +533,7 @@ class Scorer(object):
             return []
 
         args, to_delete = self.task_interface.scrape_args(records, outfiles=outfiles, **kwargs)
-        logger.debug('Args - {}'.format(args))
+        # logger.debug('Args - {}'.format(args))
 
         with fileIO.TempFileList(to_delete):
             result = jobhandler(self.task_interface.get_task(), args, 'Cache dir analysis', batchsize)
@@ -663,22 +667,182 @@ class Scorer(object):
             outfile = os.path.join(outdir, orig.name + '.phy')
             al.write_alignment(outfile, 'phylip', True)
 
-class Optimiser(object):
-    def __init__(self, scorer):
-        self.scorer = scorer
-        self.insts = init_perlocus_likelihood_objects()
 
-    def init_perlocus_likelihood_objects(self):
-        from pllpy import pll
+class Optimiser(object):
+    """ Perform the Classification-Expectation-Maximisation (CEM) algorithm (1) 
+        Brief:
+        Optimise the assignment of N data points to K groups by cycling through 3 steps
+        - Expectation    - Calculate probabilities of group membership for each data point x_i
+                           to group P_k, based on current model parameters
+        - Classification - Assign each data point x_i to one group P_k according to the
+                           probability of membership
+        - Maximisation   - Update model parameters according to new membership
+
+        (1) Celeux,G. and Govaert,G. (1992) A classification EM algorithm for clustering 
+        and two stochastic versions. Comput. Stat. Data Anal., 14, 315–332. """
+    def __init__(self, scorer, partition=None, **kwargs):
+        self.scorer = scorer
+        self.partition = partition
+        self.insts = self.init_perlocus_likelihood_objects(**kwargs)
+        self.names_to_indices = dict((rec.name, i) for (i, rec) in enumerate(scorer.collection))
+        self.iterations = 0
+        self.log = []
+
+    def random_partition(self, ngroups):
+        items = len(self.scorer.collection)
+        r = np.zeros(items)
+        r[:ngroups] = np.arange(ngroups)
+        r[ngroups:] = np.random.randint(ngroups, size=items-ngroups)
+        np.random.shuffle(r)
+        return Partition(tuple(r))
+
+    def set_partition(self, partition):
+        self.partition = partition
+
+    def iterate(self, use_proportions=True, weighted_choice=False, transform=None, **kwargs):
+        probs = self.expect(self.partition, use_proportions)
+        self.partition = self.classify(probs, weighted_choice, transform)
+        self.iterations += 1
+        result = self.maximise(**kwargs)
+        self.log.append(result)
+        return result
+
+    def init_perlocus_likelihood_objects(self, **kwargs):
         c = self.scorer.collection
         insts = []
-        to_delete = []
         for rec in c:
-            alignment_file, delete = rec.get_alignment_file()
-            if delete:
-                to_delete.append(alignment_file)
-            model = 'GTR' if rec.is_dna() else 'LG'
-            partition_string = '{}, {} = 1 - {}'.format(model, rec.name, len(rec))
-            inst = pll(alignment_file, partition_string, rec.tree, 1, 12345)
-            insts.append(inst)
+            gamma = create_gamma_model(rec, list(c.species_set() - set(rec.get_names())), **kwargs)
+            gamma.set_tree(rec.tree)
+            insts.append(gamma)
         return insts
+
+    def update_perlocus_likelihood_objects(self, partition):
+        results = self.scorer.get_partition_results(partition)
+        for result in results:
+            subdict = result['partitions']
+            for k in subdict:
+                p = subdict[k]
+                index = self.names_to_indices[p['name']]
+                gamma = self.insts[index]
+
+                # Build transition matrix from dict
+                model = p['model']
+                freqs = p['frequencies']
+                if model == 'LG':
+                    subs_model = phylo_utils.models.LG(freqs)
+                elif model == 'GTR':
+                    rates = p['rates']
+                    subs_model = phylo_utils.models.GTR(rates, freqs, True)
+                else:
+                    raise ValueError("Can't handle this model: {}".format(model))
+                tm = phylo_utils.markov.TransitionMatrix(subs_model)
+                
+                # Read alpha value
+                alpha = p['alpha']
+                gamma.update_alpha(alpha)
+                gamma.update_transition_matrix(tm)
+                gamma.set_tree(result['ml_tree'])
+
+    def generate_table(self, partition, use_proportions=True):
+        trees = self.scorer.get_partition_trees(partition)
+        if use_proportions:
+            logproportions = np.log(np.array([len(x) for x in partition.get_membership()], dtype=np.double)/partition.num_elements())
+        else:
+            logproportions = np.zeros(partition.num_elements())
+        table = np.zeros((len(self.insts), len(trees)))
+        for i, gamma in enumerate(self.insts):
+            for j, t in enumerate(trees):
+                gamma.set_tree(t)
+                table[i, j] = logproportions[j] + gamma.get_likelihood()
+        return table
+
+    def likelihood_table_to_probs(self, table):
+        """
+        Calculates this formula (1), given the log of the numerator as input
+                     
+                     p_k * f(x_i, a_k)
+        t_k(x_i) = -----------------------
+                    ---K
+                    \   p_k * f(x_i, a_k)
+                    /__k=1
+        
+        x_i is data point i
+        P_k is cluster k of K
+        t_k is the posterior probability of x_i belonging to P_k
+        p_k is the prior probability of belong to P_k (the proportional size of P_k)
+        f(x, a) is the likelihood of x with parameters a
+        """
+        m = table.max(1)  # row max of table
+        shifted = table-m[:,np.newaxis]  # shift table of log-likelihoods to a non-underflowing range
+        expsum = np.exp(shifted).sum(1)  # convert logs to (scaled) normal space, and sum the rows
+        logexpsum = np.log(expsum)+m  # convert back to log space, and undo the scaling
+        return np.exp(table - logexpsum[:, np.newaxis])
+
+    def expect(self, partition, use_proportions=True):
+        """ The Expectation step of the CEM algorithm """
+        self.update_perlocus_likelihood_objects(partition)
+        lk_table = self.generate_table(partition, use_proportions)
+        return self.likelihood_table_to_probs(lk_table)
+
+    def classify(self, table, weighted_choice=False, transform=None):
+        """ The Classification step of the CEM algorithm """
+        if weighted_choice:
+            if transform is not None:
+                probs = transform(table.copy())  #
+            else:
+                probs = table.copy()
+            cmprobs = probs.cumsum(1)
+            logger.info('Probabilities\n{}'.format(probs))
+            r = np.random.random(cmprobs.shape[0])
+            search = np.apply_along_axis(np.searchsorted, 1, cmprobs, r) # Not very efficient
+            assignment = np.diag(search)
+        else:
+            probs = table
+            assignment = np.where(probs==probs.max(1)[:, np.newaxis])[1]
+        logger.info('Assignment\n{}'.format(assignment))
+        # self._fill_empty_groups(probs, assignment)  # don't want empty groups
+        return Partition(tuple(assignment))
+
+    def maximise(self, **kwargs):
+        """ The Maximisation step of the CEM algorithm """
+        self.scorer.write_partition(self.partition)
+        self.scorer.analyse_cache_dir(**kwargs)
+        self.likelihood = self.scorer.get_partition_score(self.partition)
+        self.scorer.clean_cache()
+        return self.partition, self.likelihood
+
+    def _fill_empty_groups(self, probs, assignment):
+        """ Does the simple thing - if any group is empty, but needs to have at
+        least one member, assign the data point with highest probability of
+        membership """
+        for k in xrange(probs.shape[1]):
+            if np.count_nonzero(assignment==k) == 0:
+                best = np.where(probs[:,0]==probs[:,0].max())[0][0]
+                assignment[best] = k
+                self._fill_empty_groups(probs, assignment)
+        return assignment
+
+    def wipe_partition(self, partition):
+        """ Deletes analysis result of partition, e.g. so a repeat
+        optimisation of the same partition can be done with a
+        different model """
+        for grp in partition.get_membership():
+            grpid = self.scorer.get_id(grp)
+            cache_dir = self.scorer.cache_dir
+            prog = self.scorer.task_interface.name
+            filename = os.path.join(cache_dir, '{}.{}.json'.format(grpid, prog))
+            if os.path.exists(filename):
+                os.unlink(filename)
+
+    def likelihood_distance_matrix(self):
+        # Assume all parameters are already updated
+        dm = np.empty((len(self.scorer.collection), len(self.scorer.collection)))
+        for i, gamma in enumerate(self.insts):
+            for j, rec in enumerate(self.scorer.collection):
+                gamma.set_tree(rec.tree)
+                dm[i, j] = gamma.get_likelihood()
+        scaled=(dm - np.diag(dm)[:,np.newaxis])
+        return treeCl.DistanceMatrix.from_array(-0.5*(scaled+scaled.T))
+
+
+
