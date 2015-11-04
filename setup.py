@@ -11,11 +11,13 @@ except ImportError:
 try:
     from Cython.Distutils import build_ext
 except ImportError:
-    print('You don\'t seem to have Cython installed.')
-    print('Cython and Numpy are required for the')
+    print('\n' + '!'*80)
+    print('You don\'t seem to have cython installed.')
+    print('Cython, numpy and autowrap are required for the')
     print('installation process, all other dependencies')
     print('will be installed automatically.')
-    print('Install Cython [and Numpy] and try again.')
+    print('Install cython and try again.')
+    print('!'*80 + '\n')
     import sys
 
     sys.exit()
@@ -23,11 +25,27 @@ except ImportError:
 try:
     from numpy import get_include as numpy_get_include
 except ImportError:
-    print('You don\'t seem to have Numpy installed.')
-    print('Numpy and Cython are required for the')
+    print('\n' + '!'*80)
+    print('You don\'t seem to have numpy installed.')
+    print('Numpy, cython and autowrap are required for the')
     print('installation process, all other dependencies')
     print('will be installed automatically.')
-    print('Install Numpy [and Cython] and try again.')
+    print('Install numpy and try again.')
+    print('!'*80 + '\n')
+    import sys
+
+    sys.exit()
+
+try:
+    import autowrap
+except ImportError:
+    print('\n' + '!'*80)
+    print('You don\'t seem to have autowrap installed.')
+    print('Autowrap, numpy and cython are required for the')
+    print('installation process, all other dependencies')
+    print('will be installed automatically.')
+    print('Install autowrap and try again.')
+    print('!'*80 + '\n')
     import sys
 
     sys.exit()
@@ -52,6 +70,7 @@ class my_build_ext(build_ext):
                 e.extra_compile_args.append('-stdlib=libc++')
                 if platform.system() == 'Darwin':
                     e.extra_compile_args.append('-mmacosx-version-min=10.7')
+                    e.extra_link_args.append('-mmacosx-version-min=10.7')
         build_ext.build_extensions(self)
 
 compile_args = ['-std=c++1y']
@@ -68,7 +87,7 @@ extensions = [
               ],
               language='c++',
               include_dirs=[data_dir],
-              extra_compile_args=['-std=c++11'],
+              extra_compile_args=compile_args,
     ),
 ]
 
@@ -120,6 +139,7 @@ setup(name="treeCl",
           'pandas',
           'phylo_utils',
           'progressbar-latest',
+          'PyYaml',
           'scipy',
           'scikit-bio',
           'scikit-learn',

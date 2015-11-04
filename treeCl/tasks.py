@@ -41,12 +41,10 @@ def eucdist_task(newick_string_a, newick_string_b, normalise):
     Distributed version of tree_distance.eucdist
     Parameters: two valid newick strings and a boolean
     """
-    try:
-        tree_a = Tree(newick_string_a)
-        tree_b = Tree(newick_string_b)
-        return treedist.eucdist(tree_a, tree_b, normalise)
-    except Exception as exc:
-        eucdist_task.retry(exc=exc, countdown=1, max_retries=5)
+    tree_a = Tree(newick_string_a)
+    tree_b = Tree(newick_string_b)
+    return treedist.eucdist(tree_a, tree_b, normalise)
+
 
 
 def geodist_task(newick_string_a, newick_string_b, normalise):
@@ -54,12 +52,9 @@ def geodist_task(newick_string_a, newick_string_b, normalise):
     Distributed version of tree_distance.geodist
     Parameters: two valid newick strings and a boolean
     """
-    try:
-        tree_a = Tree(newick_string_a)
-        tree_b = Tree(newick_string_b)
-        return treedist.geodist(tree_a, tree_b, normalise)
-    except Exception as exc:
-        geodist_task.retry(exc=exc, countdown=1, max_retries=5)
+    tree_a = Tree(newick_string_a)
+    tree_b = Tree(newick_string_b)
+    return treedist.geodist(tree_a, tree_b, normalise)
 
 
 def rfdist_task(newick_string_a, newick_string_b, normalise):
@@ -67,29 +62,23 @@ def rfdist_task(newick_string_a, newick_string_b, normalise):
     Distributed version of tree_distance.rfdist
     Parameters: two valid newick strings and a boolean
     """
-    try:
-        tree_a = Tree(newick_string_a)
-        tree_b = Tree(newick_string_b)
-        return treedist.rfdist(tree_a, tree_b, normalise)
-    except Exception as exc:
-        rfdist_task.retry(exc=exc, countdown=1, max_retries=5)
-
+    tree_a = Tree(newick_string_a)
+    tree_b = Tree(newick_string_b)
+    return treedist.rfdist(tree_a, tree_b, normalise)
+    
 
 def wrfdist_task(newick_string_a, newick_string_b, normalise):
     """
     Distributed version of tree_distance.rfdist
     Parameters: two valid newick strings and a boolean
     """
-    try:
-        tree_a = Tree(newick_string_a)
-        tree_b = Tree(newick_string_b)
-        return treedist.wrfdist(tree_a, tree_b, normalise)
-    except Exception as exc:
-        wrfdist_task.retry(exc=exc, countdown=1, max_retries=5)
-
+    tree_a = Tree(newick_string_a)
+    tree_b = Tree(newick_string_b)
+    return treedist.wrfdist(tree_a, tree_b, normalise)
+    
 
 ### TASKS that calculate trees
-def pll_task(alignment_file, partition_string, guidetree=None, tree_search=True, threads=1, seed=PLL_RANDOM_SEED, frequencies=None,
+def pll_task(alignment_file, partition_string, guidetree=None, tree_search=True, threads=1, seed=RANDOM_SEED, frequencies=None,
              write_to_file=None):
     try:
         import pllpy
