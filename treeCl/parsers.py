@@ -189,6 +189,7 @@ class RaxmlParser(object):
             subdict['name'] = name
             subdict['rates'] = rates
             subdict['frequencies'] = freqs
+            subdict['model'] = model
             d['partitions'][index] = subdict
 
         return d
