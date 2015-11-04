@@ -173,7 +173,7 @@ def biopython_to_partials(alignment, datatype):
         partials_dict[seq.name] = seq_to_partials(seq, datatype)
     return partials_dict
 
-def create_gamma_model(alignment, missing_data=None):
+def create_gamma_model(alignment, missing_data=None, scale_freq=10):
     """ Create a phylo_utils.likelihood.GammaMixture for calculating
     likelihood on a tree, from a treeCl.Alignment and its matching 
     treeCl.Parameters """
@@ -189,5 +189,5 @@ def create_gamma_model(alignment, missing_data=None):
         raise ValueError("Can't handle this model: {}".format(model))
     tm = TransitionMatrix(subs_model)
     gamma = GammaMixture(alpha, 4)
-    gamma.init_models(tm, alignment_to_partials(alignment, missing_data), scale_freq=20)
+    gamma.init_models(tm, alignment_to_partials(alignment, missing_data), scale_freq=scale_freq)
     return gamma
