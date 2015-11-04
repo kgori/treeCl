@@ -4,50 +4,36 @@
 phylogenetic similarity. It takes a collection of alignments, infers their phylogenetic trees,
 and clusters them based on a matrix of between-tree distances. Finally, it calculates a single representative tree for each cluster.
 
-The purpose of this is to establish whether there is any underlying structure
-to the data.
+You can read the paper [here](http://arxiv.org/abs/1510.02356)
 
 ## Installation
 
-####Make sure you have the dependencies required for installation - numpy, and cython (```pip install cython numpy``` if you don't)
+#### Preparing dependencies
 
-###The ```setup.py``` way:
+There are some C and C++ dependencies that need to be available before installing
+- [boost](http://www.boost.org/)
+- [bio++](http://biopp.univ-montp2.fr/wiki/index.php/Main_Page)
+- [eigen](http://eigen.tuxfamily.org/index.php?title=Main_Page)
 
-1. Pick a nice directory to put the files in. It can be anywhere, you won't need them again once they are installed. We'll call this ```$TEDIOUS_BUILDING_AREA```
+As well as some python dependencies
+- numpy
+- cython
+- autowrap
 
-2. Clone the repo:
+The easiest way to get the C/C++ libraries is to use a package manager --- for instance homebrew for Mac (and Linux) --- otherwise there are installation instructions at the links above.
 
-    ``` bash
-cd $TEDIOUS_BUILDING_AREA
-git clone https://github.com/kgori/treeCl.git tiresome_software
-cd tiresome_software
-python setup.py install
-```
+The python dependencies can all be installed using pip; numpy and cython are also available from conda.
 
-###The pip way:
+#### External dependencies
 
-```pip install git+https://github.com/kgori/treeCl.git```
+To be able to build trees, treeCl needs to call on some external software. The choices are RAxML, PhyML, FastTree or PLL (using [pllpy](https://github.com/kgori/pllpy)). If any of these are installed, available in your path, and keep the standard names they were installed with, they should work.
 
-## Dependencies
+#### Installing ``treeCl``
+All remaining dependencies will be installed automatically using pip
 
-#### Python:
-- [matplotlib](http://matplotlib.org/ "matplotlib")
-- [numpy](http://www.numpy.org "NumPy") (v1.6.2)
-- [scipy](http://www.scipy.org "SciPy") (v0.11.0)
-- [dendropy](http://pythonhosted.org/DendroPy/ "DendroPy is a Python library for phylogenetic computing.") (v3.12.0)
-- [scikit-learn](http://scikit-learn.org/stable/ "Machine learning in Python") (v0.12.1)
-- [biopython](http://www.biopython.org/‎ "Biopython") (v1.60) *optional - for k-medoids clustering only*
+    pip install treeCl
 
-The install process should take care of installing these for you, except numpy and cython (see Installation section, above).
 
-#### External:
-treeCl uses some external software, namely ALF for simulating sequences, and PhyML for calculating trees and likelihoods.
-- [ALF](http://darwin-services.inf.ethz.ch/DarwinServices/ALF.html#service0 "ALF: simulating genome evolution")
-- [PhyML](https://code.google.com/p/phyml/ "Phylogenetic estimation using Maximum Likelihood")
-- [Darwin](http://www.cbrg.ethz.ch/darwin "Data Analysis and Retrieval With Indexed Nucleotide/peptide sequences")
-
-#### Bundled:
-- [GTP](http://dl.acm.org/citation.cfm?id=1916603 "ACM digital library") - a java program for calculating geodesic distances - see [A Fast Algorithm for Computing Geodesic Distances in Tree Space](https://cs.uwaterloo.ca/~m2owen/pub/poly_geodesic.pdf "Owen and Provan, 2011")
 
 ## Example Analysis
 ``` python
