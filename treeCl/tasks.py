@@ -135,22 +135,24 @@ def fasttree_task(alignment_file, dna=False):
     fl = os.path.abspath(alignment_file)
     fst = FastTree(verbose=False)
     cmd = '-gtr -gamma -pseudo {} {}'.format('-nt' if dna else '', fl)
-    logger.debug('{} {}'.format(fst.exe, cmd))
+    logger.info('{} {}'.format(fst.exe, cmd))
     fst(cmd, wait=True)
     tree = fst.get_stdout()
     result = parse_fasttree_output(fst.get_stderr())
     result['ml_tree'] = Tree(tree).as_string('newick', internal_labels=False, suppress_rooting=True).rstrip()
     return result
 
-def raxml_task(alignment_file, model, partitions_file=None, outfile=None, threads=1, parsimony=False, fast_tree=False):
+def raxml_task(executable, alignment_file, model, partitions_file=None, outfile=None, threads=1, parsimony=False, fast_tree=False):
     afl = os.path.abspath(alignment_file)
     pfl = os.path.abspath(partitions_file) if partitions_file else None
     if threads > 1:
-        executable = 'raxmlHPC-PTHREADS-AVX'
+        if 'raxmlHPC' in executable and not 'PTHREADS' in executable:
+            executable = executable.replace('raxmlHPC', 'raxmlHPC-PTHREADS')
         basecmd = '-T {} '.format(threads)
+        logger.debug("Executable: {}".format(executable))
     else:
-        executable = 'raxmlHPC-AVX'
         basecmd = ''
+        logger.debug("Executable: {}".format(executable))
     with fileIO.TempDir() as tmpd, fileIO.TempFile(tmpd) as name:
         name = os.path.basename(name)
         rax = Raxml(executable, verbose=False)
@@ -166,12 +168,13 @@ def raxml_task(alignment_file, model, partitions_file=None, outfile=None, thread
             cmd += ' -f E'
         elif parsimony:
             cmd += ' -y'
+        logger.debug(cmd)
         rax(cmd, wait=True)
         if fast_tree:
             # Need to follow up
             cmd = basecmd + '-m {model} -n modopt -s {seqfile} -p {seed} -O -w {outdir} -f e -t {outdir}/RAxML_fastTree.{name}'.format(
                 model=model, seqfile=afl, seed=seed, outdir=outdir, name=name)
-            # logger.debug('Follow-up cmd (fast_tree) = {}'.format(cmd))
+            logger.debug('Follow-up cmd (fast_tree) = {}'.format(cmd))
             if pfl:
                 cmd += ' -q {}'.format(pfl)
             rax(cmd, wait=True)
@@ -182,7 +185,7 @@ def raxml_task(alignment_file, model, partitions_file=None, outfile=None, thread
             # Need to follow up
             cmd = basecmd + '-m {model} -n modopt -s {seqfile} -p {seed} -O -w {outdir} -f e -t {outdir}/RAxML_parsimonyTree.{name}'.format(
                 model=model, seqfile=afl, seed=seed, outdir=outdir, name=name)
-            # logger.debug('Follow-up cmd (parsimony) = {}'.format(cmd))
+            logger.debug('Follow-up cmd (parsimony) = {}'.format(cmd))
             if pfl:
                 cmd += ' -q {}'.format(pfl)
             rax(cmd, wait=True)
@@ -190,11 +193,11 @@ def raxml_task(alignment_file, model, partitions_file=None, outfile=None, thread
             result = parser.to_dict(os.path.join(tmpd, 'RAxML_info.modopt'),
                                     os.path.join(tmpd, 'RAxML_result.modopt'), dash_f_e=True)
         else:
-            # logger.debug('RaxML command - {}'.format(cmd))
+            logger.debug('RaxML command - {}'.format(cmd))
             parser = RaxmlParser()
-            # logger.debug('Temp dir exists - {} ({})'.format(os.path.exists(tmpd), os.path.abspath(tmpd)))
-            # logger.debug('Info file exists - {}'.format('True' if os.path.exists(os.path.join(tmpd, 'RAxML_info.{}'.format(name))) else 'False'))
-            # logger.debug('Tree file exists - {}'.format('True' if os.path.exists(os.path.join(tmpd, 'RAxML_bestTree.{}'.format(name))) else 'False'))
+            logger.debug('Temp dir exists - {} ({})'.format(os.path.exists(tmpd), os.path.abspath(tmpd)))
+            logger.debug('Info file exists - {}'.format('True' if os.path.exists(os.path.join(tmpd, 'RAxML_info.{}'.format(name))) else 'False'))
+            logger.debug('Tree file exists - {}'.format('True' if os.path.exists(os.path.join(tmpd, 'RAxML_bestTree.{}'.format(name))) else 'False'))
             result = parser.to_dict(os.path.join(tmpd, 'RAxML_info.{}'.format(name)),
                                     os.path.join(tmpd, 'RAxML_bestTree.{}'.format(name)))
         if outfile is not None:
@@ -314,7 +317,7 @@ class PhymlTaskInterface(TaskInterface):
 class RaxmlTaskInterface(TaskInterface):
     _name = 'Raxml'
 
-    def scrape_args(self, records, partition_files=None, model=None, outfiles=None, threads=1, parsimony=False, fast_tree=False):
+    def scrape_args(self, records, executable='raxmlHPC-AVX', partition_files=None, model=None, outfiles=None, threads=1, parsimony=False, fast_tree=False):
         args = []
         to_delete = []
         if partition_files is None:
@@ -347,7 +350,7 @@ class RaxmlTaskInterface(TaskInterface):
                             name=rec.name, seqlen=len(rec))
                         tmpfile.write(partition_string)
 
-            args.append((filename, model, qfile, ofile, threads, parsimony, fast_tree))
+            args.append((executable, filename, model, qfile, ofile, threads, parsimony, fast_tree))
         return args, to_delete
 
     def get_task(self):
