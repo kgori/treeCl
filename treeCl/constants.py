@@ -18,7 +18,7 @@ PHYML_MEMORY_MULTIPLIER = 1.2  # Add %age wiggle room when calculating Phyml
 PHYML_MEMORY_SPARE = 256  # Allocate extra Mb of memory on LSF jobs
 PHYML_MEMORY_MIN = 512
 PHYML_MEMORY_STANDARD = 4096
-PLL_RANDOM_SEED = int('CA55E77E', 16)
+RANDOM_SEED = int('CA55E77E', 16)
 logo = """
 ═══════════ ╔═╗┬
 ┌┬┐┬─┐┌─┐┌─┐║  │
