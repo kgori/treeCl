@@ -193,6 +193,7 @@ class Spectral(ClusteringManager, EMMixin):
             assert (scale > 1e-5).all()
 
         aff = affinity(matrix, mask, scale)
+        aff.flat[::len(aff)+1] = 1.0
         return aff
 
     def cluster(self, n, embed_dim=None, algo=spectral.SPECTRAL, method=methods.KMEANS):

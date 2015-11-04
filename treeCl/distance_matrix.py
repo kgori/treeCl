@@ -74,6 +74,40 @@ def double_centre(matrix, square_input=True):
     m /= -2
     return m
 
+def _estimate_additive_constant(matrix):
+    """
+    CMDS Additive Constant: correction for non-Euclidean distances.
+    Procedure taken from R function cmdscale.
+    The additive constant is given by the largest eigenvalue (real part)
+    of this 2x2 block matrix -
+
+    /-------+-------\
+    |       |       |
+    |   0   | 2*dbc |    NB: dbc function(m: matrix):
+    |       | (d^2) |        double_centre() [see above]
+    +-------+-------+
+    |       |       |
+    |  -I   |-4*dbc |
+    |       |  (2d) |
+    \-------+-------/
+
+    corrected matrix = matrix + additive constant (diagonal kept as 0)
+    """
+    topleft = np.zeros(matrix.shape)
+    topright = 2*double_centre(matrix)
+    bottomleft = -np.eye(matrix.shape[0])
+    bottomright = -4*double_centre(matrix, square_input=False)
+    Z = np.vstack([np.hstack([topleft,topright]),
+                   np.hstack([bottomleft,bottomright])])
+    return max(np.real(np.linalg.eigvals(Z)))
+
+
+def _additive_correct(matrix):
+    addc = _estimate_additive_constant(matrix)
+    tmp = matrix + addc
+    np.fill_diagonal(tmp, 0)
+    return tmp
+
 
 def check_euclidean(matrix):
     """ A distance matrix is euclidean iff F = -0.5 * (I - 1/n)D(I - 1/n) is
@@ -81,7 +115,7 @@ def check_euclidean(matrix):
     square matrix of ones, and n is the matrix size, common to all """
 
     f = double_centre(matrix, square_input=True)
-    return check_psd(matrix, f)
+    return check_psd(f)
 
 
 def check_pd(matrix):
@@ -95,14 +129,14 @@ def check_pd(matrix):
         return False
 
 
-def check_psd(matrix):
+def check_psd(matrix, tolerance=1e-6):
     """ A square matrix is PSD if all eigenvalues of its Hermitian part are
     non- negative. The Hermitian part is given by (self + M*)/2, where M* is
     the complex conjugate transpose of M """
 
     hermitian = (matrix + matrix.T.conjugate()) / 2
     eigenvalues = np.linalg.eigh(hermitian)[0]
-    return not (eigenvalues < 0).all()
+    return (eigenvalues > -tolerance).all()
 
 
 def normalise_rows(matrix):
@@ -265,13 +299,16 @@ def eigen(matrix):
     return Decomp(matrix.copy(), vals, vecs, cum_var_exp)
 
 
-def _embedding_classical_mds(matrix, dimensions=3):
+def _embedding_classical_mds(matrix, dimensions=3, additive_correct=False):
     """
     Private method to calculate CMDS embedding
     :param dimensions: (int)
     :return: coordinate matrix (np.array)
     """
-    dbc = double_centre(matrix)
+    if additive_correct:
+        dbc = double_centre(_additive_correct(matrix))
+    else:
+        dbc = double_centre(matrix)
     decomp = eigen(dbc)
     lambda_ = np.diag(np.sqrt(np.abs(decomp.vals[:dimensions])))
     evecs = decomp.vecs[:, :dimensions]
@@ -368,7 +405,19 @@ class Decomp(object):
         return coords_matrix, varexp
 
 
-class CoordinateMatrix(object):
+class Matrix(object):
+    def __repr__(self):
+        return repr(self.df)
+
+    @property
+    def values(self):
+        return self.to_array()
+
+    def to_array(self):
+        return self.df.values
+
+
+class CoordinateMatrix(Matrix):
     def __init__(self, array, names=None):
         nrow = array.shape[0]
         if names is not None and len(names) != nrow:
@@ -378,20 +427,10 @@ class CoordinateMatrix(object):
 
         self.df = pd.DataFrame(array, index=names)
 
-    def __repr__(self):
-        return repr(self.df)
 
-    @property
-    def values(self):
-        return self.to_array()
-
-
-class DistanceMatrix(object):
+class DistanceMatrix(Matrix):
     def __init__(self):
         self.df = pd.DataFrame()
-
-    def __repr__(self):
-        return repr(self.df)
 
     def __eq__(self, other):
         if (np.abs(self.sort().values - other.sort().values) < 1e-10).all():
@@ -422,9 +461,6 @@ class DistanceMatrix(object):
         except ValueError, err:
             sys.stderr.write(str(err))
             return new_instance
-
-    def to_array(self):
-        return self.df.values
 
     def set_names(self, names):
         if names is None:
@@ -475,7 +511,7 @@ class DistanceMatrix(object):
         """
         errors.optioncheck(method, ['cmds', 'kpca', 'mmds', 'nmmds', 'spectral'])
         if method == 'cmds':
-            array =  _embedding_classical_mds(self.to_array(), dimensions)
+            array =  _embedding_classical_mds(self.to_array(), dimensions, **kwargs)
         elif method == 'kpca':
             array = _embedding_kernel_pca(self.to_array(), dimensions, **kwargs)
         elif method == 'mmds':
@@ -497,8 +533,3 @@ class DistanceMatrix(object):
     def sort(self):
         order = self.df.index.argsort()
         return self.reorder(order)
-
-    @property
-    def values(self):
-        return self.df.values
-
