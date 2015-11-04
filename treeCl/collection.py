@@ -19,7 +19,7 @@ from scipy.spatial.distance import squareform
 # treeCl
 from .alignment import Alignment
 from .concatenation import Concatenation
-from .constants import SORT_KEY, PLL_RANDOM_SEED
+from .constants import SORT_KEY
 from .distance_matrix import DistanceMatrix
 from .errors import optioncheck, directorycheck
 from . import tasks
@@ -344,7 +344,7 @@ class RecordsCalculatorMixin(object):
             indices = list(range(len(self)))
 
         if task_interface is None:
-            task_interface = tasks.PllTaskInterface()
+            task_interface = tasks.RaxmlTaskInterface()
 
         records = [self[i] for i in indices]
 

@@ -5,7 +5,6 @@ import tempfile
 from numpy import log
 
 import bpp
-from treeCl.utils import pll_helpers
 from parameters import Parameters, PartitionParameters
 from utils import fileIO
 from Bio.Seq import Seq, UnknownSeq
@@ -84,18 +83,6 @@ class Alignment(bpp.Alignment):
             tmpfile = os.path.abspath(tempfile.mkstemp()[1])
             self.write_alignment(tmpfile, "phylip", interleaved=True)
             return tmpfile, True
-
-    def pll_get_instance(self, *args):
-        try:
-            with open(self.infile):
-                pass
-            alignment = self.infile
-            return pll_helpers.create_instance(alignment, *args)  # args=(partitions, tree, threads, rns)
-
-        except (IOError, TypeError):
-            with fileIO.TempFile() as tmpfile:
-                self.write_alignment(tmpfile, 'phylip', True)
-                return pll_helpers.create_instance(tmpfile, *args)
 
     def get_unconstrained_likelihood(self):
         weights = collections.Counter()

@@ -5,8 +5,8 @@
 #include <cstdio>
 #include <cassert>
 #include <string>
-#include "Eigen/Core"
-#include "Eigen/LU"
+#include "eigen3/Eigen/Core"
+#include "eigen3/Eigen/LU"
 #include <vector>
 
 #include <cfloat>
