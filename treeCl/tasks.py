@@ -117,17 +117,25 @@ def phyml_task(alignment_file, model):
     else:
         datatype = 'aa'
     cmd = '-i {} -m {} -d {} -f m'.format(alignment_file, model, datatype)
+    logger.debug("Phyml command = {}".format(cmd))
     ph(cmd, wait=True)
+    logger.debug("Phyml stdout = {}".format(ph.get_stdout()))
+    logger.debug("Phyml stderr = {}".format(ph.get_stderr()))
     parser = PhymlParser()
     expected_outfiles = ['{}_phyml_stats'.format(alignment_file), '{}_phyml_tree'.format(alignment_file)]
+    for i in range(2):
+        if not os.path.exists(expected_outfiles[i]):
+            expected_outfiles[i] += '.txt'
+    logger.debug('Stats file {} {}'.format(expected_outfiles[0], 'exists' if os.path.exists(expected_outfiles[0]) else 'doesn\'t exist'))
+    logger.debug('Tree file {} {}'.format(expected_outfiles[1], 'exists' if os.path.exists(expected_outfiles[1]) else 'doesn\'t exist'))
     with fileIO.TempFileList(expected_outfiles):
         try:
             result = parser.to_dict(*expected_outfiles)
         except IOError as ioerr:
-            logger.error('File IO error', ioerr)
+            logger.error('File IO error: {}'.format(ioerr))
             result = None
         except ParseException as parseerr:
-            logger.error('Other parse error', parseerr)
+            logger.error('Other parse error: {}'.format(parseerr))
             result = None
     return result
 

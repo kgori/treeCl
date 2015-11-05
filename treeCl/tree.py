@@ -746,8 +746,6 @@ class NNI2(object):
 
 class Tree(object):
     """ Tree data structure, wraps dendropy Tree class
-        (used to subclass it but the fuckers at dendropy fucking ruined that
-        with their shitty update. Bastards.)
     """
 
     def __init__(
@@ -825,7 +823,9 @@ class Tree(object):
             edge_label_compose_func      - function to convert edge lengths:
                                             takes edge as arg, returns string
         """
-        n = self._tree.as_string('newick', suppress_rooting=True)
+        n = self._tree.as_string('newick', 
+                                 suppress_rooting=True, 
+                                 suppress_internal_node_labels=True)
         if n:
             return n.strip(';\n') + ';'
         return n
@@ -840,7 +840,10 @@ class Tree(object):
         :return: PhyloTree instance
         """
         if not self._phylotree or self._dirty:
-            self._phylotree = PhyloTree(self.newick, self.rooted)
+            try:
+                self._phylotree = PhyloTree(self.newick, self.rooted)
+            except ValueError:
+                logger.error('Couldn\'t convert to C++ PhyloTree -- are there bootstrap values?')
             self._dirty = False
         return self._phylotree
 

@@ -843,6 +843,3 @@ class Optimiser(object):
                 dm[i, j] = gamma.get_likelihood()
         scaled=(dm - np.diag(dm)[:,np.newaxis])
         return treeCl.DistanceMatrix.from_array(-0.5*(scaled+scaled.T))
-
-
-
