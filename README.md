@@ -41,20 +41,26 @@ All remaining dependencies will be installed automatically using pip
 import treeCl
 
 """
-The first point of call is the treeCl.Collection class. This handles loading your data, and calculating the trees and distances that will be used later.
+The first point of call is the treeCl.Collection class. 
+This handles loading your data, and calculating the trees 
+and distances that will be used later.
 
-This is how to load your data. This should be a directory full of sequence alignments in fasta '*.fas' or phylip '*.phy' formats. These can also be zipped using gzip or bzip2, treeCl will load them directly.
+This is how to load your data. This should be a directory
+full of sequence alignments in fasta '*.fas' or phylip
+'*.phy' formats. These can also be zipped using gzip or 
+bzip2, treeCl will load them directly.
 """
 c = Collection(input_dir='input_dir', file_format='phylip')
 
 """
-Now it's time to calculate some trees. The simplest way to do this is
+Now it's time to calculate some trees. The simplest way to 
+do this is
 """
 c.calc_trees()
 
 """
-This uses RAxML to infer a tree for each alignment. We can pass arguments to RAxML
-using keywords.
+This uses RAxML to infer a tree for each alignment. We can 
+pass arguments to RAxML using keywords.
 """
 c.calc_trees(executable='raxmlHPC-PTHREADS-AVX',  # specify raxml binary to use
              threads=8,  # use multithreaded raxml
@@ -62,14 +68,16 @@ c.calc_trees(executable='raxmlHPC-PTHREADS-AVX',  # specify raxml binary to use
              fast_tree=True)  # use raxml's experimental fast tree search option
 
 """
-We can use PhyML instead of RAxML. Switching programs is done using a TaskInterface
+We can use PhyML instead of RAxML. Switching programs is 
+done using a TaskInterface
 """
 
 phyml = treeCl.tasks.PhymlTaskInterface()
 c.calc_trees(task_interface=phyml)
 
 """
-PhyML doesn't support multithreading, but treeCl can run multiple instances using JobHandlers
+PhyML doesn't support multithreading, but treeCl can run 
+multiple instances using JobHandlers
 """
 
 threadpool = treeCl.parutils.ThreadpoolJobHandler(8)  # external software can be run in parallel
@@ -78,13 +86,17 @@ threadpool = treeCl.parutils.ThreadpoolJobHandler(8)  # external software can be
 c.calc_trees(jobhandler=threadpool, task_interface=phyml)
 
 """
-Trees are expensive to calculate. Results can be cached to disk, and reloaded.
+Trees are expensive to calculate. Results can be cached to disk, 
+and reloaded.
 """
 c.write_parameters('cache')
 c = treeCl.Collection(input_dir='input_dir', param_dir='cache')
 
 """
-Once trees have been calculated, we can measure all the distances between them. treeCl implements Robinson-Foulds (rf), weighted Robinson-Foulds (wrf), Euclidean (euc), and geodesic (geo) distances.
+Once trees have been calculated, we can measure all the 
+distances between them. treeCl implements Robinson-Foulds (rf), 
+weighted Robinson-Foulds (wrf), Euclidean (euc), and 
+geodesic (geo) distances.
 """
 dm = c.get_inter_tree_distances('geo')  
 
