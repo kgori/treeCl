@@ -1,6 +1,6 @@
 #ifndef _MINSQTREE_H
 #define _MINSQTREE_H
-#include "eigen3/Eigen/Core"
+#include "Eigen/Core"
 #include <string>
 #include <vector>
 #include <exception>
