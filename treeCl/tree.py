@@ -880,6 +880,10 @@ class Tree(object):
         """ Returns an independent copy of self """
         return self.__class__(self.newick)
 
+    def deroot(self):
+        """ Unroot the tree, inplace """
+        self._tree.deroot() 
+
     def get_inner_edges(self):
         """ Returns a list of the internal edges of the tree. """
         inner_edges = [e for e in self._tree.preorder_edge_iter() if e.is_internal()
@@ -962,12 +966,20 @@ class Tree(object):
         return pdm
 
     def postorder(self, skip_seed=False):
+        """
+        Return a generator that yields the nodes of the tree in postorder.
+        If skip_seed=True then the root node is not included.
+        """
         for node in self._tree.postorder_node_iter():
             if skip_seed and node is self._tree.seed_node:
                 continue
             yield node
 
     def preorder(self, skip_seed=False):
+        """
+        Return a generator that yields the nodes of the tree in preorder.
+        If skip_seed=True then the root node is not included.
+        """
         for node in self._tree.preorder_node_iter():
             if skip_seed and node is self._tree.seed_node:
                 continue

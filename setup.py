@@ -75,7 +75,7 @@ class my_build_ext(build_ext):
 
 compile_args = ['-std=c++1y']
 
-data_dir = pkg_resources.resource_filename("autowrap", "data_files")
+# data_dir = pkg_resources.resource_filename("autowrap", "data_files")
 
 extensions = [
     Extension(name='tree_collection',
@@ -86,13 +86,13 @@ extensions = [
                   'extensions/tree_collection/src/newick.cc',
               ],
               language='c++',
-              include_dirs=[data_dir],
+              include_dirs=['extensions/tree_collection/src/eigen3'],
               extra_compile_args=compile_args,
     ),
 ]
 
 # Install splash
-VERSION = '0.1.3'
+VERSION = '0.1.4'
 
 logo = """
 ═══════════ ╔═╗┬

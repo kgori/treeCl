@@ -11,9 +11,7 @@ You can read the paper [here](http://arxiv.org/abs/1510.02356)
 #### Preparing dependencies
 
 There are some C and C++ dependencies that need to be available before installing
-- [boost](http://www.boost.org/)
 - [bio++](http://biopp.univ-montp2.fr/wiki/index.php/Main_Page)
-- [eigen](http://eigen.tuxfamily.org/index.php?title=Main_Page)
 
 As well as some python dependencies
 - numpy
