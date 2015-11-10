@@ -5,9 +5,9 @@ import tempfile
 
 import numpy as np
 
-import bpp
+# import bpp
 from parameters import Parameters, PartitionParameters
-from utils import fileIO, alignment_to_partials
+from utils import fileIO, alignment_to_partials, concatenate
 from distance_matrix import DistanceMatrix
 from Bio.Seq import Seq, UnknownSeq
 from Bio.SeqRecord import SeqRecord
@@ -19,19 +19,51 @@ from phylo_utils.likcalc import discrete_gamma, sitewise_lik, sitewise_lik_deriv
 from phylo_utils import seq_to_partials
 from phylo_utils.markov import TransitionMatrix
 from phylo_utils.models import LG, GTR
+from phylo_utils.likcalc import _evolve_states, _weighted_choices
 import logging
 logger = logging.getLogger(__name__)
 
-class Alignment(bpp.Alignment):
-    def __init__(self, *args):
-        super(Alignment, self).__init__(*args)
+
+class Alignment(object):
+    def __init__(self, *args, **kwargs):
+        """
+        Initialise an empty alignment
+        """
         self.infile = None
         self.name = None
         self.parameters = Parameters()
-        if len(args) > 0 and isinstance(args[0], basestring) and fileIO.can_locate(args[0]):
+        if len(args) == 0:
+            self._msa = None
+        elif isinstance(args[0], list):
+            # initialise from a list of sequences or Alignments
+            if all(isinstance(element, self.__class__) for element in args[0]):
+                # initialise from list of Alignment objects
+                self._msa = concatenate([al._msa for al in args[0]])
+            elif all(isinstance(element, tuple) for element in args[0]):
+                # initialise from list of (name, sequence) tuples
+                msa = MultipleSeqAlignment([SeqRecord(Seq(sequence), id=key, description=key, name=key) 
+                                            for (key, sequence) in args[0]])
+                self._msa = self._guess_alphabet(msa)
+                if 'name' in kwargs:
+                    self.name = kwargs['name']
+            else:
+                self._msa = None
+
+        elif len(args) > 0 and isinstance(args[0], basestring) and fileIO.can_locate(args[0]):
             self.infile = os.path.abspath(args[0])
             self.parameters.filename = args[0]
             self.name = os.path.splitext(os.path.basename(self.infile))[0]
+            if len(args) >= 3 and args[1]=='phylip':
+                if args[2]:
+                    self.read_alignment(args[0], 'phylip-relaxed')
+                else:
+                    self.read_alignment(args[0], 'phylip-sequential')
+            else:
+                self.read_alignment(args[0], args[1])
+
+        else:
+            logger.warn('Failed to initialise alignment - couldn\'t read args as a file or interpret as sequences')
+            self._msa = None
 
     def __add__(self, other):
         return self.__class__([self, other])
@@ -43,6 +75,10 @@ class Alignment(bpp.Alignment):
         return output_string + ''.join(
             ['>{}\n{}\n... ({}) ...\n{}\n'.format(header, seq[:50], len(seq) - 100, seq[-50:]) for header, seq in
              contents])
+
+    def __len__(self):
+        if self._msa:
+            return self._msa.get_alignment_length()
 
     @property
     def parameters(self):
@@ -61,21 +97,37 @@ class Alignment(bpp.Alignment):
         else:
             raise AttributeError('No tree')
 
+    def is_dna(self):
+        return isinstance(self._msa._alphabet, (type(IUPAC.ambiguous_dna), type(IUPAC.unambiguous_dna)))
+
+    def is_protein(self):
+        return isinstance(self._msa._alphabet, (type(IUPAC.protein), type(IUPAC.extended_protein)))
+    
     def read_alignment(self, *args, **kwargs):
-        super(Alignment, self).read_alignment(*args, **kwargs)
+        msa = AlignIO.read(*args, **kwargs)
         self.infile = args[0]
+        # guess alphabet
+        self._msa = self._guess_alphabet(msa)
+
+    def _guess_alphabet(self, msa):
+        allchars = [char.upper() for sr in msa for char in str(sr.seq) if char.upper() not in '-?X']
+        nuc_count = float(allchars.count('A') + allchars.count('C') + allchars.count('G') + allchars.count('T'))
+        if nuc_count / len(allchars) > 0.8: # is dna
+            alphabet = IUPAC.ambiguous_dna
+        else:
+            alphabet = IUPAC.extended_protein
+        msa._alphabet = alphabet
+        for seqrec in msa:
+            seqrec.seq.alphabet = alphabet
+        return msa
 
     def write_alignment(self, filename, file_format, interleaved=None):
         """
-        Overloads the base class function.
-        Uses Bio AlignIO to write because biopp writes
-        phylip interleaved in a way that causes an error
-        with FastTree
+        Write the alignment to file using Bio.AlignIO
         """
-        b = self.to_biopython_msa()
         if file_format == 'phylip':
             file_format = 'phylip-relaxed'
-        AlignIO.write(b, filename, file_format)
+        AlignIO.write(self._msa, filename, file_format)
 
     def get_alignment_file(self, as_phylip=True):
         try:
@@ -106,10 +158,31 @@ class Alignment(bpp.Alignment):
         return ucl - n * np.log(n)
 
     def to_biopython_msa(self):
-        alph = IUPAC.extended_dna if self.is_dna() else IUPAC.extended_protein
-        msa = MultipleSeqAlignment([SeqRecord(Seq(sequence, alphabet=IUPAC.extended_dna), id=key) for (key, sequence) in self.get_sequences()])
-        for seq in msa: seq.description=''
-        return msa
+        return self._msa
+        
+    def get_sequences(self):
+        if self._msa:
+            return [(sr.name, str(sr.seq)) for sr in self._msa]
+
+    def get_sites(self):
+        if self._msa:
+            seqs = [str(sr.seq) for sr in self._msa]
+            return [''.join(col) for col in zip(*seqs)]
+
+    def get_names(self):
+        if self._msa:
+            return [sr.name for sr in self._msa]
+
+    def compute_distances(self, ncat=4, tolerance=1e-6):
+        try:
+            return pairdists(self, ncat, tolerance)
+        except:
+            return
+
+    def simulate(self, nsites, transition_matrix, tree, ncat=1, alpha=1):
+        sim = SequenceSimulator(transition_matrix, tree, ncat, alpha)
+        return list(sim.simulate(nsites).items())
+
 
 def pairdists(alignment, ncat=4, tolerance=1e-6):
     """ Load an alignment, calculate all pairwise distances and variances """
@@ -197,3 +270,77 @@ def pairdists(alignment, ncat=4, tolerance=1e-6):
     dm = DistanceMatrix.from_array(distances, names=seqnames)
     vm = DistanceMatrix.from_array(variances, names=seqnames)
     return dm, vm
+
+
+class SequenceSimulator(object):
+    """
+    Simple markov generator to produce tip sequences on a tree
+    according to a transition matrix
+    """
+    def __init__(self, transmat, tree, ncat=1, alpha=1):
+        """
+        Initialise the simulator with a transition matrix and a tree.
+        The tree should have branch lengths. If it doesn't this will
+        trigger a warning, but will continue.
+        """
+        # store the tree
+        self.tree = tree
+        self.states = np.array(transmat.model.states)
+        self.state_indices = np.array(list(range(transmat.model.size)), dtype=np.intc)
+        # initialise equilibrium frequency distribution
+        self.freqs = transmat.freqs
+        # Gamma rate categories
+        self.ncat = ncat
+        self.alpha = alpha
+        self.gamma_rates = phylo_utils.likcalc.discrete_gamma(alpha, ncat)
+        
+        # initialise probabilities on tree
+        for node in self.tree.preorder(skip_seed=True):
+            l = node.edge.length or 0
+            if l == 0:
+                print ('warning')
+                #logger.warn('This tree has zero length edges')
+            nstates = self.states.shape[0]
+            node.pmats = np.empty((ncat, nstates, nstates))
+            for i in range(ncat):
+                node.pmats[i] = transmat.get_p_matrix(l*self.gamma_rates[i])
+
+        self.sequences = {}
+
+    def simulate(self, n):
+        """
+        Evolve multiple sites during one tree traversal
+        """
+        self.tree._tree.seed_node.states = self.ancestral_states(n)
+        categories = np.random.randint(self.ncat, size=n).astype(np.intc)
+
+        for node in self.tree.preorder(skip_seed=True):
+            node.states = self.evolve_states(node.parent_node.states, categories, node.pmats)
+            if node.is_leaf():
+                self.sequences[node.taxon.label] = node.states
+        return self.sequences_to_string()
+
+    def ancestral_states(self, n):
+        """
+        Generate ancestral sequence states from the equilibrium frequencies
+        """
+        anc = np.empty(n, dtype=np.intc)
+        _weighted_choices(self.state_indices, self.freqs, anc)
+        return anc
+
+    def evolve_states(self, parent_states, categories, probs):
+        """
+        Evolve states from parent to child. States are sampled
+        from gamma categories passed in the array 'categories'.
+        The branch length information is encoded in the probability
+        matrix, 'probs', generated in __init__.
+        """
+        child_states = np.empty(parent_states.shape, dtype=np.intc)
+        _evolve_states(self.state_indices, parent_states, categories, probs, child_states)
+        return child_states
+    
+    def sequences_to_string(self):
+        """
+        Convert state indices to a string of characters
+        """
+        return {k: ''.join(self.states[v]) for (k, v) in self.sequences.items()}

@@ -12,7 +12,7 @@ from tree_distance import PhyloTree
 
 # treeCl
 from errors import optioncheck
-from utils import fileIO
+from utils import fileIO, weighted_choice
 from utils.decorators import lazyprop
 from utils.math import truncated_exponential
 
@@ -78,16 +78,6 @@ def logn_correlated_rate(parent_rate, branch_length, autocorrel_param, size=1):
                                           scale=stdev, size=size)
     descendant_rate = np.exp(ln_descendant_rate)
     return float(descendant_rate) if size == 1 else descendant_rate
-
-def _weighted_choice(choices):
-    total = sum(w for c, w in choices)
-    r = random.uniform(0, total)
-    upto = 0
-    for c, w in choices:
-        if upto + w > r:
-            return c
-        upto += w
-    assert False, "Shouldn't get here"
 
 
 class TreeError(Exception):
@@ -301,7 +291,7 @@ class NNI(object):
             weights = np.array([1.0 for n in self.valid_nodes])
             logger.debug('Weights (weighted choice=False): {}'.format(weights))
 
-        return _weighted_choice(zip(self.valid_nodes, weights))
+        return weighted_choice(zip(self.valid_nodes, weights))
 
     def get_exchangeable_nodes(self, n):
         """
@@ -442,7 +432,7 @@ class ILS(object):
             weights = np.array([1.0 for n in self.valid_nodes])
             logger.debug('Weights (weighted choice=False): {}'.format(weights))
 
-        return _weighted_choice(zip(self.valid_nodes, weights))
+        return weighted_choice(zip(self.valid_nodes, weights))
 
     def get_matching_edge(self, starting_node, time):
         def edge_matches_time(edge):
@@ -847,6 +837,10 @@ class Tree(object):
             self._dirty = False
         return self._phylotree
 
+    @property
+    def seed_node(self):
+        return self._tree.seed_node
+    
     @newick.setter
     def newick(self, newick_string):
         if self.newick:

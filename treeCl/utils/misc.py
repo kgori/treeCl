@@ -1,6 +1,7 @@
 from progressbar import ProgressBar, Percentage, SimpleProgress, Timer, AdaptiveETA, Bar, FormatLabel
 import numpy as np
 import itertools
+import random
 from phylo_utils import seq_to_partials
 from phylo_utils.markov import TransitionMatrix
 from phylo_utils.models import LG, GTR
@@ -21,7 +22,8 @@ __all__ = ['concatenate',
            'insort_no_dup',
            'alignment_to_partials',
            'biopython_to_partials',
-           'create_gamma_model']
+           'create_gamma_model',
+           'weighted_choice']
 
 def concatenate(alignments):
     """
@@ -62,7 +64,7 @@ def concatenate(alignments):
 
     # Stitch all the substrings together using join (most efficient way),
     # and build the Biopython data structures Seq, SeqRecord and MultipleSeqAlignment
-    msa = MultipleSeqAlignment(SeqRecord(Seq(''.join(v), alphabet=alphabet), id=k)
+    msa = MultipleSeqAlignment(SeqRecord(Seq(''.join(v), alphabet=alphabet), id=k, name=k, description=k)
                for (k,v) in tmp.items())
     return msa
 
@@ -191,3 +193,13 @@ def create_gamma_model(alignment, missing_data=None, scale_freq=10):
     gamma = GammaMixture(alpha, 4)
     gamma.init_models(tm, alignment_to_partials(alignment, missing_data), scale_freq=scale_freq)
     return gamma
+
+def weighted_choice(choices):
+    total = sum(w for c, w in choices)
+    r = random.uniform(0, total)
+    upto = 0
+    for c, w in choices:
+        if upto + w > r:
+            return c
+        upto += w
+    assert False, "Shouldn't get here"

@@ -8,48 +8,8 @@ except ImportError:
 
     def find_packages():
         return ['treeCl', 'treeCl.interfacing', 'treeCl.tasks', 'treeCl.utils']
-try:
-    from Cython.Distutils import build_ext
-except ImportError:
-    print('\n' + '!'*80)
-    print('You don\'t seem to have cython installed.')
-    print('Cython, numpy and autowrap are required for the')
-    print('installation process, all other dependencies')
-    print('will be installed automatically.')
-    print('Install cython and try again.')
-    print('!'*80 + '\n')
-    import sys
 
-    sys.exit()
-
-try:
-    from numpy import get_include as numpy_get_include
-except ImportError:
-    print('\n' + '!'*80)
-    print('You don\'t seem to have numpy installed.')
-    print('Numpy, cython and autowrap are required for the')
-    print('installation process, all other dependencies')
-    print('will be installed automatically.')
-    print('Install numpy and try again.')
-    print('!'*80 + '\n')
-    import sys
-
-    sys.exit()
-
-try:
-    import autowrap
-except ImportError:
-    print('\n' + '!'*80)
-    print('You don\'t seem to have autowrap installed.')
-    print('Autowrap, numpy and cython are required for the')
-    print('installation process, all other dependencies')
-    print('will be installed automatically.')
-    print('Install autowrap and try again.')
-    print('!'*80 + '\n')
-    import sys
-
-    sys.exit()
-
+from Cython.Distutils import build_ext
 import pkg_resources
 import platform
 import re
@@ -59,7 +19,7 @@ import subprocess
 def is_clang(bin):
     proc = subprocess.Popen([bin, '-v'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = proc.communicate()
-    output = '\n'.join([stdout, stderr])
+    output = b'\n'.join([stdout, stderr]).decode()
     return not re.search(r'clang', output) is None
 
 class my_build_ext(build_ext):
@@ -74,8 +34,6 @@ class my_build_ext(build_ext):
         build_ext.build_extensions(self)
 
 compile_args = ['-std=c++1y']
-
-# data_dir = pkg_resources.resource_filename("autowrap", "data_files")
 
 extensions = [
     Extension(name='tree_collection',
@@ -92,7 +50,7 @@ extensions = [
 ]
 
 # Install splash
-VERSION = '0.1.5'
+VERSION = '0.1.6'
 
 logo = """
 ═══════════ ╔═╗┬
@@ -127,9 +85,7 @@ setup(name="treeCl",
           'bin/pre_npbs.py',
       ],
       install_requires=[
-          'autowrap',
           'biopython',
-          'bpp',
           'cython',
           'dendropy',
           'fastcluster',
