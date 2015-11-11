@@ -19,7 +19,7 @@ import subprocess
 def is_clang(bin):
     proc = subprocess.Popen([bin, '-v'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = proc.communicate()
-    output = b'\n'.join([stdout, stderr]).decode()
+    output = str(b'\n'.join([stdout, stderr]).decode('ascii', 'ignore'))
     return not re.search(r'clang', output) is None
 
 class my_build_ext(build_ext):
