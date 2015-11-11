@@ -292,7 +292,7 @@ class SequenceSimulator(object):
         # Gamma rate categories
         self.ncat = ncat
         self.alpha = alpha
-        self.gamma_rates = phylo_utils.likcalc.discrete_gamma(alpha, ncat)
+        self.gamma_rates = discrete_gamma(alpha, ncat)
         
         # initialise probabilities on tree
         for node in self.tree.preorder(skip_seed=True):
