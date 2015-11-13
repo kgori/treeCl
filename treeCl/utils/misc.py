@@ -23,7 +23,8 @@ __all__ = ['concatenate',
            'alignment_to_partials',
            'biopython_to_partials',
            'create_gamma_model',
-           'weighted_choice']
+           'weighted_choice',
+           'sample_wr']
 
 def concatenate(alignments):
     """
@@ -203,3 +204,14 @@ def weighted_choice(choices):
             return c
         upto += w
     assert False, "Shouldn't get here"
+
+def sample_wr(lst):
+    """
+    Sample from lst, with replacement
+    """
+    arr = np.array(lst)
+    indices = np.random.randint(len(lst), size=len(lst))
+    sample = np.empty(arr.shape, dtype=arr.dtype)
+    for i, ix in enumerate(indices):
+        sample[i] = arr[ix]
+    return list(sample)

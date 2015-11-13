@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 from __future__ import print_function
-from ..datastructs.seq import Seq
+from ..alignment import Alignment
 
 docstring = '''
 Combine two unphased sequences into a single sequence with ambiguity codes
@@ -108,7 +108,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     f = args.infile
-    rec = Seq(f, 'phylip')
+    rec = Alignment(f, 'phylip')
     prefixes = get_prefixes(rec)
     headers = list()
     sequences = list()
@@ -117,7 +117,7 @@ if __name__ == '__main__':
         combin = ambiguate(seq1, seq2, args.delete_ambiguous)
         headers.append(pref)
         sequences.append(combin)
-    newrec = Seq(headers=headers, sequences=sequences)
+    newrec = Alignment(headers=headers, sequences=sequences)
     remove_empty(newrec)
     out = (args.outfile if args.outfile
            else f[:f.rindex('.phy')] + '_ambig.phy')

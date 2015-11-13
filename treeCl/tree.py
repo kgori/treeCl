@@ -11,10 +11,10 @@ import numpy as np
 from tree_distance import PhyloTree
 
 # treeCl
-from errors import optioncheck
-from utils import fileIO, weighted_choice
-from utils.decorators import lazyprop
-from utils.math import truncated_exponential
+from .errors import optioncheck
+from .utils import fileIO, weighted_choice
+from .utils.decorators import lazyprop
+from .utils.math import truncated_exponential
 
 import logging
 logger = logging.getLogger(__name__)

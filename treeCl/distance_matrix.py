@@ -10,8 +10,8 @@ import sklearn
 from scipy.spatial.distance import squareform
 
 # treeCl
-import errors
-from utils import fileIO
+from . import errors
+from .utils import fileIO
 
 # Utilities
 def isconnected(mask):
@@ -458,7 +458,7 @@ class DistanceMatrix(Matrix):
         try:
             new_instance.set_names(names)
             return new_instance
-        except ValueError, err:
+        except ValueError as err:
             sys.stderr.write(str(err))
             return new_instance
 

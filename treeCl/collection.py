@@ -10,6 +10,7 @@ import math
 import os
 import random
 import sys
+from functools import reduce
 
 # third party
 import numpy as np
@@ -281,7 +282,7 @@ class RecordsHandler(object):
 
                 rec.parameters.construct_from_dict(d)
 
-            except IOError, IndexError:
+            except (IOError, IndexError):
                 continue
 
             finally:
@@ -400,7 +401,7 @@ class Collection(RecordsHandler, RecordsCalculatorMixin):
         """ Return a copy of the collection with all alignment columns permuted
         """
         def take(n, iterable):
-            return [iterable.next() for _ in range(n)]
+            return [next(iterable) for _ in range(n)]
 
         if partition is None:
             partition = Partition([1] * len(self))
@@ -679,7 +680,7 @@ class Optimiser(object):
         - Maximisation   - Update model parameters according to new membership
 
         (1) Celeux,G. and Govaert,G. (1992) A classification EM algorithm for clustering 
-        and two stochastic versions. Comput. Stat. Data Anal., 14, 315–332. """
+        and two stochastic versions. Comput. Stat. Data Anal.,14,315-332"""
     def __init__(self, scorer, partition=None, **kwargs):
         self.scorer = scorer
         self.partition = partition

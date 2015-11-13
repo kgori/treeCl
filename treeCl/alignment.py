@@ -4,11 +4,12 @@ import os
 import tempfile
 
 import numpy as np
+from six import string_types
 
 # import bpp
-from parameters import Parameters, PartitionParameters
-from utils import fileIO, alignment_to_partials, concatenate
-from distance_matrix import DistanceMatrix
+from .parameters import Parameters, PartitionParameters
+from .utils import fileIO, alignment_to_partials, concatenate, sample_wr
+from .distance_matrix import DistanceMatrix
 from Bio.Seq import Seq, UnknownSeq
 from Bio.SeqRecord import SeqRecord
 from Bio.Align import MultipleSeqAlignment
@@ -49,15 +50,17 @@ class Alignment(object):
             else:
                 self._msa = None
 
-        elif len(args) > 0 and isinstance(args[0], basestring) and fileIO.can_locate(args[0]):
+        elif len(args) > 0 and isinstance(args[0], string_types) and fileIO.can_locate(args[0]):
             self.infile = os.path.abspath(args[0])
             self.parameters.filename = args[0]
             self.name = os.path.splitext(os.path.basename(self.infile))[0]
-            if len(args) >= 3 and args[1]=='phylip':
-                if args[2]:
-                    self.read_alignment(args[0], 'phylip-relaxed')
-                else:
-                    self.read_alignment(args[0], 'phylip-sequential')
+            if args[1]=='phylip':
+                if len(args) >= 3:
+                    if args[2]:
+                        self.read_alignment(args[0], 'phylip-relaxed')
+                    else:
+                        self.read_alignment(args[0], 'phylip-sequential')
+                self.read_alignment(args[0], 'phylip-relaxed')
             else:
                 self.read_alignment(args[0], args[1])
 
@@ -180,8 +183,19 @@ class Alignment(object):
             return
 
     def simulate(self, nsites, transition_matrix, tree, ncat=1, alpha=1):
+        """
+        Return sequences simulated under the transition matrix's model 
+        """
         sim = SequenceSimulator(transition_matrix, tree, ncat, alpha)
         return list(sim.simulate(nsites).items())
+
+    def bootstrap(self):
+        """
+        Return a new Alignment that is a bootstrap replicate of self
+        """
+        new_sites = sorted(sample_wr(self.get_sites()))
+        seqs = zip(self.get_names(), (''.join(seq) for seq in zip(*new_sites)))
+        return self.__class__(seqs)
 
 
 def pairdists(alignment, ncat=4, tolerance=1e-6):

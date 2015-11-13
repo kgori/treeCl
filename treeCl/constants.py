@@ -11,7 +11,6 @@ ANALYSES = ['tlr', 'lr', 'l', 'r', 'ml', 'full', 'nj', 'bionj', 'bionj+', 'lk']
 DNA_ACGT_THRESHOLD = 0.75  # proportion of ACGT in sequence to call it as DNA
 POSINF = float('inf')  # positive infinity
 NEGINF = -POSINF  # negative infinity
-VERSION = '1.0.1'
 PARALLEL_PROFILE = os.getenv('IPYTHON_PROFILE', None)
 PHYML_MEMORY_MULTIPLIER = 1.2  # Add %age wiggle room when calculating Phyml
 # memory requirements on LSF
@@ -25,6 +24,6 @@ logo = """
  │ ├┬┘├┤ ├┤ ╚═╝┴─┘
  ┴ ┴└─└─┘└─┘╭─────
 ┈┈┈┈┈┈┄┄┄┄┄─┤  ╭──
-   V{0:s}   ╰──┤
+            ╰──┤
 ══════════════ ╰──
-""".format(VERSION)
+"""

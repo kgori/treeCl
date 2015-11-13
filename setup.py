@@ -76,13 +76,13 @@ setup(name="treeCl",
           'treeCl': ['logging/logging.yaml']
       },
       scripts=[
-          'bin/simulator',
+          # 'bin/simulator',
           'bin/collapse',
-          'bin/treeCl',
-          'bin/seqconvert',
+          # 'bin/treeCl',
+          # 'bin/seqconvert',
           'bin/bootstrap',
-          'bin/npbs.py',
-          'bin/pre_npbs.py',
+          # 'bin/npbs.py',
+          # 'bin/pre_npbs.py',
       ],
       install_requires=[
           'biopython',

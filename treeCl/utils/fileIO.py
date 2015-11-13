@@ -2,7 +2,10 @@
 from __future__ import print_function
 # standard library
 import bz2
-import cPickle
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
 import glob
 import gzip
 import os
@@ -173,11 +176,11 @@ def glob_by_extensions(directory, extensions):
 def gpickle(obj, filename):
     if not filename.endswith('.gz'):
         filename += '.gz'
-    cPickle.dump(obj, file=gzip.open(filename, 'wb'), protocol=-1)
+    pickle.dump(obj, file=gzip.open(filename, 'wb'), protocol=-1)
 
 
 def gunpickle(filename):
-    return cPickle.load(gzip.open(filename, 'rb'))
+    return pickle.load(gzip.open(filename, 'rb'))
 
 
 def head(filename, n=10):

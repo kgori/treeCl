@@ -13,7 +13,10 @@ class SupportValueError(Exception):
 
 
 def collapse(tree, threshold, keep_lengths=True, support_key=None, length_threshold=0.0):
-    t = dpy.Tree().clone_from(tree)
+    try:
+        t = dpy.Tree().clone_from(tree) # dendropy 3 syntax
+    except AttributeError:
+        t = tree.clone() # dendropy 4 syntax
     to_collapse = []
     for node in t.postorder_node_iter():
         if node.is_leaf():
@@ -98,19 +101,19 @@ def test():
     fh = sys.stdout
     zero = collapse(t, 25)
     zero.print_plot(plot_metric='length')
-    zero.write(fh, 'newick', suppress_rooting=True)
+    zero.write(file=fh, schema='newick', suppress_rooting=True)
     one = collapse(t, 50)
     one.print_plot(plot_metric='length')
-    one.write(fh, 'newick', suppress_rooting=True)
+    one.write(file=fh, schema='newick', suppress_rooting=True)
     two = collapse(t, 65)
     two.print_plot(plot_metric='length')
-    two.write(fh, 'newick', suppress_rooting=True)
+    two.write(file=fh, schema='newick', suppress_rooting=True)
     three = collapse(t, 65, False)
     three.print_plot(plot_metric='length')
-    three.write(fh, 'newick', suppress_rooting=True)
+    three.write(file=fh, schema='newick', suppress_rooting=True)
     four = collapse(t, 25, True, length_threshold=0.11)
     four.print_plot(plot_metric='length')
-    four.write(fh, 'newick', suppress_rooting=True)
+    four.write(file=fh, schema='newick', suppress_rooting=True)
 
 
 def get_file_handle(outfile):
@@ -129,7 +132,7 @@ def main():
     tree = read_tree_file(args.tree, args.format)
     collapsed_tree = collapse(tree, args.threshold, args.keep_lengths, args.support_key, args.length_threshold)
     with get_file_handle(args.outfile) as handle:
-        collapsed_tree.write(handle, args.output_format, suppress_rooting=True)
+        collapsed_tree.write(file=handle, schema=args.output_format, suppress_rooting=True)
 
 
 if __name__ == '__main__':

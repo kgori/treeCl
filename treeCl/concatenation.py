@@ -1,9 +1,9 @@
 import numpy as np
-from treeCl.alignment import Alignment
-from treeCl.tasks import TreeCollectionTaskInterface
-from treeCl.tree import Tree
-from treeCl.utils.decorators import lazyprop
-from treeCl.utils import flatten_list, concatenate, fileIO
+from .alignment import Alignment
+from .tasks import TreeCollectionTaskInterface
+from .tree import Tree
+from .utils.decorators import lazyprop
+from .utils import flatten_list, concatenate, fileIO
 from Bio import AlignIO
 
 __author__ = 'kgori'

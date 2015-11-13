@@ -224,7 +224,7 @@ class IPythonJobHandler(JobHandler):
         try:
             self.client=IPython.parallel.Client(profile=profile)
             logger.debug('__init__: len(client) = {}'.format(len(self.client)))
-        except IOError, IPython.parallel.TimeoutError:
+        except (IOError, IPython.parallel.TimeoutError):
             msg = 'Could not obtain an IPython parallel Client using profile "{}"'.format(profile)
             logger.error(msg)
             raise RuntimeError(msg)

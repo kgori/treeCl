@@ -10,10 +10,10 @@ import sys
 import numpy as np
 
 # treeCl
-from treeCl import Partition
-from tree import Tree
-import errors
-from utils import fileIO, print_and_return
+from .partition import Partition
+from .tree import Tree
+from . import errors
+from .utils import fileIO, print_and_return
 
 
 class Simulator(object):

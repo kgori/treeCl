@@ -5,15 +5,16 @@ import tree_collection
 import os
 import random
 from abc import ABCMeta, abstractmethod, abstractproperty
+from functools import reduce
 
-from treeCl import treedist
-from treeCl.tree import Tree
-from treeCl.alignment import Alignment
-from treeCl.parameters import Parameters
-from treeCl.utils import fileIO, smooth_freqs
-from treeCl.constants import RANDOM_SEED
-from treeCl.wrappers.phylogenetics import FastTree, parse_fasttree_output, Raxml, Phyml
-from treeCl.parsers import RaxmlParser, PhymlParser
+from . import treedist
+from .tree import Tree
+from .alignment import Alignment
+from .parameters import Parameters
+from .utils import fileIO, smooth_freqs
+from .constants import RANDOM_SEED
+from .wrappers.phylogenetics import FastTree, parse_fasttree_output, Raxml, Phyml
+from .parsers import RaxmlParser, PhymlParser
 import logging
 logger = logging.getLogger(__name__)
 import numpy as np
