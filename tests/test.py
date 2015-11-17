@@ -48,7 +48,7 @@ class PartitionTests(unittest.TestCase):
 
     def test_random(self):
         # Be aware, this has been known to spontaneously fail - problem with testing random things
-        p = Partition.random([1, 1, 1], 12)
+        p = Partition.random([12, 12, 12], 12)
         self.assertEqual(p.num_groups(), 3)
 
 
