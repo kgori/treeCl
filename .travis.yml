@@ -1,15 +1,17 @@
 language: python
 python:
-  - "2.7"
+  - "2.7_with_system_site_packages"
 compiler:
   - gcc
-  - clang
 before_install:
+  - sudo apt-get update
+  - sudo apt-get install build-essential python-numpy python-scipy python-matplotlib python-pandas
+  - which g++
   - if [ "$CXX" = "g++" ]; then export CXX="g++-4.8" CC="gcc-4.8"; fi
   - echo $CXX
   - $CXX --std=c++11 --version
 install:
   - "pip install cython"
   - "pip install -r requirements.txt"
-sudo: false
+sudo: true
 script: nosetests
