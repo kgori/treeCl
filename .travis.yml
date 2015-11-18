@@ -1,7 +1,11 @@
 language: python
 python:
   - "2.7"
-install: 
+compiler:
+  - gcc
+  - clang
+install:
+  - if [ "$CXX" = "g++" ]; then export CXX="g++-4.8" CC="gcc-4.8"; fi
   - "pip install cython"
   - "pip install -r requirements.txt"
 sudo: false
