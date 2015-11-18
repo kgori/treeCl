@@ -27,8 +27,7 @@ before_install:
   - export CXX=g++-4.8
 
 install:
-  - conda install --yes python=$TRAVIS_PYTHON_VERSION cython numpy scipy matplotlib
-  nose pandas scikit-bio scikit-learn pyparsing pyyaml six biopython
+  - conda install --yes python=$TRAVIS_PYTHON_VERSION cython numpy scipy matplotlib nose pandas scikit-bio scikit-learn pyparsing pyyaml six biopython
   - pip install .
 
 sudo: false
