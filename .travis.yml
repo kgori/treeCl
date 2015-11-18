@@ -9,14 +9,13 @@ compiler:
 addons:
   apt:
     sources:
-    - ubuntu-toolchain-r-test
+      - ubuntu-toolchain-r-test
     packages:
-    - build-essential
-    - gcc-4.8
-    - g++-4.8
+      - build-essential
+      - gcc-4.8
+      - g++-4.8
 
 before_install:
-  # install miniconda
   - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
   - chmod +x miniconda.sh
   - ./miniconda.sh -b
@@ -24,15 +23,24 @@ before_install:
   - if [ -d $HOME/miniconda2 ]; then export PATH=$HOME/miniconda2/bin:$PATH; fi
   - echo $PATH
   - conda update --yes conda
-  
-  # configure compilers
   - export CC=gcc-4.8
   - export CXX=g++-4.8
 
 install:
-  - conda install --yes python=$TRAVIS_PYTHON_VERSION cython numpy scipy matplotlib nose pandas scikit-bio scikit-learn pyparsing pyyaml six biopython
+  - conda install --yes python=$TRAVIS_PYTHON_VERSION cython numpy scipy matplotlib
+  nose pandas scikit-bio scikit-learn pyparsing pyyaml six biopython
   - pip install .
 
 sudo: false
 
 script: nosetests
+
+deploy:
+  provider: pypi
+  user: kgori
+  password:
+    secure: F9rIBDxj8ZEykhfS0dYpYU0VgoSPiDQOK3IqXPJBBma56TtQYMr/v++AJEf3yRXk6c5IQ0Q+CgNSDT/5A0wgSbflvsJavlyLGCi9DzPxxpKYEHC9OY28DEirm+fnv1O4RgDhcGtTyPKaJkAnp6D8XB7ybIg22utGKzjIDzlNf3LnbfD21rlQeWzUqsHr+YHsTBIYAC7866ZGOSLV4wRaJY9wDKaTrL6w30GhVQwk5RhTQSY/YqHIMIS9UaYt7qaYOTcXBUTwq2OgM9OMmO3vQ8f4DA3DUny1mORgggVW5imAoJKIF9NSWjSdO2cRtxl9wwIyzExCTEMwgfnMvjC9/9NizOm/01TbHa6Vmc+9t6PiaDdcxmPjjUcEGX1r5c4zdcg3kKFS8ci44gZxRZHMTOVhBIGz7OHNK1qyY61nQ5KMY1MM9kj57IA/l8lwqHJLumpX+r/j9UGCz3JRgBqzAfKMOAU8A6OF8jGg8DDdkfnJXw+n9np4SBHxHiYs4KOniD2UICbUpi8W61zPj3e8woucYhgYKWztRWNWQvQYSifS0YqtuNe36dGTL+hNV9GZz6g2imgiZuvAV/8Y3Dh+ut+2YWenl4w09Mp3tyA7OWDffskmltmi/5wReKEKdbKjWhRVXXTWVpqJ4yIsUskEpVvA4WLpc9eESbykOPQNDaY=
+  on:
+    tags: true
+    repo: kgori/treeCl
+    branch: master
