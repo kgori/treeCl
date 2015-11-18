@@ -58,9 +58,9 @@ logo = """
  │ ├┬┘├┤ ├┤ ╚═╝┴─┘
  ┴ ┴└─└─┘└─┘╭─────
 ┈┈┈┈┈┈┄┄┄┄┄─┤  ╭──
-   V{0:s}   ╰──┤
+{versionfmt}╰──┤
 ══════════════ ╰──
-""".format(VERSION)
+""".format(versionfmt=VERSION.center(12))
 
 print(logo)
 
