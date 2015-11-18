@@ -1,5 +1,7 @@
 # ``treeCl`` - Phylogenetic Tree Clustering
 
+![Travis build status](https://travis-ci.org/kgori/treeCl.svg?branch=travis)
+
 ``treeCl`` is a python package for clustering gene families by
 phylogenetic similarity. It takes a collection of alignments, infers their phylogenetic trees,
 and clusters them based on a matrix of between-tree distances. Finally, it calculates a single representative tree for each cluster.
@@ -10,17 +12,9 @@ You can read the paper [here](http://arxiv.org/abs/1510.02356)
 
 #### Preparing dependencies
 
-There are some C and C++ dependencies that need to be available before installing
-- [bio++](http://biopp.univ-montp2.fr/wiki/index.php/Main_Page)
+If your system already has python 2.7, cython, numpy and a C++11-capable compiler (e.g. gcc >= 4.7), then you're ready to install.
 
-As well as some python dependencies
-- numpy
-- cython
-- autowrap
-
-The easiest way to get the C/C++ libraries is to use a package manager --- for instance homebrew for Mac (and Linux) --- otherwise there are installation instructions at the links above.
-
-The python dependencies can all be installed using pip; numpy and cython are also available from conda.
+The remaining python dependencies will be automatically installed during the build process.
 
 #### External dependencies
 

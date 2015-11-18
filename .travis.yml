@@ -1,17 +1,38 @@
 language: python
+
 python:
-  - "2.7_with_system_site_packages"
+  - 2.7
+
 compiler:
   - gcc
+
+addons:
+  apt:
+    sources:
+    - ubuntu-toolchain-r-test
+    packages:
+    - build-essential
+    - gcc-4.8
+    - g++-4.8
+
 before_install:
-  - sudo apt-get update
-  - sudo apt-get install build-essential python-numpy python-scipy python-matplotlib python-pandas
-  - which g++
-  - if [ "$CXX" = "g++" ]; then export CXX="g++-4.8" CC="gcc-4.8"; fi
-  - echo $CXX
-  - $CXX --std=c++11 --version
+  # install miniconda
+  - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
+  - chmod +x miniconda.sh
+  - ./miniconda.sh -b
+  - if [ -d $HOME/miniconda ]; then export PATH=$HOME/miniconda/bin:$PATH; fi
+  - if [ -d $HOME/miniconda2 ]; then export PATH=$HOME/miniconda2/bin:$PATH; fi
+  - echo $PATH
+  - conda update --yes conda
+  
+  # configure compilers
+  - export CC=gcc-4.8
+  - export CXX=g++-4.8
+
 install:
-  - "pip install cython"
-  - "pip install -r requirements.txt"
-sudo: true
+  - conda install --yes python=$TRAVIS_PYTHON_VERSION cython numpy scipy matplotlib nose pandas scikit-bio scikit-learn pyparsing pyyaml six biopython
+  - pip install .
+
+sudo: false
+
 script: nosetests
