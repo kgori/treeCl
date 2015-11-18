@@ -4,8 +4,11 @@ python:
 compiler:
   - gcc
   - clang
-install:
+before_install:
   - if [ "$CXX" = "g++" ]; then export CXX="g++-4.8" CC="gcc-4.8"; fi
+  - echo $CXX
+  - $CXX --std=c++11 --version
+install:
   - "pip install cython"
   - "pip install -r requirements.txt"
 sudo: false
