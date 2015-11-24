@@ -12,7 +12,7 @@ import numpy as np
 # treeCl
 from .collection import Collection
 from .clustering import Spectral, MultidimensionalScaling
-from .distance_matrix import DistanceMatrix
+from .distance_matrix import CoordinateMatrix, DistanceMatrix
 from .partition import Partition
 from .errors import optioncheck
 from .utils import flatten_list
@@ -20,6 +20,76 @@ from .utils import flatten_list
 import logging
 logger = logging.getLogger(__name__)
 
+def heatmap(dm, partition=None, cmap=CM.Blues):
+    assert isinstance(dm, DistanceMatrix)
+    datamax = float(np.abs(dm).max())
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ticks_at = [0, 0.5 * datamax, datamax]
+    if partition:
+        sorting = flatten_list(partition.get_membership())
+        self.dm = dm.reorder(sorting)
+    cax = ax.imshow(
+        self.dm.values,
+        interpolation='nearest',
+        origin='lower',
+        extent=[0., length, 0., length],
+        vmin=0,
+        vmax=datamax,
+        cmap=cmap,
+    )
+    cbar = fig.colorbar(cax, ticks=ticks_at, format='%1.2g')
+    cbar.set_label('Distance')
+    return fig
+
+
+def plotly_3d_scatter(coords, partition=None):
+    from plotly.graph_objs import Scatter3d, Data, Figure, Layout, Line, Margin, Marker
+    # auto sign-in with credentials or use py.sign_in()
+
+    colourmap = {
+        'A':'#1f77b4', 
+        'B':'#ff7f0e', 
+        'C':'#2ca02c',
+        'D':'#d62728',
+        'E':'#9467bd',
+        1:'#1f77b4', 
+        2:'#ff7f0e', 
+        3:'#2ca02c',
+        4:'#d62728',
+        5:'#9467bd'
+    }
+
+    df = coords.df
+    if partition:
+        assert len(partition.partition_vector) == df.shape[0]
+        labels = [x+1 for x in partition.partition_vector]
+    else:
+        labels = [1 for _ in range(df.shape[0])]
+        
+
+    x, y, z = df.columns[:3]
+    df['Label'] = labels
+
+    
+    colours = [colourmap[lab] for lab in df['Label']]
+    trace = Scatter3d(x=df[x], y=df[y], z=df[z], mode='markers',
+                      marker=Marker(size=9, color=colours, 
+                                    line=Line(color=colours, width=0.5), opacity=0.8),
+                      text=[str(ix) for ix in df.index])
+    
+    data = Data([trace])
+    layout = Layout(
+        margin=Margin(
+            l=0,
+            r=0,
+            b=0,
+            t=0
+        ),
+        hovermode='x',
+    )
+    fig = Figure(data=data, layout=layout)
+    return fig
 
 class Plotter(object):
     def __init__(self, collection=None, records=None, dm=None,
