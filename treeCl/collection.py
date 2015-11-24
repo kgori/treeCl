@@ -664,7 +664,7 @@ class Scorer(object):
         for i, result in enumerate(map_result):
             orig = self.collection[i]
             simseqs = gapmask(result.items(), orig.get_sequences())
-            al = Alignment(simseqs, 'protein' if orig.is_protein() else 'dna')
+            al = Alignment(simseqs, alphabet=('protein' if orig.is_protein() else 'dna'))
             outfile = os.path.join(outdir, orig.name + '.phy')
             al.write_alignment(outfile, 'phylip', True)
 

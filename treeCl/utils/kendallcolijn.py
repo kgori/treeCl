@@ -13,8 +13,8 @@ class KendallColijn(object):
         """
         Initialise the data structure, compute m and M.
         """
-        info = self._precompute(tree)
-        m, M = self._get_vectors(tree, info)
+        info = self._precompute(tree._tree)
+        m, M = self._get_vectors(tree._tree, info)
         self.little_m = m
         self.big_m = M
 

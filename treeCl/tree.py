@@ -746,7 +746,7 @@ class Tree(object):
     ):
 
         if newick:
-            self._tree = dpy.Tree.get_from_string(newick, 'newick', **kwargs)
+            self._tree = dpy.Tree.get_from_string(newick, 'newick', preserve_underscores=True, **kwargs)
             if self.rooted:
                 self._tree.is_rooted = True
                 self._tree.encode_bipartitions()

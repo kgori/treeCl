@@ -496,9 +496,6 @@ class MLDistanceTaskInterface(TaskInterface):
 
 
 class SimulatorTaskInterface(TaskInterface):
-    """
-    BROKEN
-    """
     _name = 'Simulator'
 
     def scrape_args(self, results_list):
