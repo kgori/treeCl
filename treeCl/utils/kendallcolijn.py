@@ -59,7 +59,7 @@ class KendallColijn(object):
         The vector v is the weighted average of m and M.
         lbda, a.k.a. lambda, is the weighting parameter.
         """
-        return (1-lbda)*self.little_m - lbda*self.big_m
+        return (1-lbda)*self.little_m + lbda*self.big_m
 
     def get_distance(self, other, lbda=0.5):
         """
