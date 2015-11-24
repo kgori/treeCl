@@ -7,9 +7,11 @@ import random
 from abc import ABCMeta, abstractmethod, abstractproperty
 from functools import reduce
 
+import phylo_utils
+
 from . import treedist
 from .tree import Tree
-from .alignment import Alignment
+from .alignment import Alignment, SequenceSimulator
 from .parameters import Parameters
 from .utils import fileIO, smooth_freqs
 from .constants import RANDOM_SEED
@@ -248,17 +250,22 @@ def calc_distances_task(parameter_dict, alignment_file, model=None):
 
 
 def simulate_task(n, model, frequencies, alpha, tree, rates=None):
-    rec = Alignment()
-    rec.set_substitution_model(model)
-    rec.set_frequencies(frequencies)
-    rec.set_gamma_rate_model(4, alpha)
-    if rates is not None:
-        try:
-            rec.set_rates(rates, 'acgt')
-        except RuntimeError:
-            pass
-    rec.set_simulator(tree)
-    return rec.simulate(n)
+    if model in ('LG', 'LG08'):
+        subst_model = phylo_utils.models.LG(freqs=frequencies)
+    elif model == 'GTR':
+        if rates is not None:
+            subst_model = phylo_utils.models.GTR(freqs=frequencies, rates=rates)
+        else:
+            subst_model = phylo_utils.models.GTR(freqs=frequencies)
+
+    else:
+        raise ValueError('Currently only supports LG model for proteins, GTR for nucleotides')
+
+    tmat = phylo_utils.markov.TransitionMatrix(subst_model)
+    if not isinstance(tree, Tree):
+        tree = Tree(tree)
+    sim = SequenceSimulator(tmat, tree, ncat=4, alpha=alpha)
+    return sim.simulate(n)
 
 
 def minsq_task(dv, gm, lab, tree, niters=10, keep_topology=False):

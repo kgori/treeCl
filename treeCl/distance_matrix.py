@@ -413,6 +413,10 @@ class Matrix(object):
     def values(self):
         return self.to_array()
 
+    @property
+    def shape(self):
+        return self.to_array().shape
+
     def to_array(self):
         return self.df.values
 
