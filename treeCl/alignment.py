@@ -36,6 +36,9 @@ class Alignment(object):
         Initialise an alignment.
         Alignment()                                - initialise an empty alignment
         Alignment([alignments...])                 - concatenate a list of alignments into one alignment
+        Alignment([('seq1', 'acgt...'),            - construct from a list of (header, sequence) tuples
+                   ('seq2', 'tgca...'),
+                   ...])
         Alignment(file_path, (file_format))        - read an alignment from file
         Alignment(..., alphabet=<'dna'|'protein'>) - specify the alphabet, either dna or protein
         """
