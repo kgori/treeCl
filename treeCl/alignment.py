@@ -24,11 +24,20 @@ from phylo_utils.likcalc import _evolve_states, _weighted_choices
 import logging
 logger = logging.getLogger(__name__)
 
+def set_alphabet(msa, alphabet):
+    msa._alphabet = alphabet
+    for seqrec in msa:
+        seqrec.seq.alphabet = alphabet
+
 
 class Alignment(object):
     def __init__(self, *args, **kwargs):
         """
-        Initialise an empty alignment
+        Initialise an alignment.
+        Alignment()                                - initialise an empty alignment
+        Alignment([alignments...])                 - concatenate a list of alignments into one alignment
+        Alignment(file_path, (file_format))        - read an alignment from file
+        Alignment(..., alphabet=<'dna'|'protein'>) - specify the alphabet, either dna or protein
         """
         self.infile = None
         self.name = None
@@ -67,6 +76,15 @@ class Alignment(object):
         else:
             logger.warn('Failed to initialise alignment - couldn\'t read args as a file or interpret as sequences')
             self._msa = None
+
+        if 'alphabet' in kwargs and self._msa is not None:
+            alphabet = kwargs['alphabet']
+            if alphabet in ('dna', 'DNA'):
+                set_alphabet(self._msa, IUPAC.ambiguous_dna)
+            elif alphabet in ('protein', 'PROTEIN'):
+                set_alphabet(self._msa, IUPAC.extended_protein)
+            else:
+                logger.warning('Set alphabet to "dna" or "protein", not {}'.format(alphabet))
 
     def __add__(self, other):
         return self.__class__([self, other])
@@ -114,14 +132,12 @@ class Alignment(object):
 
     def _guess_alphabet(self, msa):
         allchars = [char.upper() for sr in msa for char in str(sr.seq) if char.upper() not in '-?X']
-        nuc_count = float(allchars.count('A') + allchars.count('C') + allchars.count('G') + allchars.count('T'))
-        if nuc_count / len(allchars) > 0.8: # is dna
+        probably_dna = set(allchars).issubset(set(IUPAC.ambiguous_dna.letters))
+        if probably_dna:
             alphabet = IUPAC.ambiguous_dna
         else:
             alphabet = IUPAC.extended_protein
-        msa._alphabet = alphabet
-        for seqrec in msa:
-            seqrec.seq.alphabet = alphabet
+        set_alphabet(msa, alphabet)
         return msa
 
     def write_alignment(self, filename, file_format, interleaved=None):
