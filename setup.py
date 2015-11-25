@@ -87,7 +87,7 @@ setup(name="treeCl",
       install_requires=[
           'biopython',
           'cython',
-          'dendropy',
+          'dendropy>=4.0.0',
           'fastcluster',
           'futures',
           'ipython',
