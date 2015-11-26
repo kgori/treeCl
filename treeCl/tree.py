@@ -298,13 +298,13 @@ class NNI(object):
             A      C    | Subtrees A, B, C and D are the exchangeable nodes
              \    /     | around the edge headed by n
               -->n      | The NNI exchanges either A or B with either C or D
-             /    \ 
+             /    \
             B      D
 
             A      C                        C      A    | Subtree A is exchanged
              \    /        +NNI(A,C)         \    /     | with subtree C.
               -->n        ==========>         -->n
-             /    \                          /    \ 
+             /    \                          /    \
             B      D                        B      D
         """
         parent = n.parent_node
@@ -477,10 +477,10 @@ class ILS(object):
         [(A, B), C], [A, (B, C)], [(A, C), B]
 
         Nodes 1 and 2 are slid further up the tree, but no further than node 0
-        (this is why it's a constrained version), by an amount drawn from a 
+        (this is why it's a constrained version), by an amount drawn from a
         truncated exponential distribution.
 
-        This is approximately corresponds to the case where A and B failed to 
+        This is approximately corresponds to the case where A and B failed to
         coalesce in the branch 1->2, so they coalesce with C in the branch
         0 -> 1 instead
         """
@@ -521,7 +521,7 @@ class ILS(object):
         min_unsorted_age = n_1.age
         max_unsorted_age = n_0.age
         if sorting_times is None:
-            sorting_times = truncated_exponential(max_unsorted_age-min_unsorted_age, 
+            sorting_times = truncated_exponential(max_unsorted_age-min_unsorted_age,
                                               scale=0.1*(max_unsorted_age-min_unsorted_age),
                                               sample_size=2) # E(t) = n(n-1)/2, n = 3
             sorting_times += min_unsorted_age
@@ -531,7 +531,7 @@ class ILS(object):
         new_n1_age = max(sorting_times)
         prev_age = ages[4]
         slide = (new_n1_age - prev_age)
-        if slide < 1e-6: 
+        if slide < 1e-6:
             slide = 0
             new_n1_age = prev_age
         n_1.edge.length -= slide
@@ -541,7 +541,7 @@ class ILS(object):
         new_n2_age = min(sorting_times)
         prev_age = ages[3]
         slide = (new_n2_age - prev_age)
-        if slide < 1e-6: 
+        if slide < 1e-6:
             slide = 0
             new_n2_age = prev_age
         n_2.edge.length -= slide
@@ -582,7 +582,7 @@ class ILS(object):
     #     max_unsorted_age = self.tree.seed_node.age
 
     #     if sorting_times is None:
-    #         sorting_times = truncated_exponential(max_unsorted_age-min_unsorted_age, 
+    #         sorting_times = truncated_exponential(max_unsorted_age-min_unsorted_age,
     #                                           scale=0.5*(max_unsorted_age-min_unsorted_age),
     #                                           sample_size=2) # E(t) = n(n-1)/2, n = 2
     #         sorting_times += min_unsorted_age
@@ -602,25 +602,25 @@ class ILS(object):
     #     logger.info('Stage 1 - remove c1')
     #     self.tree.print_plot(plot_metric='length')
     #     node.remove_child(c1)
-        
+
     #     logger.info('Stage 2 - remove c2')
     #     self.tree.print_plot(plot_metric='length')
     #     node.remove_child(c2)
-        
+
     #     c1.edge.length = time1 - c1.age
     #     c2.edge.length = time2 - c2.age
-        
+
     #     logger.info('Stage 3 - regraft c1 at time={}'.format(time1))
     #     self.tree.print_plot(plot_metric='length')
     #     self.SPR.regraft(donor1, c1, time1 - donor1.head_node.age)
-        
+
     #     logger.info('Stage 4 - regraft c2 at time={}'.format(time2))
     #     self.tree.print_plot(plot_metric='length')
     #     self.SPR.regraft(donor2, c2, time2 - donor2.head_node.age)
-        
+
     #     self.tree.print_plot(plot_metric='length')
     #     self.tree.prune_subtree(node, suppress_unifurcations=True)
-        
+
     #     logger.info('Stage Final')
     #     self.tree.print_plot(plot_metric='length')
     #     self.tree.encode_bipartitions()
@@ -752,7 +752,7 @@ class Tree(object):
                 self._tree.encode_bipartitions()
         else:
             self._tree = dpy.Tree(**kwargs)
-            
+
         self.name = name
         self._phylotree = None
         self._dirty = False
@@ -807,14 +807,17 @@ class Tree(object):
         For more control the dendropy method self.as_string('newick', **kwargs)
         can be used.
         KWargs include:
-            internal_labels [True/False]  - turn on/off bootstrap labels
-            suppress_rooting [True/False] - turn on/off [&U] or [&R] rooting
-                                            state labels
-            edge_label_compose_func      - function to convert edge lengths:
-                                            takes edge as arg, returns string
+        suppress_internal_node_labels [True/False]
+            - turn on/off bootstrap labels
+        suppress_rooting [True/False]
+            - turn on/off [&U] or [&R] rooting
+              state labels
+        edge_label_compose_func
+            - function to convert edge lengths:
+              takes edge as arg, returns string
         """
-        n = self._tree.as_string('newick', 
-                                 suppress_rooting=True, 
+        n = self._tree.as_string('newick',
+                                 suppress_rooting=True,
                                  suppress_internal_node_labels=True)
         if n:
             return n.strip(';\n') + ';'
@@ -823,10 +826,7 @@ class Tree(object):
     @property
     def phylotree(self):
         """
-        Gets the c++ PhyloTree object corresponding to this tree.
-        Should be canonically the same - we set a _dirty flag if the Python version of the
-        tree has changed since construction. If the flag is set then we reconstruct
-        the c++ PhyloTree
+        Get the c++ PhyloTree object corresponding to this tree.
         :return: PhyloTree instance
         """
         if not self._phylotree or self._dirty:
@@ -840,7 +840,7 @@ class Tree(object):
     @property
     def seed_node(self):
         return self._tree.seed_node
-    
+
     @newick.setter
     def newick(self, newick_string):
         if self.newick:
@@ -876,7 +876,7 @@ class Tree(object):
 
     def deroot(self):
         """ Unroot the tree, inplace """
-        self._tree.deroot() 
+        self._tree.deroot()
 
     def get_inner_edges(self):
         """ Returns a list of the internal edges of the tree. """
@@ -1122,7 +1122,7 @@ class Tree(object):
         return lgt.tree
 
     def rnni(self, times=1, **kwargs):
-        """ Applies a NNI operation on a randomly chosen edge. 
+        """ Applies a NNI operation on a randomly chosen edge.
         keyword args: weighted_choice (True/False)
                       invert_weights (True/False)
         """

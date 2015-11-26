@@ -92,7 +92,7 @@ class Concatenation(object):
         return TreeCollectionTaskInterface().scrape_args(records)
 
     def qfile(self, models=None, default_dna='DNA', default_protein='LG', sep_codon_pos=False,
-              ml_freqs=False, emp_freqs=False):
+              ml_freqs=False, emp_freqs=False, per_locus=True):
         from_ = 1
         to_ = 0
         qs = list()
@@ -105,21 +105,29 @@ class Concatenation(object):
             default_models = dict(dna=default_dna, protein=default_protein)
             models = [default_models[m] for m in self.datatypes]
 
-        for (length, name, datatype, model) in zip(self.lengths, self.names,
-                                                   self.datatypes, models):
-            to_ += length
+        if per_locus:
+            for (length, name, datatype, model) in zip(self.lengths, self.names,
+                                                       self.datatypes, models):
+                to_ += length
+                if datatype == 'dna' and sep_codon_pos:
+                    qs.append('{}, {} = {}-{}/3'.format(model, name, from_,
+                                                        to_))
+                    qs.append('{}, {} = {}-{}/3'.format(model, name, from_ + 1,
+                                                        to_))
+                    qs.append('{}, {} = {}-{}/3'.format(model, name, from_ + 2,
+                                                        to_))
+                else:
+                    qs.append('{}, {} = {}-{}'.format(model, name, from_,
+                                                      to_))
+                from_ += length
+            return '\n'.join(qs)
+        else:
+            total_length = sum(self.lengths)
+            model = self.models[0]
             if datatype == 'dna' and sep_codon_pos:
-                qs.append('{}, {} = {}-{}/3'.format(model, name, from_,
-                                                    to_))
-                qs.append('{}, {} = {}-{}/3'.format(model, name, from_ + 1,
-                                                    to_))
-                qs.append('{}, {} = {}-{}/3'.format(model, name, from_ + 2,
-                                                    to_))
+                return '{}, all = 1-{}/3'.format(model, total_length)
             else:
-                qs.append('{}, {} = {}-{}'.format(model, name, from_,
-                                                  to_))
-            from_ += length
-        return '\n'.join(qs)
+                return '{}, all = 1-{}'.format(model, total_length)
 
     def paml_partitions(self):
         return 'G {} {}'.format(len(self.lengths),

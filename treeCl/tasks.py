@@ -150,7 +150,7 @@ def fasttree_task(alignment_file, dna=False):
     fst(cmd, wait=True)
     tree = fst.get_stdout()
     result = parse_fasttree_output(fst.get_stderr())
-    result['ml_tree'] = Tree(tree).as_string('newick', internal_labels=False, suppress_rooting=True).rstrip()
+    result['ml_tree'] = Tree(tree).newick
     return result
 
 def raxml_task(executable, alignment_file, model, partitions_file=None, outfile=None, threads=1, parsimony=False, fast_tree=False):
