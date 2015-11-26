@@ -20,25 +20,37 @@ from .utils import flatten_list
 import logging
 logger = logging.getLogger(__name__)
 
-def heatmap(dm, partition=None, cmap=CM.Blues):
+def heatmap(dm, partition=None, cmap=CM.Blues, fontsize=10):
     assert isinstance(dm, DistanceMatrix)
-    datamax = float(np.abs(dm).max())
+    datamax = float(np.abs(dm.values).max())
+    length = dm.shape[0]
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    ticks_at = [0, 0.5 * datamax, datamax]
+    
+    ax.xaxis.tick_top()
+    ax.grid(False)
+
+    tick_positions = np.array(list(range(length))) + 0.5
+    ax.set_yticks(tick_positions)
+    ax.set_xticks(tick_positions)
+    ax.set_xticklabels(dm.df.columns, rotation=90, fontsize=fontsize, ha='center')
+    ax.set_yticklabels(dm.df.index, fontsize=fontsize, va='center')
+
+    cbar_ticks_at = [0, 0.5 * datamax, datamax]
     if partition:
-        sorting = flatten_list(partition.get_membership())
-        self.dm = dm.reorder(sorting)
+        sorting = np.array(flatten_list(partition.get_membership()))
+        new_dm = dm.reorder(dm.columns[sorting])
+    else:
+        new_dm = dm
     cax = ax.imshow(
-        self.dm.values,
+        dm.values,
         interpolation='nearest',
-        origin='lower',
-        extent=[0., length, 0., length],
+        extent=[0., length, length, 0.],
         vmin=0,
         vmax=datamax,
         cmap=cmap,
     )
-    cbar = fig.colorbar(cax, ticks=ticks_at, format='%1.2g')
+    cbar = fig.colorbar(cax, ticks=cbar_ticks_at, format='%1.2g')
     cbar.set_label('Distance')
     return fig
 
