@@ -47,10 +47,11 @@ class TempFile(object):
         self.dir = dir_
 
     def __enter__(self):
-        self._wrapped_tmp = tempfile.mkstemp(dir=self.dir)[1]
+        self._fd, self._wrapped_tmp = tempfile.mkstemp(dir=self.dir)
         return os.path.abspath(self._wrapped_tmp)
 
     def __exit__(self, type, value, tb):
+        os.close(self._fd)
         os.remove(self._wrapped_tmp)
 
 

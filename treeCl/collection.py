@@ -95,6 +95,7 @@ class RecordsHandler(object):
             self.records = self.read_alignments(input_dir,
                                                 file_format,
                                                 header_grep)
+            self.input_dir = input_dir
 
         else:
             raise ValueError('Provide a list of records, '

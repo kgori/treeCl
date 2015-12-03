@@ -4,7 +4,7 @@ from .alignment import Alignment
 from .clustering import Spectral, Hierarchical, MultidimensionalScaling, Automatic, Evaluation
 from .collection import Collection, Scorer
 from .concatenation import Concatenation
-from .distance_matrix import DistanceMatrix
+from .distance_matrix import CoordinateMatrix, DistanceMatrix
 from .partition import Partition
 from .plotter import Plotter
 from .simulator import Simulator

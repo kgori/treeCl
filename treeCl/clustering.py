@@ -264,10 +264,10 @@ class Spectral(ClusteringManager, EMMixin):
         better plotted). Uses a different Laplacian matrix.
         """
         aff = self._affinity.copy()
-        aff[::aff.shape[0]+1] = 0
+        aff.flat[::aff.shape[0]+1] = 0
         laplacian = laplace(aff)
         decomp = eigen(laplacian)
-        return CoordinateMatrix(normalise_rows(eigen.vecs[:,:n]))
+        return CoordinateMatrix(normalise_rows(decomp.vecs[:,:n]))
 
     def kpca_embedding(self, n):
         """

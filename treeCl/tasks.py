@@ -38,7 +38,6 @@ class TaskInterface(object):
     def name(self):
         return self._name
 
-
 def eucdist_task(newick_string_a, newick_string_b, normalise):
     """
     Distributed version of tree_distance.eucdist
@@ -47,8 +46,6 @@ def eucdist_task(newick_string_a, newick_string_b, normalise):
     tree_a = Tree(newick_string_a)
     tree_b = Tree(newick_string_b)
     return treedist.eucdist(tree_a, tree_b, normalise)
-
-
 
 def geodist_task(newick_string_a, newick_string_b, normalise):
     """
@@ -59,7 +56,6 @@ def geodist_task(newick_string_a, newick_string_b, normalise):
     tree_b = Tree(newick_string_b)
     return treedist.geodist(tree_a, tree_b, normalise)
 
-
 def rfdist_task(newick_string_a, newick_string_b, normalise):
     """
     Distributed version of tree_distance.rfdist
@@ -68,7 +64,6 @@ def rfdist_task(newick_string_a, newick_string_b, normalise):
     tree_a = Tree(newick_string_a)
     tree_b = Tree(newick_string_b)
     return treedist.rfdist(tree_a, tree_b, normalise)
-    
 
 def wrfdist_task(newick_string_a, newick_string_b, normalise):
     """
@@ -78,7 +73,6 @@ def wrfdist_task(newick_string_a, newick_string_b, normalise):
     tree_a = Tree(newick_string_a)
     tree_b = Tree(newick_string_b)
     return treedist.wrfdist(tree_a, tree_b, normalise)
-    
 
 ### TASKS that calculate trees
 def pll_task(alignment_file, partition_string, guidetree=None, tree_search=True, threads=1, seed=RANDOM_SEED, frequencies=None,
@@ -146,7 +140,7 @@ def fasttree_task(alignment_file, dna=False):
     fl = os.path.abspath(alignment_file)
     fst = FastTree(verbose=False)
     cmd = '-gtr -gamma -pseudo {} {}'.format('-nt' if dna else '', fl)
-    logger.info('{} {}'.format(fst.exe, cmd))
+    logger.debug('{} {}'.format(fst.exe, cmd))
     fst(cmd, wait=True)
     tree = fst.get_stdout()
     result = parse_fasttree_output(fst.get_stderr())
