@@ -128,8 +128,11 @@ class Alignment(object):
         return isinstance(self._msa._alphabet, (type(IUPAC.protein), type(IUPAC.extended_protein)))
     
     def read_alignment(self, *args, **kwargs):
-        msa = AlignIO.read(*args, **kwargs)
-        self.infile = args[0]
+        filename = args[0]
+        args = args[1:]
+        with open(filename) as fl:
+            msa = AlignIO.read(fl, *args, **kwargs)
+        self.infile = filename
         # guess alphabet
         self._msa = self._guess_alphabet(msa)
 

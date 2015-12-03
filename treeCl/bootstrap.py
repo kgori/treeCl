@@ -2,6 +2,8 @@ import numpy as np
 from scipy.spatial.distance import pdist
 from scipy.optimize import minimize
 
+from .tasks import geodist_task
+
 GOLDEN = (np.sqrt(5)-1)/2
 
 # Functions for OutOfSampleMDS
@@ -159,9 +161,10 @@ def optimise_gradient_descent(x, a, c, tolerance=0.001):
 def run_optimise_bootstrap_coords(boot_collection, ref_collection, ref_coords, **kwargs):
     fit = np.empty((len(boot_collection), ref_coords.shape[1]))
     for i, tree in enumerate(boot_collection.trees):
-        dists = np.array([treeCl.tasks.geodist_task(tree, ref.tree, False) for ref in c])
-        opt = OptimiseDistanceFit(coords.values, ref_dists)
+        ref_dists = np.array([geodist_task(tree, ref.tree, False) for ref in ref_collection])
+        opt = OptimiseDistanceFit(ref_coords.values, ref_dists)
         fit[i] = opt.newton(**kwargs)
+        print fit[i]
     return fit
 
 def run_out_of_sample_mds(boot_collection, ref_collection, ref_distance_matrix, index, dimensions, **kwargs):
@@ -171,9 +174,10 @@ def run_out_of_sample_mds(boot_collection, ref_collection, ref_distance_matrix, 
     """
     fit = np.empty((len(boot_collection), dimensions))
     for i, tree in enumerate(boot_collection.trees):
-        dists = np.array([treeCl.tasks.geodist_task(tree, ref.tree, False) for ref in c])
+        distvec = np.array([treeCl.tasks.geodist_task(tree, ref.tree, False) for ref in ref_collection])
         oos = OutOfSampleMDS(ref_distance_matrix)
-        fit[i] = oos.fit(index, distance, dimensions=dimensions, **kwargs)
+        fit[i] = oos.fit(index, distvec, dimensions=dimensions, **kwargs)
+        print fit[i]
     return fit
 
 ### Functions to assess closeness of fitted distances to reference

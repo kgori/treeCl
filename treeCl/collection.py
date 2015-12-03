@@ -10,6 +10,7 @@ import math
 import os
 import random
 import sys
+import tempfile
 from functools import reduce
 
 # third party
@@ -228,15 +229,18 @@ class RecordsHandler(object):
             pbar.start()
 
         for i, f in enumerate(files):
-            if f.endswith('gz') or f.endswith('bz2'):
-                with fileIO.TempFile() as tmpfile:
-                    with fileIO.freader(f, f.endswith('gz'), f.endswith('bz2')) as reader, fileIO.fwriter(tmpfile) as writer:
-                        for line in reader:
-                            writer.write(line)
-                    try:
-                        record = Alignment(tmpfile, file_format, True)
-                    except RuntimeError:
-                        record = Alignment(tmpfile, file_format, False)
+            if f.endswith('.gz') or f.endswith('.bz2'):
+                fd, tmpfile = tempfile.mkstemp()
+                with fileIO.freader(f, f.endswith('.gz'), f.endswith('.bz2')) as reader, fileIO.fwriter(tmpfile) as writer:
+                    for line in reader:
+                         writer.write(line)
+                try:
+                    record = Alignment(tmpfile, file_format, True)
+                except ValueError:
+                    record = Alignment(tmpfile, file_format, False)
+                finally:
+                    os.close(fd)
+                    os.unlink(tmpfile)
 
             else:
                 try:
