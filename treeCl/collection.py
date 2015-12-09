@@ -17,6 +17,7 @@ from functools import reduce
 import numpy as np
 import phylo_utils
 from scipy.spatial.distance import squareform
+from tree_distance import PhyloTree
 
 # treeCl
 from .alignment import Alignment
@@ -372,10 +373,19 @@ class RecordsCalculatorMixin(object):
         metrics = {'euc': tasks.EuclideanTreeDistance,
                    'geo': tasks.GeodesicTreeDistance,
                    'rf': tasks.RobinsonFouldsTreeDistance,
-                   'wrf': tasks.WeightedRobinsonFouldsTreeDistance}
+                   'wrf': tasks.WeightedRobinsonFouldsTreeDistance,
+                   'fasteuc': tasks.EqualLeafSetEuclideanTreeDistance,
+                   'fastgeo': tasks.EqualLeafSetGeodesicTreeDistance,
+                   'fastrf': tasks.EqualLeafSetRobinsonFouldsTreeDistance,
+                   'fastwrf': tasks.EqualLeafSetWeightedRobinsonFouldsTreeDistance}
         optioncheck(metric, metrics.keys())
         task_interface = metrics[metric]()
-        args = task_interface.scrape_args(self.trees, normalise)
+        if metric.startswith('fast'):
+            trees = (PhyloTree(newick, False) for newick in self.trees)
+        else:
+            trees = self.trees
+        args = task_interface.scrape_args(trees, normalise)
+        logger.debug('{}'.format(args))
         msg = task_interface.name
         array = jobhandler(task_interface.get_task(), args, msg, batchsize)
         return DistanceMatrix.from_array(squareform(array), self.names)

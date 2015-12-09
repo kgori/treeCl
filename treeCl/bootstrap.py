@@ -1,8 +1,10 @@
 import numpy as np
-from scipy.spatial.distance import pdist
+from scipy.spatial.distance import pdist, squareform
 from scipy.optimize import minimize
 
-from .tasks import geodist_task
+from .tasks import _fast_geo
+
+from tree_distance import PhyloTree
 
 GOLDEN = (np.sqrt(5)-1)/2
 
@@ -158,26 +160,38 @@ def optimise_gradient_descent(x, a, c, tolerance=0.001):
 
 ### Functions to add bootstraps to collections
 
-def run_optimise_bootstrap_coords(boot_collection, ref_collection, ref_coords, **kwargs):
+def run_optimise_bootstrap_coords(boot_collection, ref_collection, ref_coords, task=_fast_geo, **kwargs):
     fit = np.empty((len(boot_collection), ref_coords.shape[1]))
-    for i, tree in enumerate(boot_collection.trees):
-        ref_dists = np.array([geodist_task(tree, ref.tree, False) for ref in ref_collection])
+    query_trees = [PhyloTree(tree) for tree in boot_collection.trees]
+    ref_trees = [PhyloTree(tree) for tree in ref_collection.trees]
+    for i, tree in enumerate(query_trees):
+        ref_dists = np.array([task(tree, ref_tree, False) for ref_tree in ref_trees])
         opt = OptimiseDistanceFit(ref_coords.values, ref_dists)
         fit[i] = opt.newton(**kwargs)
-        print fit[i]
     return fit
 
-def run_out_of_sample_mds(boot_collection, ref_collection, ref_distance_matrix, index, dimensions, **kwargs):
+def run_out_of_sample_mds(boot_collection, ref_collection, ref_distance_matrix, index, dimensions, task=_fast_geo, **kwargs):
     """
     index = index of the locus the bootstrap sample corresponds to - only important if
             using recalc=True in kwargs
     """
     fit = np.empty((len(boot_collection), dimensions))
-    for i, tree in enumerate(boot_collection.trees):
-        distvec = np.array([treeCl.tasks.geodist_task(tree, ref.tree, False) for ref in ref_collection])
+    query_trees = [PhyloTree(tree) for tree in boot_collection.trees]
+    ref_trees = [PhyloTree(tree) for tree in ref_collection.trees]
+    for i, tree in enumerate(query_trees):
+        distvec = np.array([task(tree, ref_tree, False) for ref_tree in ref_trees])
         oos = OutOfSampleMDS(ref_distance_matrix)
         fit[i] = oos.fit(index, distvec, dimensions=dimensions, **kwargs)
-        print fit[i]
+    return fit
+
+def run_analytical_fit(boot_collection, ref_collection, ref_coords, task=_fast_geo, **kwargs):
+    fit = np.empty((len(boot_collection), ref_coords.shape[1]))
+    query_trees = [PhyloTree(tree) for tree in boot_collection.trees]
+    ref_trees = [PhyloTree(tree) for tree in ref_collection.trees]
+    for i, tree in enumerate(query_trees):
+        ref_dists = np.array([task(tree, ref_tree, False) for ref_tree in ref_trees])
+        aft = AnalyticalFit(ref_coords.values, **kwargs)
+        fit[i] = aft.fit(ref_dists)
     return fit
 
 ### Functions to assess closeness of fitted distances to reference
@@ -190,6 +204,11 @@ def stress(ref_cds, est_cds):
     est_dists = pdist(est_cds)
     return np.sqrt(((ref_dists - est_dists)**2).sum() / (ref_dists**2).sum())
 
+def stress_dm(ref_distance_matrix, est_cds):
+    ref_dists = squareform(ref_distance_matrix)
+    est_dists = pdist(est_cds)
+    return np.sqrt(((ref_dists - est_dists)**2).sum() / (ref_dists**2).sum())
+
 def rmsd(ref_cds, est_cds):
     """
     Root-mean-squared-difference
@@ -198,6 +217,10 @@ def rmsd(ref_cds, est_cds):
     est_dists = pdist(est_cds)
     return np.sqrt(((ref_dists - est_dists)**2).sum()) / len(ref_dists)
 
+def rmsd_dm(ref_distance_matrix, est_cds):
+    ref_dists = squareform(ref_distance_matrix)
+    est_dists = pdist(est_cds)
+    return np.sqrt(((ref_dists - est_dists)**2).sum()) / len(ref_dists)
 
 ### Classes
 
@@ -356,7 +379,7 @@ class AnalyticalFit(object):
     Best-fit solution found by least squares:
     (A is the matrix of coefficients on the left sides of eq.4--6,
      b is the vector of values on the rhs of eq.4--6
-     A and the part of b that depends on coords can be 
+     A and the part of b that depends only on coords can be 
      calculated once and stored)
 
      Ax = b
@@ -370,10 +393,10 @@ class AnalyticalFit(object):
         """
         if method == 'adjacent':
             self._A, self._partial_b = self._make_A_and_part_of_b_adjacent(ref_crds)
-            self._pinvA = self._pseudoinv(self._A)
+            self._pinvA = np.linalg.pinv(self._A)
         elif method == 'pairwise':
             self._A, self._partial_b = self._make_A_and_part_of_b_pairwise(ref_crds)
-            self._pinvA = self._pseudoinv(self._A)
+            self._pinvA = np.linalg.pinv(self._A)
         else:
             raise ValueError('Unrecognised method {}'.format(method))
         self._method = method
@@ -405,9 +428,6 @@ class AnalyticalFit(object):
         A = 2*(n-m)
         partial_b = (n**2 - m**2).sum(1)
         return A, partial_b
-
-    def _pseudoinv(self, mtx):
-        return np.linalg.pinv(mtx)
 
     def _analytical_fit_adjacent(self, ref_dists):
         """

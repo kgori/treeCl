@@ -97,12 +97,16 @@ class AbstractWrapper(object):
         if executable:
             exe = self._search_for_executable(executable)
             if exe is None:
-                logging.error('Couldn\'t locate {}, trying fallback'.format(executable))
+                exe = self._search_for_executable(self._default_exe)
+                if exe is None:
+                    raise IOError('Couldn\'t locate specified executable {}, or default executable {}'.format(executable, self._default_exe))
+                else:
+                    logging.error('Couldn\'t locate {}, found {} as fallback'.format(executable, exe))
 
         if exe is None:
             exe = self._search_for_executable(self._default_exe)
             if not exe:
-                raise IOError(executable if executable else self._default_exe)
+                raise IOError('Couldn\'t locate default executable {}'.format(self._default_exe))
 
         self.exe = exe           # The wrapped executable
         self.verbose = verbose   # Controls printing of output

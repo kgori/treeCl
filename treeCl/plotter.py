@@ -138,7 +138,7 @@ class Plotter(object):
         return fig
 
     def embedding_plotter(
-            self, coordinates, partition=None, add_sphere=False,
+            self, coordinates, partition=None, add_sphere=False, point_size=8,
             colours=None, labels=None, legend=True, outfile=False, **kwargs
     ):
         """ 
@@ -199,7 +199,7 @@ class Plotter(object):
         for grp in range(ngrp):
             index = np.array(members[grp])
             points = coordinates[index,:dimensions].T
-            ax.scatter(*points, c=colours[grp], edgecolor=colours[grp], label='Group {}'.format(grp+1), **kwargs)
+            ax.scatter(*points, s=point_size, c=colours[grp], edgecolor=colours[grp], label='Group {}'.format(grp+1), **kwargs)
 
         if xlab:
             ax.set_xlabel(xlab)

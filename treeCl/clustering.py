@@ -38,7 +38,8 @@ options = enum(
 
 methods = enum(
     "KMEANS",
-    "GMM")
+    "GMM",
+    "WARD")
 
 linkage = enum(
     "SINGLE",
@@ -57,6 +58,20 @@ spectral = enum(
     "SPECTRAL",
     "KPCA",
     "ZELNIKMANOR")
+
+def _hclust(linkmat, nclusters):
+    linkmat_size = len(linkmat)
+    if nclusters <= 1:
+        br_top = linkmat[linkmat_size - nclusters][2]
+    else:
+        br_top = linkmat[linkmat_size - nclusters + 1][2]
+    if nclusters >= len(linkmat):
+        br_bottom = 0
+    else:
+        br_bottom = linkmat[linkmat_size - nclusters][2]
+    threshold = 0.5 * (br_top + br_bottom)
+    t = fcluster(linkmat, threshold, criterion='distance')
+    return Partition(t)
 
 
 class ClusteringManager(object):
@@ -235,6 +250,9 @@ class Spectral(ClusteringManager, EMMixin):
             p = self.kmeans(n, self._coords.df.values)
         elif method == methods.GMM:
             p = self.gmm(n, self._coords.df.values)
+        elif method == methods.WARD:
+            linkmat = fastcluster.linkage(self._coords.values, 'ward')
+            p = _hclust(linkmat, n)
         else:
             raise OptionError(method, list(methods.reverse.values()))
         if self._verbosity > 0:
@@ -321,9 +339,12 @@ class MultidimensionalScaling(ClusteringManager, EMMixin):
             raise OptionError(algo, list(mds.reverse.values()))
 
         if method == methods.KMEANS:
-            p = self.kmeans(n, self._coords.df.values)
+            p = self.kmeans(n, self._coords.values)
         elif method == methods.GMM:
-            p = self.gmm(n, self._coords.df.values)
+            p = self.gmm(n, self._coords.values)
+        elif method == methods.WARD:
+            linkmat = fastcluster.linkage(self._coords.values, 'ward')
+            p = _hclust(linkmat, n)
         else:
             raise OptionError(method, list(methods.reverse.values()))
         #if self._verbosity > 0:
@@ -387,18 +408,7 @@ class Hierarchical(ClusteringManager):
         matrix = self.get_dm(noise)
 
         linkmat = fastcluster.linkage(squareform(matrix), method)
-        linkmat_size = len(linkmat)
-        if nclusters <= 1:
-            br_top = linkmat[linkmat_size - nclusters][2]
-        else:
-            br_top = linkmat[linkmat_size - nclusters + 1][2]
-        if nclusters >= len(linkmat):
-            br_bottom = 0
-        else:
-            br_bottom = linkmat[linkmat_size - nclusters][2]
-        threshold = 0.5 * (br_top + br_bottom)
-        t = fcluster(linkmat, threshold, criterion='distance')
-        return Partition(t)
+        return _hclust(linkmat, nclusters)
 
 
 class Automatic(ClusteringManager):

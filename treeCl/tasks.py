@@ -103,7 +103,10 @@ def pll_task(alignment_file, partition_string, guidetree=None, tree_search=True,
             pass  # fail silently
     return result
 
-def phyml_task(alignment_file, model):
+def phyml_task(alignment_file, model, **kwargs):
+    """
+    Kwargs are passed to the Phyml process command line
+    """
     import re
     fl = os.path.abspath(alignment_file)
     ph = Phyml(verbose=False)
@@ -115,7 +118,7 @@ def phyml_task(alignment_file, model):
         datatype = 'aa'
     cmd = '-i {} -m {} -d {} -f m'.format(alignment_file, model, datatype)
     logger.debug("Phyml command = {}".format(cmd))
-    ph(cmd, wait=True)
+    ph(cmd, wait=True, **kwargs)
     logger.debug("Phyml stdout = {}".format(ph.get_stdout()))
     logger.debug("Phyml stderr = {}".format(ph.get_stderr()))
     parser = PhymlParser()
@@ -148,21 +151,25 @@ def fasttree_task(alignment_file, dna=False):
     return result
 
 def raxml_task(executable, alignment_file, model, partitions_file=None, outfile=None, threads=1, parsimony=False, fast_tree=False):
+    logger.debug('raxml_task: executable {}, alignment_file {}, model {}, partitions_file {}, outfile {}, threads {}, parsimony {}, fast_tree {}'.format(executable, alignment_file, model, partitions_file, outfile, threads, parsimony, fast_tree))
     afl = os.path.abspath(alignment_file)
     pfl = os.path.abspath(partitions_file) if partitions_file else None
     if threads > 1:
         if 'raxmlHPC' in executable and not 'PTHREADS' in executable:
             executable = executable.replace('raxmlHPC', 'raxmlHPC-PTHREADS')
         basecmd = '-T {} '.format(threads)
-        logger.debug("Executable: {}".format(executable))
+        logger.debug("Sequential executable modified because threading requested: {}".format(executable))
     else:
         basecmd = ''
-        logger.debug("Executable: {}".format(executable))
+
+    # initialise RAxML wrapper
+    rax = Raxml(executable, verbose=False)
+
     with fileIO.TempDir() as tmpd, fileIO.TempFile(tmpd) as name:
         name = os.path.basename(name)
-        rax = Raxml(executable, verbose=False)
         seed=random.randint(1000, 9999)
         outdir=os.path.abspath(tmpd)
+        logger.debug('Raxml ouput files will be written to {}'.format(outdir))
         cmd = basecmd + '-m {model} -n {name} -s {seqfile} -p {seed} -O -w {outdir}'.format(
             model=model, name=name, seqfile=afl, seed=seed,
             outdir=outdir)
@@ -173,38 +180,54 @@ def raxml_task(executable, alignment_file, model, partitions_file=None, outfile=
             cmd += ' -f E'
         elif parsimony:
             cmd += ' -y'
-        logger.debug(cmd)
+        logger.debug('Launching {} {}'.format(executable, cmd))
         rax(cmd, wait=True)
+        logger.debug(rax.get_stdout())
+        logger.debug(rax.get_stderr())
+
         if fast_tree:
             # Need to follow up
-            cmd = basecmd + '-m {model} -n modopt -s {seqfile} -p {seed} -O -w {outdir} -f e -t {outdir}/RAxML_fastTree.{name}'.format(
-                model=model, seqfile=afl, seed=seed, outdir=outdir, name=name)
-            logger.debug('Follow-up cmd (fast_tree) = {}'.format(cmd))
+            fast_tree_file = os.path.join(outdir, 'RAxML_fastTree.{}'.format(name))
+            logger.debug('Fast tree file exists {}'.format('yes' if os.path.exists(fast_tree_file) else 'no'))
+            cmd = basecmd + '-m {model} -n modopt -s {seqfile} -p {seed} -O -w {outdir} -f e -t {fast_tree_file}'.format(
+                model=model, seqfile=afl, seed=seed, outdir=outdir, fast_tree_file=fast_tree_file)
             if pfl:
                 cmd += ' -q {}'.format(pfl)
+            logger.debug('Launching fast tree follow-up: {} {}'.format(executable, cmd))
             rax(cmd, wait=True)
-            parser = RaxmlParser()
-            result = parser.to_dict(os.path.join(tmpd, 'RAxML_info.modopt'),
-                                    os.path.join(tmpd, 'RAxML_result.modopt'), dash_f_e=True)
+            logger.debug(rax.get_stdout())
+            logger.debug(rax.get_stderr())
+            info_file = os.path.join(outdir, 'RAxML_info.modopt')
+            result_file = os.path.join(outdir, 'RAxML_result.modopt')
+            dash_f_e = True
+
         elif parsimony:
             # Need to follow up
-            cmd = basecmd + '-m {model} -n modopt -s {seqfile} -p {seed} -O -w {outdir} -f e -t {outdir}/RAxML_parsimonyTree.{name}'.format(
-                model=model, seqfile=afl, seed=seed, outdir=outdir, name=name)
-            logger.debug('Follow-up cmd (parsimony) = {}'.format(cmd))
+            parsimony_tree_file = os.path.join(outdir, 'RAxML_parsimonyTree.{}'.format(name))
+            logger.debug('Parsimony tree file exists {}'.format('yes' if os.path.exists(parsimony_tree_file) else 'no'))
+            cmd = basecmd + '-m {model} -n modopt -s {seqfile} -p {seed} -O -w {outdir} -f e -t {parsimony}'.format(
+                model=model, seqfile=afl, seed=seed, outdir=outdir, parsimony=parsimony_tree_file)
             if pfl:
                 cmd += ' -q {}'.format(pfl)
+            logger.debug('Launching parsimony follow-up: {} {}'.format(executable, cmd))
             rax(cmd, wait=True)
-            parser = RaxmlParser()
-            result = parser.to_dict(os.path.join(tmpd, 'RAxML_info.modopt'),
-                                    os.path.join(tmpd, 'RAxML_result.modopt'), dash_f_e=True)
+            logger.debug(rax.get_stdout())
+            logger.debug(rax.get_stderr())
+            info_file = os.path.join(outdir, 'RAxML_info.modopt')
+            result_file = os.path.join(outdir, 'RAxML_result.modopt')
+            dash_f_e = True
+
         else:
-            logger.debug('RaxML command - {}'.format(cmd))
-            parser = RaxmlParser()
-            logger.debug('Temp dir exists - {} ({})'.format(os.path.exists(tmpd), os.path.abspath(tmpd)))
-            logger.debug('Info file exists - {}'.format('True' if os.path.exists(os.path.join(tmpd, 'RAxML_info.{}'.format(name))) else 'False'))
-            logger.debug('Tree file exists - {}'.format('True' if os.path.exists(os.path.join(tmpd, 'RAxML_bestTree.{}'.format(name))) else 'False'))
-            result = parser.to_dict(os.path.join(tmpd, 'RAxML_info.{}'.format(name)),
-                                    os.path.join(tmpd, 'RAxML_bestTree.{}'.format(name)))
+            info_file = os.path.join(outdir, 'RAxML_info.{}'.format(name))
+            result_file = os.path.join(outdir, 'RAxML_result.{}'.format(name))
+            dash_f_e = False
+
+        logger.debug('Info file found - {}'.format('yes' if os.path.exists(info_file) else 'no'))
+        logger.debug('Result file found - {}'.format('yes' if os.path.exists(result_file) else 'no'))
+
+        parser = RaxmlParser()
+        result = parser.to_dict(info_file, result_file, dash_f_e=dash_f_e)
+
         if outfile is not None:
             try:
                 with open(outfile, 'w') as ofl:
@@ -541,3 +564,42 @@ class EuclideanTreeDistance(TreeDistanceTaskInterface):
     def get_task(self):
         return eucdist_task
 
+
+from tree_distance import getEuclideanDistance, getGeodesicDistance, getRobinsonFouldsDistance,\
+    getWeightedRobinsonFouldsDistance
+
+def _fast_geo(tree1, tree2, normalise=False):
+    return getGeodesicDistance(tree1, tree2, normalise)
+
+def _fast_euc(tree1, tree2, normalise=False):
+    return getEuclideanDistance(tree1, tree2, normalise)
+
+def _fast_rf(tree1, tree2, normalise=False):
+    return getRobinsonFouldsDistance(tree1, tree2, normalise)
+
+def _fast_wrf(tree1, tree2, normalise=False):
+    return getWeightedRobinsonFouldsDistance(tree1, tree2, normalise)
+
+
+class EqualLeafSetGeodesicTreeDistance(TreeDistanceTaskInterface):
+    _name = 'GeodesicDistance'
+    def get_task(self):
+        return _fast_geo
+
+
+class EqualLeafSetEuclideanTreeDistance(TreeDistanceTaskInterface):
+    _name = 'EuclideanDistance'
+    def get_task(self):
+        return _fast_euc
+
+
+class EqualLeafSetRobinsonFouldsTreeDistance(TreeDistanceTaskInterface):
+    _name = 'RobinsonFouldsDistance'
+    def get_task(self):
+        return _fast_rf
+
+
+class EqualLeafSetWeightedRobinsonFouldsTreeDistance(TreeDistanceTaskInterface):
+    _name = 'WeightedRobinsonFouldsDistance'
+    def get_task(self):
+        return _fast_wrf
