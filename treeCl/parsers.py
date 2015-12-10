@@ -5,6 +5,7 @@ logger = logging.getLogger(__name__)
 FLOAT = Word(nums + '.-').setParseAction(lambda x: float(x[0]))
 INT = Word(nums).setParseAction(lambda x: int(x[0]))
 WORD = Word(alphanums+'_')
+SPACEDWORD = Word(alphanums+' _')
 
 class PhymlParser(object):
     """
@@ -128,7 +129,7 @@ class RaxmlParser(object):
 
         model = Suppress(SkipTo(MODEL_LABEL)) + Suppress(MODEL_LABEL) + WORD
         likelihood = Suppress(SkipTo(SCORE_LABEL)) + Suppress(SCORE_LABEL) + FLOAT
-        description = Suppress(SkipTo(DESC_LABEL)) + Suppress(DESC_LABEL) + INT + Suppress(NAME_LEADIN) + WORD + Suppress(DATATYPE_LEADIN) + WORD
+        description = Suppress(SkipTo(DESC_LABEL)) + Suppress(DESC_LABEL) + INT + Suppress(NAME_LEADIN) + SPACEDWORD + Suppress(DATATYPE_LEADIN) + WORD
         alpha = Suppress(ALPHA_LEADIN) + FLOAT
         rates = Suppress(RATES_LABEL) + FLOAT
         freqs = Suppress(FREQS_LABEL) + FLOAT

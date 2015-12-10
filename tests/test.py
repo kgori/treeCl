@@ -91,9 +91,22 @@ class DistanceMatrixTests(unittest.TestCase):
         self.assertEqual(dm.df.values.sum(), 412.70677069540181)
 
 
-class EMTests(unittest.TestCase):
+class RaxmlParserTests(unittest.TestCase):
     def setUp(self):
-        pass
+        self.parser = treeCl.parsers.RaxmlParser()
+        self.info = os.path.join(thisdir, 'data', 'parsing', 'RAxML_info.modopt')
+        self.result = os.path.join(thisdir, 'data', 'parsing', 'RAxML_result.modopt')
+        self.infoq = os.path.join(thisdir, 'data', 'parsing', 'RAxML_info.modoptq')
+        self.resultq = os.path.join(thisdir, 'data', 'parsing', 'RAxML_result.modoptq')
+
+    def test_can_parse_default_name(self):
+        parse_result = self.parser.to_dict(self.info, self.result, True)
+        self.assertEqual(parse_result['partitions'][0]['name'], 'No Name Provided')
+
+    def test_can_parse_provided_name(self):
+        parse_result = self.parser.to_dict(self.infoq, self.resultq, True)
+        self.assertEqual(parse_result['partitions'][0]['name'], 'class1_1')
+
 
 def main():
     unittest.main()
