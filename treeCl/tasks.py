@@ -139,6 +139,42 @@ def phyml_task(alignment_file, model, **kwargs):
             result = None
     return result
 
+def bionj_task(alignment_file, model, **kwargs):
+    """
+    Kwargs are passed to the Phyml process command line
+    """
+    import re
+    fl = os.path.abspath(alignment_file)
+    ph = Phyml(verbose=False)
+    if model in ['JC69', 'K80', 'F81', 'F84', 'HKY85', 'TN93', 'GTR']:
+        datatype = 'nt'
+    elif re.search('[01]{6}', model) is not None:
+        datatype = 'nt'
+    else:
+        datatype = 'aa'
+    cmd = '-i {} -m {} -d {} -b 0 -o n --quiet'.format(alignment_file, model, datatype)
+    logger.debug("Phyml command = {}".format(cmd))
+    ph(cmd, wait=True, **kwargs)
+    logger.debug("Phyml stdout = {}".format(ph.get_stdout()))
+    logger.debug("Phyml stderr = {}".format(ph.get_stderr()))
+    parser = PhymlParser()
+    expected_outfiles = ['{}_phyml_stats'.format(alignment_file), '{}_phyml_tree'.format(alignment_file)]
+    for i in range(2):
+        if not os.path.exists(expected_outfiles[i]):
+            expected_outfiles[i] += '.txt'
+    logger.debug('Stats file {} {}'.format(expected_outfiles[0], 'exists' if os.path.exists(expected_outfiles[0]) else 'doesn\'t exist'))
+    logger.debug('Tree file {} {}'.format(expected_outfiles[1], 'exists' if os.path.exists(expected_outfiles[1]) else 'doesn\'t exist'))
+    with fileIO.TempFileList(expected_outfiles):
+        try:
+            result = parser.to_dict(*expected_outfiles)
+        except IOError as ioerr:
+            logger.error('File IO error: {}'.format(ioerr))
+            result = None
+        except ParseException as parseerr:
+            logger.error('Other parse error: {}'.format(parseerr))
+            result = None
+    return result
+
 def fasttree_task(alignment_file, dna=False):
     fl = os.path.abspath(alignment_file)
     fst = FastTree(verbose=False)
@@ -347,6 +383,27 @@ class PhymlTaskInterface(TaskInterface):
 
     def get_task(self):
         return phyml_task
+
+
+class BionjTaskInterface(TaskInterface):
+    _name = 'Bionj'
+
+    def scrape_args(self, records, model=None, **kwargs):
+        DEFAULT_DNA_MODEL = 'GTR'
+        DEFAULT_PROTEIN_MODEL = 'LG'
+        args = []
+        to_delete = []
+        for rec in records:
+            if model is None:
+                model = DEFAULT_DNA_MODEL if rec.is_dna() else DEFAULT_PROTEIN_MODEL
+            filename, delete = rec.get_alignment_file(as_phylip=True)
+            if delete:
+                to_delete.append(filename)
+            args.append((filename, model))
+        return args, to_delete
+
+    def get_task(self):
+        return bionj_task
 
 
 class RaxmlTaskInterface(TaskInterface):
