@@ -4,7 +4,7 @@ import itertools
 import random
 from phylo_utils import seq_to_partials
 from phylo_utils.markov import TransitionMatrix
-from phylo_utils.models import LG, GTR
+from phylo_utils.models import LG, WAG, GTR
 from phylo_utils.likelihood import GammaMixture
 from Bio.Seq import Seq, UnknownSeq
 from Bio.SeqRecord import SeqRecord
@@ -185,6 +185,8 @@ def create_gamma_model(alignment, missing_data=None, scale_freq=10):
     alpha = alignment.parameters.partitions.alpha
     if model == 'LG':
         subs_model = LG(freqs)
+    elif model == 'WAG':
+        subs_model = WAG(freqs)
     elif model == 'GTR':
         rates = alignment.parameters.partitions.rates
         subs_model = GTR(rates, freqs, True)

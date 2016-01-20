@@ -30,7 +30,7 @@ from .parameters import PartitionParameters
 from .partition import Partition
 from .parutils import SequentialJobHandler
 from .tree import Tree
-from .utils import fileIO, setup_progressbar, model_translate, smooth_freqs, alignment_to_partials, create_gamma_model
+from .utils import fileIO, setup_progressbar, model_translate, smooth_freqs, alignment_to_partials, create_gamma_model, flatten_list
 from .utils.decorators import lazyprop
 
 import json
@@ -57,6 +57,11 @@ def gapmask(simseqs, origseqs):
         simseq[gap_pos] = '-'
         simdict[k] = ''.join(simseq)
     return list(simdict.items())
+
+
+def transform_fn(table, amount=2.0):
+    tmp = table**(1.0/amount)
+    return tmp / tmp.sum(1)[:,np.newaxis]
 
 
 class NoRecordsError(Exception):
@@ -696,13 +701,62 @@ class Optimiser(object):
 
         (1) Celeux,G. and Govaert,G. (1992) A classification EM algorithm for clustering 
         and two stochastic versions. Comput. Stat. Data Anal.,14,315-332"""
+
     def __init__(self, scorer, partition=None, **kwargs):
         self.scorer = scorer
-        self.partition = partition
+        self.partition = None
+        self.prev_partition = None
+        if partition is not None:
+            self.set_partition(partition)
         self.insts = self.init_perlocus_likelihood_objects(**kwargs)
         self.names_to_indices = dict((rec.name, i) for (i, rec) in enumerate(scorer.collection))
         self.iterations = 0
         self.log = []
+        self.lktable = None
+        self.table = None
+
+    def expect(self, use_proportions=True):
+        """ The Expectation step of the CEM algorithm """
+        changed = self.get_changed(self.partition, self.prev_partition)
+        self.update_perlocus_likelihood_objects(self.partition, changed)
+        lk_table = self.generate_lktable(self.partition, changed, use_proportions)
+        self.table = self.likelihood_table_to_probs(lk_table)
+
+    def classify(self, table, weighted_choice=False, transform=None):
+        """ The Classification step of the CEM algorithm """
+        if weighted_choice:
+            if transform is not None:
+                probs = transform_fn(table.copy(), transform)  #
+            else:
+                probs = table.copy()
+            cmprobs = probs.cumsum(1)
+            logger.info('Probabilities\n{}'.format(probs))
+            r = np.random.random(cmprobs.shape[0])
+            search = np.apply_along_axis(np.searchsorted, 1, cmprobs, r) # Not very efficient
+            assignment = np.diag(search)
+        else:
+            probs = table
+            assignment = np.where(probs==probs.max(1)[:, np.newaxis])[1]
+        logger.info('Assignment\n{}'.format(assignment))
+        self._fill_empty_groups(probs, assignment)  # don't want empty groups
+        new_partition = Partition(tuple(assignment))
+        self.set_partition(new_partition)
+
+    def maximise(self, **kwargs):
+        """ The Maximisation step of the CEM algorithm """
+        self.scorer.write_partition(self.partition)
+        self.scorer.analyse_cache_dir(**kwargs)
+        self.likelihood = self.scorer.get_partition_score(self.partition)
+        self.scorer.clean_cache()
+        return self.partition, self.likelihood
+
+    def iterate(self, use_proportions=True, weighted_choice=False, transform=None, **kwargs):
+        self.expect(use_proportions)
+        self.classify(self.table, weighted_choice, transform)
+        self.iterations += 1
+        result = self.maximise(**kwargs)
+        self.log.append(result)
+        return result
 
     def random_partition(self, ngroups):
         items = len(self.scorer.collection)
@@ -713,15 +767,11 @@ class Optimiser(object):
         return Partition(tuple(r))
 
     def set_partition(self, partition):
-        self.partition = partition
-
-    def iterate(self, use_proportions=True, weighted_choice=False, transform=None, **kwargs):
-        probs = self.expect(self.partition, use_proportions)
-        self.partition = self.classify(probs, weighted_choice, transform)
-        self.iterations += 1
-        result = self.maximise(**kwargs)
-        self.log.append(result)
-        return result
+        """
+        Store the partition in self.partition, and
+        move the old self.partition into self.prev_partition
+        """
+        self.partition, self.prev_partition = partition, self.partition
 
     def init_perlocus_likelihood_objects(self, **kwargs):
         c = self.scorer.collection
@@ -732,47 +782,96 @@ class Optimiser(object):
             insts.append(gamma)
         return insts
 
-    def update_perlocus_likelihood_objects(self, partition):
+    def get_cluster_at_index(self, i):
+        """ 
+        Return the cluster membership of locus i, according to current
+        assignment 
+        """
+        return self.partition.partition_vector[i]
+
+    def get_changed(self, p1, p2):
+        """ 
+        Return the loci that are in clusters that have changed between
+        partitions p1 and p2 
+        """
+        if p1 is None or p2 is None:
+            return range(len(self.insts))
+        return set(flatten_list(set(p1) - set(p2)))
+
+    def update_perlocus_likelihood_objects(self, partition, changed):
         results = self.scorer.get_partition_results(partition)
+        UNPARTITIONED=False
         for result in results:
             subdict = result['partitions']
-            for k in subdict:
-                p = subdict[k]
-                index = self.names_to_indices[p['name']]
-                gamma = self.insts[index]
+            if len(subdict) > 1:
+                for k in subdict:
+                    p = subdict[k]
+                    index = self.names_to_indices[p['name']]
+                    if index in changed:
+                        inst = self.insts[index]
+                        self._update_likelihood_model(inst, p, result['ml_tree'])
+            else:
+                UNPARTITIONED=True # not nice, but I'm in a hurry
 
-                # Build transition matrix from dict
-                model = p['model']
-                freqs = p['frequencies']
-                if model == 'LG':
-                    subs_model = phylo_utils.models.LG(freqs)
-                elif model == 'GTR':
-                    rates = p['rates']
-                    subs_model = phylo_utils.models.GTR(rates, freqs, True)
-                else:
-                    raise ValueError("Can't handle this model: {}".format(model))
-                tm = phylo_utils.markov.TransitionMatrix(subs_model)
-                
-                # Read alpha value
-                alpha = p['alpha']
-                gamma.update_alpha(alpha)
-                gamma.update_transition_matrix(tm)
-                gamma.set_tree(result['ml_tree'])
+        if UNPARTITIONED:
+            prev_partition = self.partition
 
-    def generate_table(self, partition, use_proportions=True):
+            for i in changed:
+                cluster = self.get_cluster_at_index(i)
+                inst = self.insts[i]
+                result = results[cluster]
+                p = result['partitions']['0']
+                self._update_likelihood_model(inst, p, result['ml_tree'])
+
+    def _update_likelihood_model(self, inst, partition_parameters, tree):
+        """ 
+        Set parameters of likelihood model - inst -
+        using values in dictionary - partition_parameters -,
+        and - tree -
+        """
+        # Build transition matrix from dict
+        model = partition_parameters['model']
+        freqs = partition_parameters.get('frequencies')
+        if model == 'LG':
+            subs_model = phylo_utils.models.LG(freqs)
+        elif model == 'WAG':
+            subs_model = phylo_utils.models.WAG(freqs)
+        elif model == 'GTR':
+            rates = partition_parameters.get('rates')
+            subs_model = phylo_utils.models.GTR(rates, freqs, True)
+        else:
+            raise ValueError("Can't handle this model: {}".format(model))
+        tm = phylo_utils.markov.TransitionMatrix(subs_model)
+        
+        # Read alpha value
+        alpha = partition_parameters['alpha']
+        inst.update_alpha(alpha)
+        inst.update_transition_matrix(tm)
+        inst.set_tree(tree)
+
+    def generate_lktable(self, partition, changed, use_proportions=True):
         trees = self.scorer.get_partition_trees(partition)
+
+        # Try to call up table from previous step
+        prev_lktable = self.lktable
+
         if use_proportions:
             logproportions = np.log(np.array([len(x) for x in partition.get_membership()], dtype=np.double)/partition.num_elements())
         else:
             logproportions = np.zeros(partition.num_elements())
-        table = np.zeros((len(self.insts), len(trees)))
-        for i, gamma in enumerate(self.insts):
-            for j, t in enumerate(trees):
-                gamma.set_tree(t)
-                table[i, j] = logproportions[j] + gamma.get_likelihood()
-        return table
 
-    def likelihood_table_to_probs(self, table):
+        lktable = np.zeros((len(self.insts), len(trees)))
+        for i, gamma in enumerate(self.insts):
+            if i in changed or prev_lktable is None:
+                for j, t in enumerate(trees):
+                    gamma.set_tree(t)
+                    lktable[i, j] = logproportions[j] + gamma.get_likelihood()
+            else:
+                lktable[i] = prev_lktable[i]
+        self.lktable = lktable
+        return lktable
+
+    def likelihood_table_to_probs(self, lktable):
         """
         Calculates this formula (1), given the log of the numerator as input
                      
@@ -788,55 +887,23 @@ class Optimiser(object):
         p_k is the prior probability of belong to P_k (the proportional size of P_k)
         f(x, a) is the likelihood of x with parameters a
         """
-        m = table.max(1)  # row max of table
-        shifted = table-m[:,np.newaxis]  # shift table of log-likelihoods to a non-underflowing range
+        m = lktable.max(1)  # row max of lktable
+        shifted = lktable-m[:,np.newaxis]  # shift lktable of log-likelihoods to a non-underflowing range
         expsum = np.exp(shifted).sum(1)  # convert logs to (scaled) normal space, and sum the rows
         logexpsum = np.log(expsum)+m  # convert back to log space, and undo the scaling
-        return np.exp(table - logexpsum[:, np.newaxis])
-
-    def expect(self, partition, use_proportions=True):
-        """ The Expectation step of the CEM algorithm """
-        self.update_perlocus_likelihood_objects(partition)
-        lk_table = self.generate_table(partition, use_proportions)
-        return self.likelihood_table_to_probs(lk_table)
-
-    def classify(self, table, weighted_choice=False, transform=None):
-        """ The Classification step of the CEM algorithm """
-        if weighted_choice:
-            if transform is not None:
-                probs = transform(table.copy())  #
-            else:
-                probs = table.copy()
-            cmprobs = probs.cumsum(1)
-            logger.info('Probabilities\n{}'.format(probs))
-            r = np.random.random(cmprobs.shape[0])
-            search = np.apply_along_axis(np.searchsorted, 1, cmprobs, r) # Not very efficient
-            assignment = np.diag(search)
-        else:
-            probs = table
-            assignment = np.where(probs==probs.max(1)[:, np.newaxis])[1]
-        logger.info('Assignment\n{}'.format(assignment))
-        # self._fill_empty_groups(probs, assignment)  # don't want empty groups
-        return Partition(tuple(assignment))
-
-    def maximise(self, **kwargs):
-        """ The Maximisation step of the CEM algorithm """
-        self.scorer.write_partition(self.partition)
-        self.scorer.analyse_cache_dir(**kwargs)
-        self.likelihood = self.scorer.get_partition_score(self.partition)
-        self.scorer.clean_cache()
-        return self.partition, self.likelihood
+        return np.exp(lktable - logexpsum[:, np.newaxis])
 
     def _fill_empty_groups(self, probs, assignment):
         """ Does the simple thing - if any group is empty, but needs to have at
         least one member, assign the data point with highest probability of
         membership """
+        new_assignment = np.array(assignment.tolist())
         for k in xrange(probs.shape[1]):
             if np.count_nonzero(assignment==k) == 0:
                 best = np.where(probs[:,0]==probs[:,0].max())[0][0]
-                assignment[best] = k
-                self._fill_empty_groups(probs, assignment)
-        return assignment
+                new_assignment[best] = k
+                new_assignment = self._fill_empty_groups(probs, new_assignment)
+        return new_assignment
 
     def wipe_partition(self, partition):
         """ Deletes analysis result of partition, e.g. so a repeat

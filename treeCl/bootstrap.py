@@ -215,12 +215,12 @@ def rmsd(ref_cds, est_cds):
     """
     ref_dists = pdist(ref_cds)
     est_dists = pdist(est_cds)
-    return np.sqrt(((ref_dists - est_dists)**2).sum()) / len(ref_dists)
+    return np.sqrt(((ref_dists - est_dists)**2).mean())
 
 def rmsd_dm(ref_distance_matrix, est_cds):
     ref_dists = squareform(ref_distance_matrix)
     est_dists = pdist(est_cds)
-    return np.sqrt(((ref_dists - est_dists)**2).sum()) / len(ref_dists)
+    return np.sqrt(((ref_dists - est_dists)**2).mean())
 
 ### Classes
 
@@ -321,6 +321,7 @@ class OutOfSampleMDS(object):
         U, l = _eigen(B)
         # l=l.astype(np.complex)
         l = np.clip(l, np.finfo(l.dtype).eps, np.inf)
+
         self.mult_factor = U*(1.0/np.sqrt(l))
         self.coords = U*np.sqrt(l)
         # self.mult_factor = self.mult_factor.astype(np.float)

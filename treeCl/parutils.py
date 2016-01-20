@@ -82,7 +82,7 @@ def sequential_map(task, args, message):
     pbar = setup_progressbar(message, njobs, simple_progress=True)
     pbar.start()
     map_result = []
-    for (i, arglist) in enumerate(tupleise(args)):
+    for (i, arglist) in enumerate(tupleise(args), start=1):
         map_result.append(task(*arglist))
         pbar.update(i)
     pbar.finish()

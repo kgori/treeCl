@@ -116,7 +116,7 @@ def phyml_task(alignment_file, model, **kwargs):
         datatype = 'nt'
     else:
         datatype = 'aa'
-    cmd = '-i {} -m {} -d {} -f m'.format(alignment_file, model, datatype)
+    cmd = '-i {} -m {} -d {} -f m --quiet'.format(alignment_file, model, datatype)
     logger.debug("Phyml command = {}".format(cmd))
     ph(cmd, wait=True, **kwargs)
     logger.debug("Phyml stdout = {}".format(ph.get_stdout()))
@@ -142,12 +142,13 @@ def phyml_task(alignment_file, model, **kwargs):
 def fasttree_task(alignment_file, dna=False):
     fl = os.path.abspath(alignment_file)
     fst = FastTree(verbose=False)
-    cmd = '-gtr -gamma -pseudo {} {}'.format('-nt' if dna else '', fl)
+    cmd = '{} -gamma -pseudo {} {}'.format('-gtr' if dna else '-wag', '-nt' if dna else '', fl)
     logger.debug('{} {}'.format(fst.exe, cmd))
     fst(cmd, wait=True)
     tree = fst.get_stdout()
     result = parse_fasttree_output(fst.get_stderr())
     result['ml_tree'] = Tree(tree).newick
+    result['partitions'][0]['model'] = 'GTR' if dna else 'WAG'
     return result
 
 def raxml_task(executable, alignment_file, model, partitions_file=None, outfile=None, threads=1, parsimony=False, fast_tree=False):
@@ -229,6 +230,7 @@ def raxml_task(executable, alignment_file, model, partitions_file=None, outfile=
         result = parser.to_dict(info_file, result_file, dash_f_e=dash_f_e)
 
         if outfile is not None:
+            logger.debug('Attempting to write result to {}'.format(outfile))
             try:
                 with open(outfile, 'w') as ofl:
                     json.dump(result, ofl)
