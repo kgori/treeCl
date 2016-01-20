@@ -718,7 +718,6 @@ class Optimiser(object):
     def expect(self, use_proportions=True):
         """ The Expectation step of the CEM algorithm """
         changed = self.get_changed(self.partition, self.prev_partition)
-        self.update_perlocus_likelihood_objects(self.partition, changed)
         lk_table = self.generate_lktable(self.partition, changed, use_proportions)
         self.table = self.likelihood_table_to_probs(lk_table)
 
@@ -748,7 +747,9 @@ class Optimiser(object):
         self.scorer.analyse_cache_dir(**kwargs)
         self.likelihood = self.scorer.get_partition_score(self.partition)
         self.scorer.clean_cache()
-        return self.partition, self.likelihood
+        changed = self.get_changed(self.partition, self.prev_partition)
+        self.update_perlocus_likelihood_objects(self.partition, changed)
+        return self.partition, self.likelihood, sum(inst.get_likelihood() for inst in self.insts)
 
     def iterate(self, use_proportions=True, weighted_choice=False, transform=None, **kwargs):
         self.expect(use_proportions)
@@ -845,9 +846,9 @@ class Optimiser(object):
         
         # Read alpha value
         alpha = partition_parameters['alpha']
+        inst.set_tree(tree)
         inst.update_alpha(alpha)
         inst.update_transition_matrix(tm)
-        inst.set_tree(tree)
 
     def generate_lktable(self, partition, changed, use_proportions=True):
         trees = self.scorer.get_partition_trees(partition)
