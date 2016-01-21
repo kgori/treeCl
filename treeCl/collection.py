@@ -702,8 +702,9 @@ class Optimiser(object):
         (1) Celeux,G. and Govaert,G. (1992) A classification EM algorithm for clustering 
         and two stochastic versions. Comput. Stat. Data Anal.,14,315-332"""
 
-    def __init__(self, scorer, partition=None, **kwargs):
+    def __init__(self, scorer, numgrp, partition=None, **kwargs):
         self.scorer = scorer
+        self.numgrp = numgrp
         self.partition = None
         self.prev_partition = None
         if partition is not None:
@@ -723,6 +724,7 @@ class Optimiser(object):
 
     def classify(self, table, weighted_choice=False, transform=None):
         """ The Classification step of the CEM algorithm """
+        assert table.shape[1] == self.numgrp
         if weighted_choice:
             if transform is not None:
                 probs = transform_fn(table.copy(), transform)  #
@@ -772,6 +774,7 @@ class Optimiser(object):
         Store the partition in self.partition, and
         move the old self.partition into self.prev_partition
         """
+        assert len(partition) == self.numgrp
         self.partition, self.prev_partition = partition, self.partition
 
     def init_perlocus_likelihood_objects(self, **kwargs):
@@ -799,7 +802,7 @@ class Optimiser(object):
             return range(len(self.insts))
         return set(flatten_list(set(p1) - set(p2)))
 
-    def update_perlocus_likelihood_objects(self, partition, changed):
+    def update_perlocus_likelihood_objects_old(self, partition, changed):
         results = self.scorer.get_partition_results(partition)
         UNPARTITIONED=False
         for result in results:
@@ -823,6 +826,15 @@ class Optimiser(object):
                 result = results[cluster]
                 p = result['partitions']['0']
                 self._update_likelihood_model(inst, p, result['ml_tree'])
+
+    def update_perlocus_likelihood_objects(self, partition, changed):
+        for grp in partition:
+            result = self.scorer.get_group_result(grp)
+            tree = result['ml_tree']
+            for i in grp:
+                self._update_likelihood_model(self.insts[i], result['partitions']['0'], tree)
+                # self.insts[i].set_tree(tree)
+                # self.insts[i].update_alpha(result['partitions']['0']['alpha'])
 
     def _update_likelihood_model(self, inst, partition_parameters, tree):
         """ 
@@ -861,7 +873,7 @@ class Optimiser(object):
         else:
             logproportions = np.zeros(partition.num_elements())
 
-        lktable = np.zeros((len(self.insts), len(trees)))
+        lktable = np.zeros((len(self.insts), self.numgrp))
         for i, gamma in enumerate(self.insts):
             if i in changed or prev_lktable is None:
                 for j, t in enumerate(trees):
@@ -899,9 +911,10 @@ class Optimiser(object):
         least one member, assign the data point with highest probability of
         membership """
         new_assignment = np.array(assignment.tolist())
-        for k in xrange(probs.shape[1]):
+        for k in xrange(self.numgrp):
             if np.count_nonzero(assignment==k) == 0:
-                best = np.where(probs[:,0]==probs[:,0].max())[0][0]
+                logger.info('Group {} became empty'.format(k))
+                best = np.where(probs[:,k]==probs[:,k].max())[0][0]
                 new_assignment[best] = k
                 new_assignment = self._fill_empty_groups(probs, new_assignment)
         return new_assignment
