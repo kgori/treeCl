@@ -739,7 +739,7 @@ class Optimiser(object):
             probs = table
             assignment = np.where(probs==probs.max(1)[:, np.newaxis])[1]
         logger.info('Assignment\n{}'.format(assignment))
-        self._fill_empty_groups(probs, assignment)  # don't want empty groups
+        assignment = self._fill_empty_groups(probs, assignment)  # don't want empty groups
         new_partition = Partition(tuple(assignment))
         self.set_partition(new_partition)
 
