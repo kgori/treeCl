@@ -907,6 +907,28 @@ class Optimiser(object):
         return np.exp(lktable - logexpsum[:, np.newaxis])
 
     def _fill_empty_groups(self, probs, assignment):
+        new_assignment = np.array(assignment.tolist())
+        for k in xrange(probs.shape[1]):
+            if np.count_nonzero(assignment==k) == 0:
+                logger.info('Group {} became empty'.format(k))
+                # Group k is empty, so needs another group to transfer a member
+                # Base this on probability
+                ix = probs[:,k].argsort()[::-1]
+                for i in ix:
+                    # i is our candidate for transfer
+                    # but first check that moving it
+                    # doesn't empty its current group
+                    curr_grp = new_assignment[i]
+                    curr_grp_count = np.count_nonzero(new_assignment==curr_grp)
+                    if curr_grp_count < 2:
+                        logger.info('Transferring item {} would cause group {} to become empty!'.format(i, curr_grp))
+                    if curr_grp_count > 1:
+                        new_assignment[i] = k
+                        logger.info('Transferred item {} to group {}'.format(i, k))
+                        break
+        return new_assignment
+
+    def _fill_empty_groups_old(self, probs, assignment):
         """ Does the simple thing - if any group is empty, but needs to have at
         least one member, assign the data point with highest probability of
         membership """
