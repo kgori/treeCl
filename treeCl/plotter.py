@@ -25,10 +25,17 @@ logger = logging.getLogger(__name__)
 SET2 = ["#66c2a5","#fc8d62","#8da0cb","#e78ac3","#a6d854","#ffd92f","#e5c494","#b3b3b3"]
 SET3 = ["#8dd3c7","#ffffb3","#bebada","#fb8072","#80b1d3","#fdb462","#b3de69","#fccde5","#d9d9d9","#bc80bd","#ccebc5","#ffed6f"]
 
-def heatmap(dm, partition=None, cmap=CM.Blues, fontsize=10):
+def heatmapper(dm, partition=None, cmap=CM.Blues, fontsize=10):
     assert isinstance(dm, DistanceMatrix)
     datamax = float(np.abs(dm.values).max())
     length = dm.shape[0]
+
+    if partition:
+        sorting = np.array(flatten_list(partition.get_membership()))
+        new_dm = dm.reorder(dm.df.columns[sorting])
+    else:
+        new_dm = dm
+
     fig = plt.figure()
     ax = fig.add_subplot(111)
     
@@ -38,17 +45,13 @@ def heatmap(dm, partition=None, cmap=CM.Blues, fontsize=10):
     tick_positions = np.array(list(range(length))) + 0.5
     ax.set_yticks(tick_positions)
     ax.set_xticks(tick_positions)
-    ax.set_xticklabels(dm.df.columns, rotation=90, fontsize=fontsize, ha='center')
-    ax.set_yticklabels(dm.df.index, fontsize=fontsize, va='center')
+    ax.set_xticklabels(new_dm.df.columns, rotation=90, fontsize=fontsize, ha='center')
+    ax.set_yticklabels(new_dm.df.index, fontsize=fontsize, va='center')
 
     cbar_ticks_at = [0, 0.5 * datamax, datamax]
-    if partition:
-        sorting = np.array(flatten_list(partition.get_membership()))
-        new_dm = dm.reorder(dm.columns[sorting])
-    else:
-        new_dm = dm
+    
     cax = ax.imshow(
-        dm.values,
+        new_dm.values,
         interpolation='nearest',
         extent=[0., length, length, 0.],
         vmin=0,
