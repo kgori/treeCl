@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from treeCl.partition import Partition
+from ..partition import Partition
 
 
 class Silhouette(object):

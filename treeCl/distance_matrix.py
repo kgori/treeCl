@@ -10,8 +10,8 @@ import sklearn
 from scipy.spatial.distance import squareform
 
 # treeCl
-import errors
-from utils import fileIO
+from . import errors
+from .utils import fileIO
 
 # Utilities
 def isconnected(mask):
@@ -413,6 +413,10 @@ class Matrix(object):
     def values(self):
         return self.to_array()
 
+    @property
+    def shape(self):
+        return self.to_array().shape
+
     def to_array(self):
         return self.df.values
 
@@ -458,7 +462,7 @@ class DistanceMatrix(Matrix):
         try:
             new_instance.set_names(names)
             return new_instance
-        except ValueError, err:
+        except ValueError as err:
             sys.stderr.write(str(err))
             return new_instance
 

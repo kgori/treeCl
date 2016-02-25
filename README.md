@@ -1,123 +1,171 @@
 # ``treeCl`` - Phylogenetic Tree Clustering
 
+![Travis build status](https://travis-ci.org/kgori/treeCl.svg?branch=travis)
+
 ``treeCl`` is a python package for clustering gene families by
 phylogenetic similarity. It takes a collection of alignments, infers their phylogenetic trees,
 and clusters them based on a matrix of between-tree distances. Finally, it calculates a single representative tree for each cluster.
 
-The purpose of this is to establish whether there is any underlying structure
-to the data.
+You can read the paper [here](http://arxiv.org/abs/1510.02356)
 
 ## Installation
 
-####Make sure you have the dependencies required for installation - numpy, and cython (```pip install cython numpy``` if you don't)
+#### Preparing dependencies
 
-###The ```setup.py``` way:
+If your system already has python 2.7, cython, numpy and a C++11-capable compiler (e.g. gcc >= 4.7), then you're ready to install.
 
-1. Pick a nice directory to put the files in. It can be anywhere, you won't need them again once they are installed. We'll call this ```$TEDIOUS_BUILDING_AREA```
+The remaining python dependencies will be automatically installed during the build process.
 
-2. Clone the repo:
+#### External dependencies
 
-    ``` bash
-cd $TEDIOUS_BUILDING_AREA
-git clone https://github.com/kgori/treeCl.git tiresome_software
-cd tiresome_software
-python setup.py install
-```
+To be able to build trees, treeCl needs to call on some external software. The choices are RAxML, PhyML, FastTree or PLL (using [pllpy](https://github.com/kgori/pllpy)). If any of these are installed, available in your path, and keep the standard names they were installed with, they should work.
 
-###The pip way:
+#### Installing ``treeCl``
+All remaining dependencies will be installed automatically using pip
 
-```pip install git+https://github.com/kgori/treeCl.git```
+    pip install treeCl
 
-## Dependencies
 
-#### Python:
-- [matplotlib](http://matplotlib.org/ "matplotlib")
-- [numpy](http://www.numpy.org "NumPy") (v1.6.2)
-- [scipy](http://www.scipy.org "SciPy") (v0.11.0)
-- [dendropy](http://pythonhosted.org/DendroPy/ "DendroPy is a Python library for phylogenetic computing.") (v3.12.0)
-- [scikit-learn](http://scikit-learn.org/stable/ "Machine learning in Python") (v0.12.1)
-- [biopython](http://www.biopython.org/‎ "Biopython") (v1.60) *optional - for k-medoids clustering only*
-
-The install process should take care of installing these for you, except numpy and cython (see Installation section, above).
-
-#### External:
-treeCl uses some external software, namely ALF for simulating sequences, and PhyML for calculating trees and likelihoods.
-- [ALF](http://darwin-services.inf.ethz.ch/DarwinServices/ALF.html#service0 "ALF: simulating genome evolution")
-- [PhyML](https://code.google.com/p/phyml/ "Phylogenetic estimation using Maximum Likelihood")
-- [Darwin](http://www.cbrg.ethz.ch/darwin "Data Analysis and Retrieval With Indexed Nucleotide/peptide sequences")
-
-#### Bundled:
-- [GTP](http://dl.acm.org/citation.cfm?id=1916603 "ACM digital library") - a java program for calculating geodesic distances - see [A Fast Algorithm for Computing Geodesic Distances in Tree Space](https://cs.uwaterloo.ca/~m2owen/pub/poly_geodesic.pdf "Owen and Provan, 2011")
 
 ## Example Analysis
 ``` python
-"""
-Import some classes from treeCl
-"""
-from treeCl import Collection, Scorer, Clustering, Partition, DistanceMatrix
 
+import treeCl
 
 """
-Load your data. This should be a directory full of sequence alignments in fasta '*.fas'
-or phylip '*.phy' formats.
+The first point of call is the treeCl.Collection class. 
+This handles loading your data, and calculating the trees 
+and distances that will be used later.
+
+This is how to load your data. This should be a directory
+full of sequence alignments in fasta '*.fas' or phylip
+'*.phy' formats. These can also be zipped using gzip or 
+bzip2, treeCl will load them directly.
 """
-c = Collection(input_dir='input_dir', file_format='phylip',
-    datatype='protein') # add compression='gz' or 'bz2'
-                        # if sequence alignments are compressed
-                        # (zip not supported yet)
+c = Collection(input_dir='input_dir', file_format='phylip')
 
 """
-Calculate some trees. Trees can be Neighbour Joining ('nj') or maximum
-likelihood ('ml'), or an intermediate algorithm where the topology is
-done by NJ, and the branch lengths are done by ML.
-The intermediate algorithm is run with
-    c.calc_NJ_trees(analysis='lr') # 'lr' = 'lengths and rates'
+Now it's time to calculate some trees. The simplest way to 
+do this is
 """
-c.calc_NJ_trees() # add verbosity=1 or higher to get progress messages
-# c.calc_ML_trees() # use maximum likelihood - slower, more accurate
+c.calc_trees()
 
 """
-Now get the distance matrix of between-tree distances and set up a clustering object
+This uses RAxML to infer a tree for each alignment. We can 
+pass arguments to RAxML using keywords.
 """
-dm = c.distance_matrix('euc')
-cl = Clustering(dm)
-
+c.calc_trees(executable='raxmlHPC-PTHREADS-AVX',  # specify raxml binary to use
+             threads=8,  # use multithreaded raxml
+             model='PROTGAMMAWAGX',  # this model of evolution
+             fast_tree=True)  # use raxml's experimental fast tree search option
 
 """
-Do some clustering. Syntax is
-    cl.hierarchical(<number_of_clusters:int>, <method:str>)
-        'method' is one of 'single', 'complete', 'average', 'ward'
-    cl.kmedoids(<number_of_clusters:int>)
-    cl.spectral_cluster(<number_of_clusters:int>, <decomp:Decomp>)
-    cl.MDS_cluster(<number_of_clusters:int>, <decomp:Decomp>)
-
-Spectral and MDS methods need a 'Decomp' object, which is an eigen decomposition
-into eigenvalues and eigenvectors. These are obtained with:
-    decomp = cl.spectral_decomp(-1, 'median') # The -1 and 'median' parameters seem to work best
-    decomp = cl.MDS_decomp()
+We can use PhyML instead of RAxML. Switching programs is 
+done using a TaskInterface
 """
 
-p = cl.hierarchical(2, 'single') # example single-linkage hierarchical
-                                 # clustering into 2 groups
+phyml = treeCl.tasks.PhymlTaskInterface()
+c.calc_trees(task_interface=phyml)
+
+"""
+PhyML doesn't support multithreading, but treeCl can run 
+multiple instances using JobHandlers
+"""
+
+threadpool = treeCl.parutils.ThreadpoolJobHandler(8)  # external software can be run in parallel
+                                              # using a threadpool.
+                                              
+c.calc_trees(jobhandler=threadpool, task_interface=phyml)
+
+"""
+Trees are expensive to calculate. Results can be cached to disk, 
+and reloaded.
+"""
+c.write_parameters('cache')
+c = treeCl.Collection(input_dir='input_dir', param_dir='cache')
+
+"""
+Once trees have been calculated, we can measure all the 
+distances between them. treeCl implements Robinson-Foulds (rf), 
+weighted Robinson-Foulds (wrf), Euclidean (euc), and 
+geodesic (geo) distances.
+"""
+dm = c.get_inter_tree_distances('geo')  
+
+# Alternatively
+processes = treeCl.parutils.ProcesspoolJobHandler(8)  # with pure python code, it is better to use processpools to parallelise for speed
+dm = c.get_inter_tree_distances('geo', 
+                                jobhandler=processes, 
+                                batchsize=100)  # jobs are done in batches to
+                                                # reduce overhead
+
+"""
+Hierarchical Clustering
+"""
+hclust = treeCl.Hierarchical(dm)
+partition = hclust.cluster(3)  # partition into 3 clusters
+
+# To use different linkage methods
+from treeCl.clustering import linkage
+partition = hclust.cluster(3, linkage.AVERAGE)
+partition = hclust.cluster(3, linkage.CENTROID)
+partition = hclust.cluster(3, linkage.COMPLETE)
+partition = hclust.cluster(3, linkage.MEDIAN)
+partition = hclust.cluster(3, linkage.SINGLE)
+partition = hclust.cluster(3, linkage.WARD)  # default, Ward's method
+partition = hclust.cluster(3, linkage.WEIGHTED)
+
+"""
+Spectral Clustering
+"""
+spclust = treeCl.Spectral(dm)
+partition = spclust.cluster(3)
+
+# Alternative calls
+from treeCl.clustering import spectral, methods
+spclust.cluster(3, algo=spectral.SPECTRAL, method=methods.KMEANS) # these are the defaults
+spclust.cluster(3, algo=spectral.KPCA, method=methods.GMM) # alternatives use kernel PCA and a Gaussian Mixture Model
+
+# Getting transformed coordinates
+spclust.spectral_embedding(2) # spectral embedding in 2 dimensions
+spclust.kpca_embedding(3) # kernel PCA embedding in 3 dimensions
+
+"""
+Multidimensional scaling
+"""
+mdsclust = treeCl.MultidimensionalScaling(dm)
+partition = mdsclust.cluster(3)
+
+# Alternatives: classical or metric MDS
+from treeCl.clustering import mds
+partition = mdsclust.cluster(3, algo=mds.CLASSICAL, method=methods.KMEANS)
+partition = mdsclust.cluster(3, algo=mds.METRIC, method=methods.GMM)
+
+# Getting transformed coordinates
+mdsclust.dm.embedding(3, 'cmds')  # Classical MDS, 3 dimensions
+mdsclust.dm.embedding(2, 'mmds')  # Metric MDS, 2 dimensions
 
 """
 Score the result via likelihood
 """
-sc = Scorer(c.records, analysis='nj') # or 'ml' or 'lr'
-score = sc.score(p)
-print score
+raxml = treeCl.tasks.RaxmlTaskInterface()
+sc = treeCl.Scorer(c, cache_dir='scorer', task_interface=raxml) 
+sc.write_partition(partition)
+results = sc.analyse_cache_dir(executable='raxmlHPC-PTHREADS-AVX', threads=8)
 
 """
-Finally, get the sequences and trees for the two groups
+Get the results
 """
+# Get concatenated sequence alignments for each group
+concats = [c.concatenate(grp) for grp in partition.get_membership()]
+alignments = [conc.alignment for conc in concats]
 
-groups = p.get_membership()
-sequences1 = sc.concatenate(groups[0])  # sequences1.write_fasta('filename')
-                                        # or .write_phylip('filename',
-                                        #         interleaved=True)
-sequences2 = sc.concatenate(groups[1])
+# Get a list of the loci in each group
+loci = sc.get_partition_memberships(partition)
 
-tree1 = sc.concats[groups[0]]
-tree2 = sc.concats[groups[1]]
+# Get trees for each group
+trees = sc.get_partition_trees(partition)
 
-```
+# Get full model parameters for each group
+full_results = sc.get_partition_results(partition)  # same as returned by analyse_cache_dir
+

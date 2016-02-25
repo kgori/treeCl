@@ -38,7 +38,8 @@ options = enum(
 
 methods = enum(
     "KMEANS",
-    "GMM")
+    "GMM",
+    "WARD")
 
 linkage = enum(
     "SINGLE",
@@ -55,7 +56,22 @@ mds = enum(
 
 spectral = enum(
     "SPECTRAL",
-    "KPCA")
+    "KPCA",
+    "ZELNIKMANOR")
+
+def _hclust(linkmat, nclusters):
+    linkmat_size = len(linkmat)
+    if nclusters <= 1:
+        br_top = linkmat[linkmat_size - nclusters][2]
+    else:
+        br_top = linkmat[linkmat_size - nclusters + 1][2]
+    if nclusters >= len(linkmat):
+        br_bottom = 0
+    else:
+        br_bottom = linkmat[linkmat_size - nclusters][2]
+    threshold = 0.5 * (br_top + br_bottom)
+    t = fcluster(linkmat, threshold, criterion='distance')
+    return Partition(t)
 
 
 class ClusteringManager(object):
@@ -207,7 +223,7 @@ class Spectral(ClusteringManager, EMMixin):
         embed_dim:         int
                            The dimensionality of the underlying coordinates
                            Defaults to same value as n
-        algo:              enum value (spectral.SPECTRAL | spectral.KPCA)
+        algo:              enum value (spectral.SPECTRAL | spectral.KPCA | spectral.ZELNIKMANOR)
                            Type of embedding to use
         method:            enum value (methods.KMEANS | methods.GMM)
                            The clustering method to use
@@ -226,12 +242,17 @@ class Spectral(ClusteringManager, EMMixin):
             self._coords = self.spectral_embedding(embed_dim)
         elif algo == spectral.KPCA:
             self._coords = self.kpca_embedding(embed_dim)
+        elif algo == spectral.ZELNIKMANOR:
+            self._coords = self.spectral_embedding_(embed_dim)
         else:
             raise OptionError(algo, list(spectral.reverse.values()))
         if method == methods.KMEANS:
             p = self.kmeans(n, self._coords.df.values)
         elif method == methods.GMM:
             p = self.gmm(n, self._coords.df.values)
+        elif method == methods.WARD:
+            linkmat = fastcluster.linkage(self._coords.values, 'ward')
+            p = _hclust(linkmat, n)
         else:
             raise OptionError(method, list(methods.reverse.values()))
         if self._verbosity > 0:
@@ -250,6 +271,21 @@ class Spectral(ClusteringManager, EMMixin):
         """
         coords = spectral_embedding(self._affinity, n)
         return CoordinateMatrix(normalise_rows(coords))
+
+    def spectral_embedding_(self, n):
+        """
+        Old method for generating coords, used on original analysis
+        of yeast data. Included to reproduce yeast result from paper.
+        Reason for difference - switched to using spectral embedding
+        method provided by scikit-learn (mainly because it spreads 
+        points over a sphere, rather than a half sphere, so looks
+        better plotted). Uses a different Laplacian matrix.
+        """
+        aff = self._affinity.copy()
+        aff.flat[::aff.shape[0]+1] = 0
+        laplacian = laplace(aff)
+        decomp = eigen(laplacian)
+        return CoordinateMatrix(normalise_rows(decomp.vecs[:,:n]))
 
     def kpca_embedding(self, n):
         """
@@ -303,9 +339,12 @@ class MultidimensionalScaling(ClusteringManager, EMMixin):
             raise OptionError(algo, list(mds.reverse.values()))
 
         if method == methods.KMEANS:
-            p = self.kmeans(n, self._coords.df.values)
+            p = self.kmeans(n, self._coords.values)
         elif method == methods.GMM:
-            p = self.gmm(n, self._coords.df.values)
+            p = self.gmm(n, self._coords.values)
+        elif method == methods.WARD:
+            linkmat = fastcluster.linkage(self._coords.values, 'ward')
+            p = _hclust(linkmat, n)
         else:
             raise OptionError(method, list(methods.reverse.values()))
         #if self._verbosity > 0:
@@ -369,18 +408,7 @@ class Hierarchical(ClusteringManager):
         matrix = self.get_dm(noise)
 
         linkmat = fastcluster.linkage(squareform(matrix), method)
-        linkmat_size = len(linkmat)
-        if nclusters <= 1:
-            br_top = linkmat[linkmat_size - nclusters][2]
-        else:
-            br_top = linkmat[linkmat_size - nclusters + 1][2]
-        if nclusters >= len(linkmat):
-            br_bottom = 0
-        else:
-            br_bottom = linkmat[linkmat_size - nclusters][2]
-        threshold = 0.5 * (br_top + br_bottom)
-        t = fcluster(linkmat, threshold, criterion='distance')
-        return Partition(t)
+        return _hclust(linkmat, nclusters)
 
 
 class Automatic(ClusteringManager):

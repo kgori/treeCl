@@ -2,7 +2,10 @@
 from __future__ import print_function
 # standard library
 import bz2
-import cPickle
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
 import glob
 import gzip
 import os
@@ -44,10 +47,11 @@ class TempFile(object):
         self.dir = dir_
 
     def __enter__(self):
-        self._wrapped_tmp = tempfile.mkstemp(dir=self.dir)[1]
+        self._fd, self._wrapped_tmp = tempfile.mkstemp(dir=self.dir)
         return os.path.abspath(self._wrapped_tmp)
 
     def __exit__(self, type, value, tb):
+        os.close(self._fd)
         os.remove(self._wrapped_tmp)
 
 
@@ -126,9 +130,9 @@ def freader(filename, gz=False, bz=False):
     """ Returns a filereader object that can handle gzipped input """
 
     filecheck(filename)
-    if filename.endswith('gz'):
+    if filename.endswith('.gz'):
         gz = True
-    elif filename.endswith('bz2'):
+    elif filename.endswith('.bz2'):
         bz = True
 
     if gz:
@@ -143,17 +147,17 @@ def fwriter(filename, gz=False, bz=False):
     """ Returns a filewriter object that can write plain or gzipped output.
     If gzip or bzip2 compression is asked for then the usual filename extension will be added."""
 
-    if filename.endswith('gz'):
+    if filename.endswith('.gz'):
         gz = True
-    elif filename.endswith('bz2'):
+    elif filename.endswith('.bz2'):
         bz = True
 
     if gz:
-        if not filename.endswith('gz'):
+        if not filename.endswith('.gz'):
             filename += '.gz'
         return gzip.open(filename, 'wb')
     elif bz:
-        if not filename.endswith('bz2'):
+        if not filename.endswith('.bz2'):
             filename += '.bz2'
         return bz2.BZ2File(filename, 'w')
     else:
@@ -173,11 +177,11 @@ def glob_by_extensions(directory, extensions):
 def gpickle(obj, filename):
     if not filename.endswith('.gz'):
         filename += '.gz'
-    cPickle.dump(obj, file=gzip.open(filename, 'wb'), protocol=-1)
+    pickle.dump(obj, file=gzip.open(filename, 'wb'), protocol=-1)
 
 
 def gunpickle(filename):
-    return cPickle.load(gzip.open(filename, 'rb'))
+    return pickle.load(gzip.open(filename, 'rb'))
 
 
 def head(filename, n=10):

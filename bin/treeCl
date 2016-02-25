@@ -14,8 +14,9 @@ import numpy as np
 import pandas as pd
 
 # treeCl
-from treeCl import Collection, Clustering, DistanceMatrix, Partition, \
-    Plotter, Scorer
+from treeCl import Collection, Spectral, Hierarchical, \
+                   MultidimensionalScaling, DistanceMatrix, \
+                   Partition,Plotter, Scorer
 from treeCl.constants import logo, SORT_KEY
 from treeCl.errors import directorycheck, directorymake, filecheck
 from treeCl.utils import fileIO, symmetrise
@@ -229,22 +230,20 @@ def get_partition_from_tsv(infile, method, distance_metric, n_clusters):
 
 
 def cluster(clustering, method, nclasses, noise=False):
-    if method == 'spectral':
-        decomp = clustering.spectral_decomp(prune=-1, local_scale='median')
-        return clustering.spectral_cluster(nclasses, decomp)
+    if method in ('spectral', 'mds', 'kmedoids'):
+        return clustering.cluster(nclasses)
 
-    elif method == 'mds':
-        decomp = clustering.MDS_decomp()
-        return clustering.MDS_cluster(nclasses, decomp)
-
-    elif (method == 'single' or
-                  method == 'complete' or
-                  method == 'average' or
-                  method == 'ward'):
-        return clustering.hierarchical(nclasses, method, noise)
-
-    elif method == 'kmedoids':
-        return clustering.kmedoids(nclasses, noise)
+    elif method == 'complete':
+        return clustering.cluster(nclasses, linkage_method=linkage.COMPLETE)
+    
+    elif method == 'single':
+        return clustering.cluster(nclasses, linkage_method=linkage.SINGLE)
+    
+    elif method == 'average':
+        return clustering.cluster(nclasses, linkage_method=linkage.AVERAGE)
+    
+    elif method == 'ward':
+        return clustering.cluster(nclasses, linkage_method=linkage.WARD)
 
 
 def get_command_line(args):

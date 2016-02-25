@@ -62,6 +62,7 @@ class Partition(object):
     def __init__(self, partition_vector):
         self._partition_vector = None
         self.partition_vector = partition_vector
+        self.membership = self.get_membership()
 
     def __str__(self):
         return str(self.partition_vector)
@@ -75,6 +76,9 @@ class Partition(object):
         the number of elements in the data
         """
         return max(self.partition_vector) + 1
+
+    def __getitem__(self, index):
+        return self.membership[index]
 
     @property
     def partition_vector(self):

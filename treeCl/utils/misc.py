@@ -1,9 +1,10 @@
 from progressbar import ProgressBar, Percentage, SimpleProgress, Timer, AdaptiveETA, Bar, FormatLabel
 import numpy as np
 import itertools
+import random
 from phylo_utils import seq_to_partials
 from phylo_utils.markov import TransitionMatrix
-from phylo_utils.models import LG, GTR
+from phylo_utils.models import LG, WAG, GTR
 from phylo_utils.likelihood import GammaMixture
 from Bio.Seq import Seq, UnknownSeq
 from Bio.SeqRecord import SeqRecord
@@ -21,7 +22,9 @@ __all__ = ['concatenate',
            'insort_no_dup',
            'alignment_to_partials',
            'biopython_to_partials',
-           'create_gamma_model']
+           'create_gamma_model',
+           'weighted_choice',
+           'sample_wr']
 
 def concatenate(alignments):
     """
@@ -62,7 +65,7 @@ def concatenate(alignments):
 
     # Stitch all the substrings together using join (most efficient way),
     # and build the Biopython data structures Seq, SeqRecord and MultipleSeqAlignment
-    msa = MultipleSeqAlignment(SeqRecord(Seq(''.join(v), alphabet=alphabet), id=k)
+    msa = MultipleSeqAlignment(SeqRecord(Seq(''.join(v), alphabet=alphabet), id=k, name=k, description=k)
                for (k,v) in tmp.items())
     return msa
 
@@ -173,7 +176,7 @@ def biopython_to_partials(alignment, datatype):
         partials_dict[seq.name] = seq_to_partials(seq, datatype)
     return partials_dict
 
-def create_gamma_model(alignment, missing_data=None, scale_freq=10):
+def create_gamma_model(alignment, missing_data=None, ncat=4):
     """ Create a phylo_utils.likelihood.GammaMixture for calculating
     likelihood on a tree, from a treeCl.Alignment and its matching 
     treeCl.Parameters """
@@ -182,12 +185,35 @@ def create_gamma_model(alignment, missing_data=None, scale_freq=10):
     alpha = alignment.parameters.partitions.alpha
     if model == 'LG':
         subs_model = LG(freqs)
+    elif model == 'WAG':
+        subs_model = WAG(freqs)
     elif model == 'GTR':
         rates = alignment.parameters.partitions.rates
         subs_model = GTR(rates, freqs, True)
     else:
         raise ValueError("Can't handle this model: {}".format(model))
     tm = TransitionMatrix(subs_model)
-    gamma = GammaMixture(alpha, 4)
-    gamma.init_models(tm, alignment_to_partials(alignment, missing_data), scale_freq=scale_freq)
+    gamma = GammaMixture(alpha, ncat)
+    gamma.init_models(tm, alignment_to_partials(alignment, missing_data))
     return gamma
+
+def weighted_choice(choices):
+    total = sum(w for c, w in choices)
+    r = random.uniform(0, total)
+    upto = 0
+    for c, w in choices:
+        if upto + w > r:
+            return c
+        upto += w
+    assert False, "Shouldn't get here"
+
+def sample_wr(lst):
+    """
+    Sample from lst, with replacement
+    """
+    arr = np.array(lst)
+    indices = np.random.randint(len(lst), size=len(lst))
+    sample = np.empty(arr.shape, dtype=arr.dtype)
+    for i, ix in enumerate(indices):
+        sample[i] = arr[ix]
+    return list(sample)

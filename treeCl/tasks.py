@@ -1,4 +1,3 @@
-from pllpy import pll
 import itertools
 import json
 import tempfile
@@ -6,16 +5,18 @@ import tree_collection
 import os
 import random
 from abc import ABCMeta, abstractmethod, abstractproperty
+from functools import reduce
 
-from treeCl import treedist
-from treeCl.tree import Tree
-from treeCl.alignment import Alignment
-from treeCl.utils.pll_helpers import pll_to_dict
-from treeCl.parameters import Parameters
-from treeCl.utils import fileIO, smooth_freqs
-from treeCl.constants import PLL_RANDOM_SEED
-from treeCl.wrappers.phylogenetics import FastTree, parse_fasttree_output, Raxml, Phyml
-from treeCl.parsers import RaxmlParser, PhymlParser
+import phylo_utils
+
+from . import treedist
+from .tree import Tree
+from .alignment import Alignment, SequenceSimulator
+from .parameters import Parameters
+from .utils import fileIO, smooth_freqs
+from .constants import RANDOM_SEED
+from .wrappers.phylogenetics import FastTree, parse_fasttree_output, Raxml, Phyml
+from .parsers import RaxmlParser, PhymlParser
 import logging
 logger = logging.getLogger(__name__)
 import numpy as np
@@ -37,64 +38,53 @@ class TaskInterface(object):
     def name(self):
         return self._name
 
-
 def eucdist_task(newick_string_a, newick_string_b, normalise):
     """
     Distributed version of tree_distance.eucdist
     Parameters: two valid newick strings and a boolean
     """
-    try:
-        tree_a = Tree(newick_string_a)
-        tree_b = Tree(newick_string_b)
-        return treedist.eucdist(tree_a, tree_b, normalise)
-    except Exception as exc:
-        eucdist_task.retry(exc=exc, countdown=1, max_retries=5)
-
+    tree_a = Tree(newick_string_a)
+    tree_b = Tree(newick_string_b)
+    return treedist.eucdist(tree_a, tree_b, normalise)
 
 def geodist_task(newick_string_a, newick_string_b, normalise):
     """
     Distributed version of tree_distance.geodist
     Parameters: two valid newick strings and a boolean
     """
-    try:
-        tree_a = Tree(newick_string_a)
-        tree_b = Tree(newick_string_b)
-        return treedist.geodist(tree_a, tree_b, normalise)
-    except Exception as exc:
-        geodist_task.retry(exc=exc, countdown=1, max_retries=5)
-
+    tree_a = Tree(newick_string_a)
+    tree_b = Tree(newick_string_b)
+    return treedist.geodist(tree_a, tree_b, normalise)
 
 def rfdist_task(newick_string_a, newick_string_b, normalise):
     """
     Distributed version of tree_distance.rfdist
     Parameters: two valid newick strings and a boolean
     """
-    try:
-        tree_a = Tree(newick_string_a)
-        tree_b = Tree(newick_string_b)
-        return treedist.rfdist(tree_a, tree_b, normalise)
-    except Exception as exc:
-        rfdist_task.retry(exc=exc, countdown=1, max_retries=5)
-
+    tree_a = Tree(newick_string_a)
+    tree_b = Tree(newick_string_b)
+    return treedist.rfdist(tree_a, tree_b, normalise)
 
 def wrfdist_task(newick_string_a, newick_string_b, normalise):
     """
     Distributed version of tree_distance.rfdist
     Parameters: two valid newick strings and a boolean
     """
-    try:
-        tree_a = Tree(newick_string_a)
-        tree_b = Tree(newick_string_b)
-        return treedist.wrfdist(tree_a, tree_b, normalise)
-    except Exception as exc:
-        wrfdist_task.retry(exc=exc, countdown=1, max_retries=5)
-
+    tree_a = Tree(newick_string_a)
+    tree_b = Tree(newick_string_b)
+    return treedist.wrfdist(tree_a, tree_b, normalise)
 
 ### TASKS that calculate trees
-def pll_task(alignment_file, partition_string, guidetree=None, tree_search=True, threads=1, seed=PLL_RANDOM_SEED, frequencies=None,
+def pll_task(alignment_file, partition_string, guidetree=None, tree_search=True, threads=1, seed=RANDOM_SEED, frequencies=None,
              write_to_file=None):
+    try:
+        import pllpy
+    except:
+        logger.error("Couldn't import pllpy: returning empty dict")
+        retval = {}
+        return retval
     guidetree = True if guidetree is None else guidetree
-    instance = pll(alignment_file, partition_string, guidetree, threads, seed)
+    instance = pllpy.pll(alignment_file, partition_string, guidetree, threads, seed)
     if frequencies is not None and len(frequencies) == instance.get_number_of_partitions():
         for i in range(len(frequencies)):
             instance.set_frequencies(frequencies[i], i, False)
@@ -102,7 +92,7 @@ def pll_task(alignment_file, partition_string, guidetree=None, tree_search=True,
         instance.optimise_tree_search(True)
     else:
         instance.optimise(True, True, True, True)
-    result = pll_to_dict(instance)
+    result = pllpy.helpers.pll_to_dict(instance)
     if write_to_file is not None: # attempt to write to file specified by write_to_file
         try:
             parameters = Parameters()
@@ -113,7 +103,10 @@ def pll_task(alignment_file, partition_string, guidetree=None, tree_search=True,
             pass  # fail silently
     return result
 
-def phyml_task(alignment_file, model):
+def phyml_task(alignment_file, model, **kwargs):
+    """
+    Kwargs are passed to the Phyml process command line
+    """
     import re
     fl = os.path.abspath(alignment_file)
     ph = Phyml(verbose=False)
@@ -123,46 +116,97 @@ def phyml_task(alignment_file, model):
         datatype = 'nt'
     else:
         datatype = 'aa'
-    cmd = '-i {} -m {} -d {} -f m'.format(alignment_file, model, datatype)
-    ph(cmd, wait=True)
+    cmd = '-i {} -m {} -d {} -f m --quiet'.format(alignment_file, model, datatype)
+    logger.debug("Phyml command = {}".format(cmd))
+    ph(cmd, wait=True, **kwargs)
+    logger.debug("Phyml stdout = {}".format(ph.get_stdout()))
+    logger.debug("Phyml stderr = {}".format(ph.get_stderr()))
     parser = PhymlParser()
     expected_outfiles = ['{}_phyml_stats'.format(alignment_file), '{}_phyml_tree'.format(alignment_file)]
+    for i in range(2):
+        if not os.path.exists(expected_outfiles[i]):
+            expected_outfiles[i] += '.txt'
+    logger.debug('Stats file {} {}'.format(expected_outfiles[0], 'exists' if os.path.exists(expected_outfiles[0]) else 'doesn\'t exist'))
+    logger.debug('Tree file {} {}'.format(expected_outfiles[1], 'exists' if os.path.exists(expected_outfiles[1]) else 'doesn\'t exist'))
     with fileIO.TempFileList(expected_outfiles):
         try:
             result = parser.to_dict(*expected_outfiles)
         except IOError as ioerr:
-            logger.error('File IO error', ioerr)
+            logger.error('File IO error: {}'.format(ioerr))
             result = None
         except ParseException as parseerr:
-            logger.error('Other parse error', parseerr)
+            logger.error('Other parse error: {}'.format(parseerr))
+            result = None
+    return result
+
+def bionj_task(alignment_file, model, **kwargs):
+    """
+    Kwargs are passed to the Phyml process command line
+    """
+    import re
+    fl = os.path.abspath(alignment_file)
+    ph = Phyml(verbose=False)
+    if model in ['JC69', 'K80', 'F81', 'F84', 'HKY85', 'TN93', 'GTR']:
+        datatype = 'nt'
+    elif re.search('[01]{6}', model) is not None:
+        datatype = 'nt'
+    else:
+        datatype = 'aa'
+    cmd = '-i {} -m {} -d {} -b 0 -o n --quiet'.format(alignment_file, model, datatype)
+    logger.debug("Phyml command = {}".format(cmd))
+    ph(cmd, wait=True, **kwargs)
+    logger.debug("Phyml stdout = {}".format(ph.get_stdout()))
+    logger.debug("Phyml stderr = {}".format(ph.get_stderr()))
+    parser = PhymlParser()
+    expected_outfiles = ['{}_phyml_stats'.format(alignment_file), '{}_phyml_tree'.format(alignment_file)]
+    for i in range(2):
+        if not os.path.exists(expected_outfiles[i]):
+            expected_outfiles[i] += '.txt'
+    logger.debug('Stats file {} {}'.format(expected_outfiles[0], 'exists' if os.path.exists(expected_outfiles[0]) else 'doesn\'t exist'))
+    logger.debug('Tree file {} {}'.format(expected_outfiles[1], 'exists' if os.path.exists(expected_outfiles[1]) else 'doesn\'t exist'))
+    with fileIO.TempFileList(expected_outfiles):
+        try:
+            result = parser.to_dict(*expected_outfiles)
+        except IOError as ioerr:
+            logger.error('File IO error: {}'.format(ioerr))
+            result = None
+        except ParseException as parseerr:
+            logger.error('Other parse error: {}'.format(parseerr))
             result = None
     return result
 
 def fasttree_task(alignment_file, dna=False):
     fl = os.path.abspath(alignment_file)
     fst = FastTree(verbose=False)
-    cmd = '-gtr -gamma -pseudo {} {}'.format('-nt' if dna else '', fl)
+    cmd = '{} -gamma -pseudo {} {}'.format('-gtr' if dna else '-wag', '-nt' if dna else '', fl)
     logger.debug('{} {}'.format(fst.exe, cmd))
     fst(cmd, wait=True)
     tree = fst.get_stdout()
     result = parse_fasttree_output(fst.get_stderr())
-    result['ml_tree'] = Tree(tree).as_string('newick', internal_labels=False, suppress_rooting=True).rstrip()
+    result['ml_tree'] = Tree(tree).newick
+    result['partitions'][0]['model'] = 'GTR' if dna else 'WAG'
     return result
 
-def raxml_task(alignment_file, model, partitions_file=None, outfile=None, threads=1, parsimony=False, fast_tree=False):
+def raxml_task(executable, alignment_file, model, partitions_file=None, outfile=None, threads=1, parsimony=False, fast_tree=False):
+    logger.debug('raxml_task: executable {}, alignment_file {}, model {}, partitions_file {}, outfile {}, threads {}, parsimony {}, fast_tree {}'.format(executable, alignment_file, model, partitions_file, outfile, threads, parsimony, fast_tree))
     afl = os.path.abspath(alignment_file)
     pfl = os.path.abspath(partitions_file) if partitions_file else None
     if threads > 1:
-        executable = 'raxmlHPC-PTHREADS-AVX'
+        if 'raxmlHPC' in executable and not 'PTHREADS' in executable:
+            executable = executable.replace('raxmlHPC', 'raxmlHPC-PTHREADS')
         basecmd = '-T {} '.format(threads)
+        logger.debug("Sequential executable modified because threading requested: {}".format(executable))
     else:
-        executable = 'raxmlHPC-AVX'
         basecmd = ''
+
+    # initialise RAxML wrapper
+    rax = Raxml(executable, verbose=False)
+
     with fileIO.TempDir() as tmpd, fileIO.TempFile(tmpd) as name:
         name = os.path.basename(name)
-        rax = Raxml(executable, verbose=False)
         seed=random.randint(1000, 9999)
         outdir=os.path.abspath(tmpd)
+        logger.debug('Raxml ouput files will be written to {}'.format(outdir))
         cmd = basecmd + '-m {model} -n {name} -s {seqfile} -p {seed} -O -w {outdir}'.format(
             model=model, name=name, seqfile=afl, seed=seed,
             outdir=outdir)
@@ -173,38 +217,56 @@ def raxml_task(alignment_file, model, partitions_file=None, outfile=None, thread
             cmd += ' -f E'
         elif parsimony:
             cmd += ' -y'
+        logger.debug('Launching {} {}'.format(executable, cmd))
         rax(cmd, wait=True)
+        logger.debug(rax.get_stdout())
+        logger.debug(rax.get_stderr())
+
         if fast_tree:
             # Need to follow up
-            cmd = basecmd + '-m {model} -n modopt -s {seqfile} -p {seed} -O -w {outdir} -f e -t {outdir}/RAxML_fastTree.{name}'.format(
-                model=model, seqfile=afl, seed=seed, outdir=outdir, name=name)
-            # logger.debug('Follow-up cmd (fast_tree) = {}'.format(cmd))
+            fast_tree_file = os.path.join(outdir, 'RAxML_fastTree.{}'.format(name))
+            logger.debug('Fast tree file exists {}'.format('yes' if os.path.exists(fast_tree_file) else 'no'))
+            cmd = basecmd + '-m {model} -n modopt -s {seqfile} -p {seed} -O -w {outdir} -f e -t {fast_tree_file}'.format(
+                model=model, seqfile=afl, seed=seed, outdir=outdir, fast_tree_file=fast_tree_file)
             if pfl:
                 cmd += ' -q {}'.format(pfl)
+            logger.debug('Launching fast tree follow-up: {} {}'.format(executable, cmd))
             rax(cmd, wait=True)
-            parser = RaxmlParser()
-            result = parser.to_dict(os.path.join(tmpd, 'RAxML_info.modopt'),
-                                    os.path.join(tmpd, 'RAxML_result.modopt'), dash_f_e=True)
+            logger.debug(rax.get_stdout())
+            logger.debug(rax.get_stderr())
+            info_file = os.path.join(outdir, 'RAxML_info.modopt')
+            result_file = os.path.join(outdir, 'RAxML_result.modopt')
+            dash_f_e = True
+
         elif parsimony:
             # Need to follow up
-            cmd = basecmd + '-m {model} -n modopt -s {seqfile} -p {seed} -O -w {outdir} -f e -t {outdir}/RAxML_parsimonyTree.{name}'.format(
-                model=model, seqfile=afl, seed=seed, outdir=outdir, name=name)
-            # logger.debug('Follow-up cmd (parsimony) = {}'.format(cmd))
+            parsimony_tree_file = os.path.join(outdir, 'RAxML_parsimonyTree.{}'.format(name))
+            logger.debug('Parsimony tree file exists {}'.format('yes' if os.path.exists(parsimony_tree_file) else 'no'))
+            cmd = basecmd + '-m {model} -n modopt -s {seqfile} -p {seed} -O -w {outdir} -f e -t {parsimony}'.format(
+                model=model, seqfile=afl, seed=seed, outdir=outdir, parsimony=parsimony_tree_file)
             if pfl:
                 cmd += ' -q {}'.format(pfl)
+            logger.debug('Launching parsimony follow-up: {} {}'.format(executable, cmd))
             rax(cmd, wait=True)
-            parser = RaxmlParser()
-            result = parser.to_dict(os.path.join(tmpd, 'RAxML_info.modopt'),
-                                    os.path.join(tmpd, 'RAxML_result.modopt'), dash_f_e=True)
+            logger.debug(rax.get_stdout())
+            logger.debug(rax.get_stderr())
+            info_file = os.path.join(outdir, 'RAxML_info.modopt')
+            result_file = os.path.join(outdir, 'RAxML_result.modopt')
+            dash_f_e = True
+
         else:
-            # logger.debug('RaxML command - {}'.format(cmd))
-            parser = RaxmlParser()
-            # logger.debug('Temp dir exists - {} ({})'.format(os.path.exists(tmpd), os.path.abspath(tmpd)))
-            # logger.debug('Info file exists - {}'.format('True' if os.path.exists(os.path.join(tmpd, 'RAxML_info.{}'.format(name))) else 'False'))
-            # logger.debug('Tree file exists - {}'.format('True' if os.path.exists(os.path.join(tmpd, 'RAxML_bestTree.{}'.format(name))) else 'False'))
-            result = parser.to_dict(os.path.join(tmpd, 'RAxML_info.{}'.format(name)),
-                                    os.path.join(tmpd, 'RAxML_bestTree.{}'.format(name)))
+            info_file = os.path.join(outdir, 'RAxML_info.{}'.format(name))
+            result_file = os.path.join(outdir, 'RAxML_result.{}'.format(name))
+            dash_f_e = False
+
+        logger.debug('Info file found - {}'.format('yes' if os.path.exists(info_file) else 'no'))
+        logger.debug('Result file found - {}'.format('yes' if os.path.exists(result_file) else 'no'))
+
+        parser = RaxmlParser()
+        result = parser.to_dict(info_file, result_file, dash_f_e=dash_f_e)
+
         if outfile is not None:
+            logger.debug('Attempting to write result to {}'.format(outfile))
             try:
                 with open(outfile, 'w') as ofl:
                     json.dump(result, ofl)
@@ -222,10 +284,10 @@ def fast_calc_distances_task(alignment_file):
                  partitions={0: inner})
     return result
 
-def calc_distances_task(pll_dict, alignment_file, model=None):
+def calc_distances_task(parameter_dict, alignment_file, model=None):
     rec = Alignment(alignment_file, 'phylip', True)
-    freqs = smooth_freqs(pll_dict['partitions'][0]['frequencies'])
-    alpha = pll_dict['partitions'][0]['alpha']
+    freqs = smooth_freqs(parameter_dict['partitions'][0]['frequencies'])
+    alpha = parameter_dict['partitions'][0]['alpha']
     if model is None:
         rec.set_substitution_model('GTR' if rec.is_dna() else 'LG08+F')
     else:
@@ -233,27 +295,32 @@ def calc_distances_task(pll_dict, alignment_file, model=None):
     rec.set_gamma_rate_model(4, alpha)
     rec.set_frequencies(freqs)
     if rec.is_dna():
-        rec.set_rates(pll_dict['partitions'][0]['rates'], 'ACGT')
+        rec.set_rates(parameter_dict['partitions'][0]['rates'], 'ACGT')
     rec.compute_distances()
     result = dict(distances=rec.get_distances().tolist(),
                   variances=rec.get_variances().tolist())
-    pll_dict['partitions'][0].update(result)
-    pll_dict['nj_tree'] = rec.get_bionj_tree()
-    return pll_dict
+    parameter_dict['partitions'][0].update(result)
+    parameter_dict['nj_tree'] = rec.get_bionj_tree()
+    return parameter_dict
 
 
 def simulate_task(n, model, frequencies, alpha, tree, rates=None):
-    rec = Alignment()
-    rec.set_substitution_model(model)
-    rec.set_frequencies(frequencies)
-    rec.set_gamma_rate_model(4, alpha)
-    if rates is not None:
-        try:
-            rec.set_rates(rates, 'acgt')
-        except RuntimeError:
-            pass
-    rec.set_simulator(tree)
-    return rec.simulate(n)
+    if model in ('LG', 'LG08'):
+        subst_model = phylo_utils.models.LG(freqs=frequencies)
+    elif model == 'GTR':
+        if rates is not None:
+            subst_model = phylo_utils.models.GTR(freqs=frequencies, rates=rates)
+        else:
+            subst_model = phylo_utils.models.GTR(freqs=frequencies)
+
+    else:
+        raise ValueError('Currently only supports LG model for proteins, GTR for nucleotides')
+
+    tmat = phylo_utils.markov.TransitionMatrix(subst_model)
+    if not isinstance(tree, Tree):
+        tree = Tree(tree)
+    sim = SequenceSimulator(tmat, tree, ncat=4, alpha=alpha)
+    return sim.simulate(n)
 
 
 def minsq_task(dv, gm, lab, tree, niters=10, keep_topology=False):
@@ -265,6 +332,12 @@ def minsq_task(dv, gm, lab, tree, niters=10, keep_topology=False):
 
 class PllTaskInterface(TaskInterface):
     _name = 'PLL'
+
+    def __init__(self):
+        try:
+            import pllpy
+        except ImportError:
+            logger.error('Could not import pllpy: PllTask not available')
 
     def scrape_args(self, records, model=None, output_dir=None, tree_search=True, **kwargs):
         args = []
@@ -281,9 +354,9 @@ class PllTaskInterface(TaskInterface):
             tree = rec.parameters.nj_tree if rec.parameters.nj_tree is not None else True
             if output_dir is not None and os.path.isdir(output_dir):
                 output_file = os.path.join(output_dir, '{}.json'.format(rec.name))
-                curr_args = (filename, partition, tree, tree_search, 1, PLL_RANDOM_SEED, None, output_file)
+                curr_args = (filename, partition, tree, tree_search, 1, RANDOM_SEED, None, output_file)
             else:
-                curr_args = (filename, partition, tree, tree_search, 1, PLL_RANDOM_SEED)
+                curr_args = (filename, partition, tree, tree_search, 1, RANDOM_SEED)
             args.append(curr_args)
         return args, to_delete
 
@@ -312,10 +385,31 @@ class PhymlTaskInterface(TaskInterface):
         return phyml_task
 
 
+class BionjTaskInterface(TaskInterface):
+    _name = 'Bionj'
+
+    def scrape_args(self, records, model=None, **kwargs):
+        DEFAULT_DNA_MODEL = 'GTR'
+        DEFAULT_PROTEIN_MODEL = 'LG'
+        args = []
+        to_delete = []
+        for rec in records:
+            if model is None:
+                model = DEFAULT_DNA_MODEL if rec.is_dna() else DEFAULT_PROTEIN_MODEL
+            filename, delete = rec.get_alignment_file(as_phylip=True)
+            if delete:
+                to_delete.append(filename)
+            args.append((filename, model))
+        return args, to_delete
+
+    def get_task(self):
+        return bionj_task
+
+
 class RaxmlTaskInterface(TaskInterface):
     _name = 'Raxml'
 
-    def scrape_args(self, records, partition_files=None, model=None, outfiles=None, threads=1, parsimony=False, fast_tree=False):
+    def scrape_args(self, records, executable='raxmlHPC-AVX', partition_files=None, model=None, outfiles=None, threads=1, parsimony=False, fast_tree=False):
         args = []
         to_delete = []
         if partition_files is None:
@@ -348,7 +442,7 @@ class RaxmlTaskInterface(TaskInterface):
                             name=rec.name, seqlen=len(rec))
                         tmpfile.write(partition_string)
 
-            args.append((filename, model, qfile, ofile, threads, parsimony, fast_tree))
+            args.append((executable, filename, model, qfile, ofile, threads, parsimony, fast_tree))
         return args, to_delete
 
     def get_task(self):
@@ -478,9 +572,6 @@ class MLDistanceTaskInterface(TaskInterface):
 
 
 class SimulatorTaskInterface(TaskInterface):
-    """
-    BROKEN
-    """
     _name = 'Simulator'
 
     def scrape_args(self, results_list):
@@ -532,3 +623,42 @@ class EuclideanTreeDistance(TreeDistanceTaskInterface):
     def get_task(self):
         return eucdist_task
 
+
+from tree_distance import getEuclideanDistance, getGeodesicDistance, getRobinsonFouldsDistance,\
+    getWeightedRobinsonFouldsDistance
+
+def _fast_geo(tree1, tree2, normalise=False):
+    return getGeodesicDistance(tree1, tree2, normalise)
+
+def _fast_euc(tree1, tree2, normalise=False):
+    return getEuclideanDistance(tree1, tree2, normalise)
+
+def _fast_rf(tree1, tree2, normalise=False):
+    return getRobinsonFouldsDistance(tree1, tree2, normalise)
+
+def _fast_wrf(tree1, tree2, normalise=False):
+    return getWeightedRobinsonFouldsDistance(tree1, tree2, normalise)
+
+
+class EqualLeafSetGeodesicTreeDistance(TreeDistanceTaskInterface):
+    _name = 'GeodesicDistance'
+    def get_task(self):
+        return _fast_geo
+
+
+class EqualLeafSetEuclideanTreeDistance(TreeDistanceTaskInterface):
+    _name = 'EuclideanDistance'
+    def get_task(self):
+        return _fast_euc
+
+
+class EqualLeafSetRobinsonFouldsTreeDistance(TreeDistanceTaskInterface):
+    _name = 'RobinsonFouldsDistance'
+    def get_task(self):
+        return _fast_rf
+
+
+class EqualLeafSetWeightedRobinsonFouldsTreeDistance(TreeDistanceTaskInterface):
+    _name = 'WeightedRobinsonFouldsDistance'
+    def get_task(self):
+        return _fast_wrf

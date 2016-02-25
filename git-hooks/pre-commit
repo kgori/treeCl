@@ -1,0 +1,12 @@
+#!/bin/bash
+# Pre-commit hook: Don't allow pushing source files in mode 755
+#                  Symlink into .git/hooks to activate
+echo "Running pre-commit hook"
+R=$(find . -type f -perm 755 -not -iwholename '*git*' -not -iwholename '*bin*')
+if [ "$R" != "" ]; then
+    find . -type f -perm 755 -not -iwholename '*git*' -not -iwholename '*bin*' -exec chmod 644 {} \;
+    echo "Some source files had the executable bit set - re-add and re-commit"
+    exit 1
+fi
+exit 0
+

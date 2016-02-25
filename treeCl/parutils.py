@@ -82,7 +82,7 @@ def sequential_map(task, args, message):
     pbar = setup_progressbar(message, njobs, simple_progress=True)
     pbar.start()
     map_result = []
-    for (i, arglist) in enumerate(tupleise(args)):
+    for (i, arglist) in enumerate(tupleise(args), start=1):
         map_result.append(task(*arglist))
         pbar.update(i)
     pbar.finish()
@@ -224,7 +224,7 @@ class IPythonJobHandler(JobHandler):
         try:
             self.client=IPython.parallel.Client(profile=profile)
             logger.debug('__init__: len(client) = {}'.format(len(self.client)))
-        except IOError, IPython.parallel.TimeoutError:
+        except (IOError, IPython.parallel.TimeoutError):
             msg = 'Could not obtain an IPython parallel Client using profile "{}"'.format(profile)
             logger.error(msg)
             raise RuntimeError(msg)

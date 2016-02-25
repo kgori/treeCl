@@ -8,30 +8,8 @@ except ImportError:
 
     def find_packages():
         return ['treeCl', 'treeCl.interfacing', 'treeCl.tasks', 'treeCl.utils']
-try:
-    from Cython.Distutils import build_ext
-except ImportError:
-    print('You don\'t seem to have Cython installed.')
-    print('Cython and Numpy are required for the')
-    print('installation process, all other dependencies')
-    print('will be installed automatically.')
-    print('Install Cython [and Numpy] and try again.')
-    import sys
 
-    sys.exit()
-
-try:
-    from numpy import get_include as numpy_get_include
-except ImportError:
-    print('You don\'t seem to have Numpy installed.')
-    print('Numpy and Cython are required for the')
-    print('installation process, all other dependencies')
-    print('will be installed automatically.')
-    print('Install Numpy [and Cython] and try again.')
-    import sys
-
-    sys.exit()
-
+from Cython.Distutils import build_ext
 import pkg_resources
 import platform
 import re
@@ -41,7 +19,7 @@ import subprocess
 def is_clang(bin):
     proc = subprocess.Popen([bin, '-v'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = proc.communicate()
-    output = '\n'.join([stdout, stderr])
+    output = str(b'\n'.join([stdout, stderr]).decode('ascii', 'ignore'))
     return not re.search(r'clang', output) is None
 
 class my_build_ext(build_ext):
@@ -52,11 +30,10 @@ class my_build_ext(build_ext):
                 e.extra_compile_args.append('-stdlib=libc++')
                 if platform.system() == 'Darwin':
                     e.extra_compile_args.append('-mmacosx-version-min=10.7')
+                    e.extra_link_args.append('-mmacosx-version-min=10.7')
         build_ext.build_extensions(self)
 
 compile_args = ['-std=c++1y']
-
-data_dir = pkg_resources.resource_filename("autowrap", "data_files")
 
 extensions = [
     Extension(name='tree_collection',
@@ -67,13 +44,13 @@ extensions = [
                   'extensions/tree_collection/src/newick.cc',
               ],
               language='c++',
-              include_dirs=[data_dir],
-              extra_compile_args=['-std=c++11'],
+              include_dirs=['extensions/tree_collection/src/eigen3'],
+              extra_compile_args=compile_args,
     ),
 ]
 
 # Install splash
-VERSION = '0.0.7'
+VERSION = '0.1.12'
 
 logo = """
 ═══════════ ╔═╗┬
@@ -81,9 +58,9 @@ logo = """
  │ ├┬┘├┤ ├┤ ╚═╝┴─┘
  ┴ ┴└─└─┘└─┘╭─────
 ┈┈┈┈┈┈┄┄┄┄┄─┤  ╭──
-   V{0:s}   ╰──┤
+{versionfmt}╰──┤
 ══════════════ ╰──
-""".format(VERSION)
+""".format(versionfmt=VERSION.center(12))
 
 print(logo)
 
@@ -99,28 +76,28 @@ setup(name="treeCl",
           'treeCl': ['logging/logging.yaml']
       },
       scripts=[
-          'bin/simulator',
+          # 'bin/simulator',
           'bin/collapse',
-          'bin/treeCl',
-          'bin/seqconvert',
+          # 'bin/treeCl',
+          # 'bin/seqconvert',
           'bin/bootstrap',
-          'bin/npbs.py',
-          'bin/pre_npbs.py',
+          # 'bin/npbs.py',
+          # 'bin/pre_npbs.py',
       ],
       install_requires=[
-          'autowrap',
           'biopython',
-          'bpp',
           'cython',
-          'dendropy',
+          'dendropy>=4.0.0',
           'fastcluster',
+          'futures',
           'ipython',
           'matplotlib',
+          'nose',
           'numpy',
           'pandas',
           'phylo_utils',
-          'pllpy',
           'progressbar-latest',
+          'PyYaml',
           'scipy',
           'scikit-bio',
           'scikit-learn',

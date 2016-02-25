@@ -13,8 +13,8 @@ class KendallColijn(object):
         """
         Initialise the data structure, compute m and M.
         """
-        info = self._precompute(tree)
-        m, M = self._get_vectors(tree, info)
+        info = self._precompute(tree._tree)
+        m, M = self._get_vectors(tree._tree, info)
         self.little_m = m
         self.big_m = M
 
@@ -59,7 +59,7 @@ class KendallColijn(object):
         The vector v is the weighted average of m and M.
         lbda, a.k.a. lambda, is the weighting parameter.
         """
-        return (1-lbda)*self.little_m - lbda*self.big_m
+        return (1-lbda)*self.little_m + lbda*self.big_m
 
     def get_distance(self, other, lbda=0.5):
         """

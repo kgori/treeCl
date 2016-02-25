@@ -48,7 +48,7 @@ class PartitionTests(unittest.TestCase):
 
     def test_random(self):
         # Be aware, this has been known to spontaneously fail - problem with testing random things
-        p = Partition.random([1, 1, 1], 12)
+        p = Partition.random([12, 12, 12], 12)
         self.assertEqual(p.num_groups(), 3)
 
 
@@ -80,6 +80,10 @@ class TreeTests(unittest.TestCase):
         t = treeCl.tree.RandomTree.new(10, names)
         self.assertEqual(sorted(t.labels), sorted(names))
 
+    def test_Newick_read(self):
+        n = '((((Sp1:0.0523947839547,Sp2:1.37159604411):2.36974538201,((Sp3:0.179093762783,(Sp4:0.615505083102,Sp5:0.344065892719):0.0724725996144):0.307962158157,(Sp6:1.48158479406,Sp7:3.13329090451):1.62357461752):0.62792640958):2.64647302212,(Sp8:0.145879857199,Sp9:4.33463301328):0.785221836876):0.0653625005117,((((Sp10:0.0327158596802,Sp11:0.346629825105):0.513499606131,Sp12:0.0931894502388):1.75462968872,(Sp13:0.0508398281971,Sp14:0.902409030743):0.248348229186):2.66397475192,(Sp15:0.623334704667,Sp16:0.727987265987):2.45688940891):1.00011564391):0.0;'
+        self.assertEqual(treeCl.tree.Tree(n).newick, n)
+
 
 class DistanceMatrixTests(unittest.TestCase):
     def test_from_csv(self):
@@ -87,9 +91,22 @@ class DistanceMatrixTests(unittest.TestCase):
         self.assertEqual(dm.df.values.sum(), 412.70677069540181)
 
 
-class EMTests(unittest.TestCase):
+class RaxmlParserTests(unittest.TestCase):
     def setUp(self):
-        pass
+        self.parser = treeCl.parsers.RaxmlParser()
+        self.info = os.path.join(thisdir, 'data', 'parsing', 'RAxML_info.modopt')
+        self.result = os.path.join(thisdir, 'data', 'parsing', 'RAxML_result.modopt')
+        self.infoq = os.path.join(thisdir, 'data', 'parsing', 'RAxML_info.modoptq')
+        self.resultq = os.path.join(thisdir, 'data', 'parsing', 'RAxML_result.modoptq')
+
+    def test_can_parse_default_name(self):
+        parse_result = self.parser.to_dict(self.info, self.result, True)
+        self.assertEqual(parse_result['partitions'][0]['name'], 'No Name Provided')
+
+    def test_can_parse_provided_name(self):
+        parse_result = self.parser.to_dict(self.infoq, self.resultq, True)
+        self.assertEqual(parse_result['partitions'][0]['name'], 'class1_1')
+
 
 def main():
     unittest.main()

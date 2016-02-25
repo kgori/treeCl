@@ -4,12 +4,12 @@ import argparse
 import math
 import sys
 
-from treeCl.datastructs.trcl_seq import TrClSeq as Seq
+from treeCl.alignment import Alignment
 from treeCl.utils import fileIO
 from treeCl.errors import filecheck, directorymake, optioncheck
 
 
-def bootstrap(filename, directory, n=100, **kwargs):
+def bootstrap(filename, directory, n=100, file_format='fasta'):
     """
     bootstrap:  
         takes a sequence alignment file and makes n bootstrap
@@ -21,13 +21,13 @@ def bootstrap(filename, directory, n=100, **kwargs):
         n = number of replicates to make
     """
 
-    rec = Seq(filename, **kwargs)
-    rec.name = get_prefix(filename)
+    al = Alignment(filename, file_format)
+    # al.name = get_prefix(filename)
     nfigures = int(math.ceil(math.log10(n + 1)))
     for i in range(n):
-        sample_name = '{0}_{1:0>{2}}.phy'.format(rec.name, i + 1, nfigures)
-        boot = rec.bootstrap_sample()
-        boot.write_phylip('{0}/{1}'.format(directory, sample_name),
+        sample_name = '{0}_{1:0>{2}}.phy'.format(al.name, i + 1, nfigures)
+        boot = al.bootstrap()
+        boot.write_alignment('{0}/{1}'.format(directory, sample_name), file_format,
                           interleaved=True)
     print '{0} files written to {1}'.format(n, directory)
 
@@ -73,8 +73,8 @@ def get_prefix(filename):
 
 def main():
     args = check_args(parse_args())
-    bootstrap(args.infile, args.directory, n=args.number,
-              file_format=args.file_format)
+    bootstrap(args.infile, args.directory, args.number,
+              args.file_format)
 
 
 if __name__ == '__main__':

@@ -10,7 +10,7 @@ from tree_distance import getEuclideanDistance, getGeodesicDistance, getRobinson
     getWeightedRobinsonFouldsDistance
 
 # treeCl
-from utils import setup_progressbar
+from .utils import setup_progressbar
 
 __all__ = ["eucdist", "eucdist_matrix", "geodist", "geodist_matrix", "rfdist", "rfdist_matrix", "wrfdist",
            "wrfdist_matrix"]

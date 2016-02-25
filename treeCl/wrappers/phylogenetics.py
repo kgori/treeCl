@@ -1,4 +1,5 @@
 from .abstract_wrapper import AbstractWrapper
+from ..utils import smooth_freqs
 import re
 
 class Raxml(AbstractWrapper):
@@ -44,7 +45,30 @@ def parse_fasttree_output(s):
         raise AttributeError('Couldn\'t parse loglk and alpha')
         return None
 
-    return {'likelihood': loglk, 'partitions': {0: {'alpha': alpha}}}
+    try:
+        freqs_match = re.search(r'GTR Frequencies:\s+([0-9.-]+)\s+([0-9.-]+)\s+([0-9.-]+)\s+([0-9.-]+)',s)
+        if freqs_match:
+            freqs = []
+            for i in range(1, 5):
+                freqs.append(float(freqs_match.group(i)))
+    except:
+        freqs = []
+
+    try:
+        rates_match = re.search(r'GTR rates\(ac ag at cg ct gt\)\s+([0-9.-]+)\s+([0-9.-]+)\s+([0-9.-]+)\s+([0-9.-]+)\s+([0-9.-]+)\s+([0-9.-]+)\s+',s)
+        if rates_match:
+            rates = []
+            for i in range(1, 7):
+                rates.append(float(rates_match.group(i)))
+    except:
+        rates = []
+
+    result = {'likelihood': loglk, 'partitions': {0: {'alpha': alpha}}}
+    if freqs:
+        result['partitions'][0]['frequencies'] = smooth_freqs(freqs)
+    if rates:
+        result['partitions'][0]['rates'] = rates
+    return result
 
 def parse_raxml_output(s):
     ac=float(re.search(r'rate A <-> C:\s+([0-9.]+)', s).groups()[0])

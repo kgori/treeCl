@@ -97,12 +97,16 @@ class AbstractWrapper(object):
         if executable:
             exe = self._search_for_executable(executable)
             if exe is None:
-                logging.error('Couldn\'t locate {}, trying fallback'.format(executable))
+                exe = self._search_for_executable(self._default_exe)
+                if exe is None:
+                    raise IOError('Couldn\'t locate specified executable {}, or default executable {}'.format(executable, self._default_exe))
+                else:
+                    logging.error('Couldn\'t locate {}, found {} as fallback'.format(executable, exe))
 
         if exe is None:
             exe = self._search_for_executable(self._default_exe)
             if not exe:
-                raise IOError(executable if executable else self._default_exe)
+                raise IOError('Couldn\'t locate default executable {}'.format(self._default_exe))
 
         self.exe = exe           # The wrapped executable
         self.verbose = verbose   # Controls printing of output
@@ -112,6 +116,7 @@ class AbstractWrapper(object):
         self.stderr_l = list()   # making it available to the caller
         self.process = None      # This holds the running process once the wrapped program is called
         self._help = None        # A place to hold a help string
+        self.threads = list()    # Keep hold of our threads
 
     def __repr__(self):
         return '{}(executable=\'{}\')'.format(self.__class__.__name__, self.exe)
@@ -147,10 +152,11 @@ class AbstractWrapper(object):
             out.close()
 
         # start thread
-        self.t = threading.Thread(target=enqueue_output,
+        t = threading.Thread(target=enqueue_output,
                                   args=(pipe, queue))
-        self.t.daemon = True  # thread dies with the program
-        self.t.start()
+        t.daemon = True  # thread dies with the program
+        t.start()
+        self.threads.append(t)
 
     def _search_for_executable(self, executable):
         """
@@ -223,6 +229,8 @@ class AbstractWrapper(object):
         :param tail: Return this number of most-recent lines.
         :return: copy of stderr stream
         """
+        if self.finished(): 
+            self.join_threads()
         while not self.stderr_q.empty():
             self.stderr_l.append(self.stderr_q.get_nowait())
         if tail is None:
@@ -235,6 +243,8 @@ class AbstractWrapper(object):
         :param tail: Return this number of most-recent lines.
         :return: copy of stdout stream
         """
+        if self.finished(): 
+            self.join_threads()
         while not self.stdout_q.empty():
             self.stdout_l.append(self.stdout_q.get_nowait())
         if tail is None:
@@ -260,9 +270,8 @@ class AbstractWrapper(object):
                 print('Killing {} with PID {}'.format(self.exe, self.process.pid))
             self.process.kill()
 
-            # Thread *should* tidy up itself, but we do it explicitly
-            if self.t.is_alive():
-                self.t.join(1)
+            # Threads *should* tidy up after themselves, but we do it explicitly
+            self.join_threads()
 
     def running(self):
         """
@@ -273,3 +282,8 @@ class AbstractWrapper(object):
         if self.process is None:
             return False
         return self.process.poll() is None
+
+    def join_threads(self):
+        for t in self.threads:
+            if t.is_alive():
+                t.join(1)

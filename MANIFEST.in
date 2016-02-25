@@ -1,7 +1,10 @@
 include README.md
 include bin/simulator
 include bin/treeCl
+recursive-include extensions/tree_collection/src/eigen3 *
+recursive-include tests/data *
 include extensions/tree_collection/src/*.h
 include extensions/tree_collection/src/*.cc
 include extensions/tree_collection/cython/wrapper.*
 include treeCl/logging/logging.yaml
+include

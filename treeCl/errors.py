@@ -94,7 +94,7 @@ def filecheck(filename):
 def filequit(filename):
     try:
         filecheck(filename)
-    except FileError, e:
+    except FileError as e:
         print(e)
         sys.exit()
 
@@ -109,7 +109,7 @@ def directoryquit(directory):
     try:
         if not os.path.isdir(directory):
             raise DirectoryError(directory)
-    except DirectoryError, e:
+    except DirectoryError as e:
         print(e)
         sys.exit()
 
@@ -117,7 +117,7 @@ def directoryquit(directory):
 def directorymake(directory, verbosity=0):
     try:
         directorycheck(directory)
-    except DirectoryError, e:
+    except DirectoryError as e:
         if verbosity > 1:
             print(e)
         if verbosity > 0:

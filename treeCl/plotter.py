@@ -7,85 +7,104 @@ import itertools
 # third party
 import matplotlib.pyplot as plt
 from matplotlib import cm as CM
+from matplotlib.colors import hex2color
 import numpy as np
 
 # treeCl
 from .collection import Collection
 from .clustering import Spectral, MultidimensionalScaling
-from .distance_matrix import DistanceMatrix
+from .distance_matrix import CoordinateMatrix, DistanceMatrix
 from .partition import Partition
 from .errors import optioncheck
 from .utils import flatten_list
+from .colours import ggColorSlice
 
 import logging
 logger = logging.getLogger(__name__)
 
+SET2 = ["#66c2a5","#fc8d62","#8da0cb","#e78ac3","#a6d854","#ffd92f","#e5c494","#b3b3b3"]
+SET3 = ["#8dd3c7","#ffffb3","#bebada","#fb8072","#80b1d3","#fdb462","#b3de69","#fccde5","#d9d9d9","#bc80bd","#ccebc5","#ffed6f"]
+
+def heatmapper(dm, partition=None, cmap=CM.Blues, fontsize=10):
+    assert isinstance(dm, DistanceMatrix)
+    datamax = float(np.abs(dm.values).max())
+    length = dm.shape[0]
+
+    if partition:
+        sorting = np.array(flatten_list(partition.get_membership()))
+        new_dm = dm.reorder(dm.df.columns[sorting])
+    else:
+        new_dm = dm
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    
+    ax.xaxis.tick_top()
+    ax.grid(False)
+
+    tick_positions = np.array(list(range(length))) + 0.5
+    ax.set_yticks(tick_positions)
+    ax.set_xticks(tick_positions)
+    ax.set_xticklabels(new_dm.df.columns, rotation=90, fontsize=fontsize, ha='center')
+    ax.set_yticklabels(new_dm.df.index, fontsize=fontsize, va='center')
+
+    cbar_ticks_at = [0, 0.5 * datamax, datamax]
+    
+    cax = ax.imshow(
+        new_dm.values,
+        interpolation='nearest',
+        extent=[0., length, length, 0.],
+        vmin=0,
+        vmax=datamax,
+        cmap=cmap,
+    )
+    cbar = fig.colorbar(cax, ticks=cbar_ticks_at, format='%1.2g')
+    cbar.set_label('Distance')
+    return fig
+
+
+def plotly_3d_scatter(coords, partition=None):
+    from plotly.graph_objs import Scatter3d, Data, Figure, Layout, Line, Margin, Marker
+    # auto sign-in with credentials or use py.sign_in()
+
+    colourmap = {
+        'A':'#1f77b4', 
+        'B':'#ff7f0e', 
+        'C':'#2ca02c',
+        'D':'#d62728',
+        'E':'#9467bd',
+        1:'#1f77b4', 
+        2:'#ff7f0e', 
+        3:'#2ca02c',
+        4:'#d62728',
+        5:'#9467bd'
+    }
+
+    df = coords.df
+    if partition:
+        assert len(partition.partition_vector) == df.shape[0]
+        labels = [x+1 for x in partition.partition_vector]
+    else:
+        labels = [1 for _ in range(df.shape[0])]
+
+    x, y, z = df.columns[:3]
+    df['Label'] = labels
+    
+    colours = [colourmap[lab] for lab in df['Label']]
+    trace = Scatter3d(x=df[x], y=df[y], z=df[z], mode='markers',
+                      marker=Marker(size=9, color=colours, 
+                                    line=Line(color=colours, width=0.5), opacity=0.8),
+                      text=[str(ix) for ix in df.index])
+
+    data = Data([trace])
+    layout = Layout(
+        margin=Margin(l=0, r=0, b=0, t=0 ),
+        hovermode='x',
+    )
+    fig = Figure(data=data, layout=layout)
+    return fig
 
 class Plotter(object):
-    def __init__(self, collection=None, records=None, dm=None,
-                 metric='geo', **kwargs):
-
-        """ Initialisation:
-        A fully-formed Collection object can be given, or a list of records.
-        If a list of records is provided a Collection object is built from it,
-        with **kwargs being passed to the constructor.
-        Additionally a distance matrix can be passed, or else one is constructed
-        using the metric specified (default=geodesic)
-        """
-
-        if records:
-            self.collection = Collection(records, **kwargs)
-        else:
-            self.collection = collection
-
-        if dm is not None:
-            self.dm = dm
-        # else:
-        #     self.dm = self.calc_dm(metric)
-
-        self._warnings()
-
-    def __len__(self):
-        if self.collection:
-            return len(self.collection.records)
-        return 0
-
-    def _warnings(self):
-        if self.collection:
-            if any([(r.tree is None) for r in self.collection.records]):
-                logger.warn('No trees have been calculated for these records')
-
-    # def calc_dm(self, method='geo'):
-    #
-    #     return (self.collection.distance_matrix(method)
-    #             if self.collection
-    #             else None)
-
-    def get_decomp(self, method='MDS', **kwargs):
-        optioncheck(method, ['MDS', 'spectral'])
-        cl = Clustering(self.dm)
-        if method == 'MDS':
-            return cl.mds_decomp()
-        if method == 'spectral':
-            return cl.spectral_decomp(**kwargs)
-
-    def get_coords(self, method, dimensions, normalise=False, **kwargs):
-        decomp = self.get_decomp(method, **kwargs)
-        if method in ['mds', 'MDS']:
-            L = np.diag(np.sqrt(decomp.vals[:dimensions]))
-            E = decomp.vecs[:, :dimensions]
-            coords = E.dot(L)
-            return coords
-
-        else:
-            return self.decomp_to_coords(decomp, dimensions, normalise=True)
-
-    def decomp_to_coords(self, decomp, dimensions, normalise=False):
-        optioncheck(dimensions, [2, 3])
-
-        coords = decomp.coords_by_dimension(dimensions)[0]
-        return coords.normalise_rows() if normalise else coords
-
     def sphere(self, ax):
         (u, v) = np.mgrid[0:2 * np.pi:20j, 0:np.pi:10j]
         x = np.cos(u) * np.sin(v)
@@ -121,112 +140,81 @@ class Plotter(object):
         cbar.set_label('Distance')
         return fig
 
-    def embedding(self, method='MDS', dimensions=3, partition=None,
-                  add_sphere=False,
-                  xlab='PCo1', ylab='PCo2', zlab='PCo3',
-                  title='Trees embedded in dimension-reduced space',
-                  outfile=False, **kwargs
-    ):
-
-        """ Gets coordinates, then calls embedding_plotter to do the plot """
-
-        coords = self.get_coords(method, dimensions, normalise=False, **kwargs)
-        return self.embedding_plotter(coords, dimensions, partition, add_sphere,
-                                      xlab, ylab, zlab, title, outfile)
-
     def embedding_plotter(
-            self, coordinates, dimensions, partition=None, add_sphere=False,
-            xlab='PCo1', ylab='PCo2', zlab='PCo3',
-            title='Trees embedded in dimension-reduced space',
-            outfile=False,
+            self, coordinates, partition=None, add_sphere=False, point_size=8,
+            colours=None, labels=None, legend=True, outfile=False, **kwargs
     ):
-        """ Points are coloured according to cluster membership specified
-        by Partition object (or all black if no Partition specified) """
+        """ 
+        Plot a 2D / 3D scatterplot of the coordinates, optionally
+        coloured by group membership. 
 
-        optioncheck(dimensions, [2, 3])
+        Parameters
+        ==========
+        coordinates [numpy array|treeCl.CoordinateMatrix] -
+            The coordinates of the points to plot. The number
+            of columns determines the number of dimensions in
+            the plot.
+        add_sphere [bool] -
+            Add a wireframe sphere
+        colours [None|list of rgb hexes|'auto'] -
+            Colours to use to colour the points, as a list of
+            RGB hex values. If None, defaults
+            (colorbrewer set3). If 'auto', generates a set
+            of colours similar to ggplot.
+        labels [Tuple(xlab, ylab, title)] -
+            Plot labels
+        outfile [str] -
+            Save figure
+        """
+        if isinstance(coordinates, CoordinateMatrix):
+            coordinates = coordinates.values
+        dimensions = min(3, coordinates.shape[1])
         partition = (partition or
                      Partition(tuple([0] * len(coordinates))))
+        ngrp = partition.num_groups()
 
-        colours = zip(*zip(range(len(partition)), itertools.cycle('bgrcmyk')))[1]
-        print(colours)
-        colour_mapping = np.array([colours[i - 1]
-                                   for i in partition.partition_vector])
+        if colours is None:
+            colours = SET2
+        elif colours == 'auto':
+            colours = ggColorSlice(ngrp)
+
+        colour_cycle = itertools.cycle(colours)
+        colours = np.array([hex2color(c) for c in itertools.islice(colour_cycle, ngrp)])
+
+        if labels is None:
+            xlab, ylab, zlab, title = None, None, None, None
+        else:
+            if isinstance(labels, (tuple, list)):
+                labels = list(labels[:4])
+                labels.extend([None]*(4-len(labels)))
+                xlab, ylab, zlab, title = labels
+
         fig = plt.figure()
 
         if dimensions == 3:
-            ax = fig.add_subplot(111, projection='3d',
-                                 xlabel=xlab, ylabel=ylab, zlabel=zlab, title=title)
+            ax = fig.add_subplot(111, projection='3d')
             if add_sphere:
                 ax = self.sphere(ax)
-
         else:
-            ax = fig.add_subplot(111,
-                                 xlabel=xlab, ylabel=ylab, title=title)
+            ax = fig.add_subplot(111)
+        
+        members = partition.get_membership()
+        for grp in range(ngrp):
+            index = np.array(members[grp])
+            points = coordinates[index,:dimensions].T
+            ax.scatter(*points, s=point_size, c=colours[grp], edgecolor=colours[grp], label='Group {}'.format(grp+1), **kwargs)
 
-        ax.scatter(*coordinates.T, color=colour_mapping)
-        # ax.set_aspect(1)
-
-
+        if xlab:
+            ax.set_xlabel(xlab)
+        if ylab:
+            ax.set_ylabel(ylab)
+        if zlab:
+            ax.set_zlabel(zlab)
+        if title:
+            ax.set_title(title)
+        if legend:
+            plt.legend()
         if outfile:
             fig.savefig('{0}.pdf'.format(outfile))
 
         return fig
-
-
-if __name__ == '__main__':
-    # TESTS
-
-    # from collection import Collection
-    from lib.remote.utils import fileIO
-
-    path_to_file = fileIO.path_to(__file__)
-    test_data = fileIO.join_path(path_to_file, 'aa_alignments')
-
-    print('Loading data...', end='')
-    c = Collection(
-        input_dir=test_data,
-        file_format='phylip',
-        datatype='protein',
-        compression='gz',
-    )
-    print(' success')
-    print('Building trees... ', end='')
-    c.calc_NJ_trees()
-    print('success')
-
-    print('Building distance matrix...', end='')
-    dm = c.distance_matrix('geo')
-    print('success')
-
-    print('Can build empty Plotter object... ', end='')
-    empty_plotter = Plotter()
-    print('true')
-
-    print('Can build Plotter from Collection object... ', end='')
-    plotter_from_collection = Plotter(c, metric='euc')
-    print('yep')
-
-    print('Can build Plotter from Collection + DistanceMatrix...', end='')
-    plotter_with_dm = Plotter(c, dm=dm)
-    print('yes')
-
-    print('Can build Plotter from a list of TrClSeq objects...', end='')
-    plotter_from_records = Plotter(records=c.records)
-    print('yes')
-
-    print('Can build Plotter from DistanceMatrix only...', end='')
-    plotter_just_dm = Plotter(dm=dm)
-    print('yes')
-
-    print('Testing plotting')
-    p = Partition(tuple([1] * 15 + [2] * 15 + [3] * 15 + [4] * 15))
-    p_rand = Partition(tuple([1, 3, 1, 4, 2, 3, 3, 3, 2, 2, 1, 3, 3, 4, 1, 4, 1,
-                              1, 2, 4, 1, 2, 2, 2, 2, 2, 3, 4, 2, 2, 1, 4, 3, 1, 4, 4, 3, 1, 3, 1, 3,
-                              2, 4, 4, 1, 4, 1, 2, 3, 4, 2, 4, 3, 2, 1, 3, 4, 4, 1, 3]))
-    fig1 = plotter_from_collection.embedding('MDS', 2, p)  # 2d MDS embedding
-    fig2 = plotter_from_collection.embedding('MDS', 3, p)  # 3d MDS embedding
-    fig3 = plotter_from_collection.embedding('spectral', 2, p_rand)  # 2d spectral
-    fig4 = plotter_from_collection.embedding('spectral', 3, p_rand)  # 3d spectral
-    fig5 = plotter_just_dm.heatmap(p)  # distance matrix as
-    fig6 = plotter_just_dm.heatmap(p_rand)
-    plt.show()

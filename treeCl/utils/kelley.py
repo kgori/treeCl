@@ -2,7 +2,7 @@ from __future__ import division, print_function
 
 import numpy as np
 
-from treeCl.partition import Partition
+from ..partition import Partition
 
 
 __author__ = 'kgori'
