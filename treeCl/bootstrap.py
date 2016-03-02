@@ -1,6 +1,5 @@
 import numpy as np
 from scipy.spatial.distance import pdist, squareform
-from scipy.optimize import minimize
 
 from .tasks import _fast_geo
 
@@ -36,7 +35,7 @@ def _new_rowmean(mtx, rowsum, nrow, new_row, index):
 
 ### Functions for OptimiseDistanceFit
 
-def g(x,a,c):
+def g_(x,a,c):
     """
     Calculate vector of equations of residuals,
     evaluated at x
@@ -49,14 +48,25 @@ def g(x,a,c):
     """
     return ((x-a)**2).sum(1) - c**2
 
+def g(x,a,c):
+    """
+    Christophe's suggestion for residuals,
+    G[i] = Sqrt(Sum_j (x[j] - a[i,j])^2) - C[i] 
+    """
+    return np.sqrt(((x-a)**2).sum(1)) - c
+
 def f(x, a, c):
     """ Objective function (sum of squared residuals) """
     v = g(x, a, c)
     return v.dot(v)
 
-def jac(x,a):
+def jac_(x,a):
     """ Jacobian matrix of partial derivatives """
     return 2 * (x-a)
+
+def jac(x,a):
+    """ Jacobian matrix given Christophe's suggestion of f """
+    return (x-a) / np.sqrt(((x-a)**2).sum(1))[:,np.newaxis]
 
 def gradient(x, a, c):
     """ J'.G """
@@ -215,12 +225,12 @@ def rmsd(ref_cds, est_cds):
     """
     ref_dists = pdist(ref_cds)
     est_dists = pdist(est_cds)
-    return np.sqrt(((ref_dists - est_dists)**2).sum()) / len(ref_dists)
+    return np.sqrt(((ref_dists - est_dists)**2).mean())
 
 def rmsd_dm(ref_distance_matrix, est_cds):
     ref_dists = squareform(ref_distance_matrix)
     est_dists = pdist(est_cds)
-    return np.sqrt(((ref_dists - est_dists)**2).sum()) / len(ref_dists)
+    return np.sqrt(((ref_dists - est_dists)**2).mean())
 
 ### Classes
 
@@ -321,6 +331,7 @@ class OutOfSampleMDS(object):
         U, l = _eigen(B)
         # l=l.astype(np.complex)
         l = np.clip(l, np.finfo(l.dtype).eps, np.inf)
+
         self.mult_factor = U*(1.0/np.sqrt(l))
         self.coords = U*np.sqrt(l)
         # self.mult_factor = self.mult_factor.astype(np.float)
