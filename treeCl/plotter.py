@@ -60,9 +60,9 @@ def heatmap(dm, partition=None, cmap=CM.Blues, fontsize=10):
     ax.grid(False)
 
     tick_positions = np.array(list(range(length))) + 0.5
-    ax.set_yticks(tick_positions)
-    ax.set_xticks(tick_positions)
     if fontsize is not None:
+        ax.set_yticks(tick_positions)
+        ax.set_xticks(tick_positions)
         ax.set_xticklabels(new_dm.df.columns, rotation=90, fontsize=fontsize, ha='center')
         ax.set_yticklabels(new_dm.df.index, fontsize=fontsize, va='center')
 
