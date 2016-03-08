@@ -438,7 +438,7 @@ class RaxmlTaskInterface(TaskInterface):
                 if os.path.exists(likely_qfile):
                     qfile = likely_qfile
                 else:
-                    with tempfile.NamedTemporaryFile(delete=False) as tmpfile:
+                    with tempfile.NamedTemporaryFile(mode='w', delete=False) as tmpfile:
                         qfile = tmpfile.name
                         to_delete.append(tmpfile.name)
                         mymodel = 'DNAX' if rec.is_dna() else model.replace('PROT', '').replace('GAMMA', '')

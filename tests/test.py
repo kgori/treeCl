@@ -88,7 +88,7 @@ class TreeTests(unittest.TestCase):
 class DistanceMatrixTests(unittest.TestCase):
     def test_from_csv(self):
         dm = treeCl.DistanceMatrix.from_csv(os.path.join(thisdir, 'data', 'cache', 'geo_dm.csv'))
-        self.assertEqual(dm.df.values.sum(), 412.70677069540181)
+        self.assertAlmostEqual(dm.df.values.sum(), 412.70677069540181)
 
     def test_calculation(self):
         c = treeCl.Collection(input_dir=os.path.join(thisdir, 'data'),
@@ -96,7 +96,7 @@ class DistanceMatrixTests(unittest.TestCase):
                               file_format='phylip',
                               show_progressbars=False)
         dm = c.get_inter_tree_distances('geo')
-        self.assertEqual(dm.df.values.sum(), 412.70677069540181)
+        self.assertAlmostEqual(dm.df.values.sum(), 412.70677069540181)
 
 class RaxmlParserTests(unittest.TestCase):
     def setUp(self):

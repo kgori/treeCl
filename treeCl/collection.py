@@ -295,7 +295,7 @@ class RecordsHandler(object):
             filename = glob.glob(hook)
             try:
                 with fileIO.freader(filename[0]) as infile:
-                    d = json.load(infile, parse_int=True)
+                    d = json.loads(infile.read().decode('utf-8'), parse_int=True)
 
                 rec.parameters.construct_from_dict(d)
 
