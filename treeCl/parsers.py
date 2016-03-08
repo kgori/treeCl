@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 from pyparsing import Suppress, SkipTo, Word, Regex, Literal, OneOrMore, Group, LineEnd, CharsNotIn, nums, alphanums, ParseException
 import logging
 logger = logging.getLogger(__name__)

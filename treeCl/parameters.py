@@ -1,6 +1,7 @@
 """
 Data structures to hold model parameters and attributes such as alignment file paths
 """
+from __future__ import absolute_import
 import json
 import sys
 import logging

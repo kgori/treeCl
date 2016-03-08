@@ -1,4 +1,4 @@
-# from __future__ import print_function
+from __future__ import absolute_import
 
 from .alignment import Alignment
 from .clustering import Spectral, Hierarchical, MultidimensionalScaling, Automatic, Evaluation
