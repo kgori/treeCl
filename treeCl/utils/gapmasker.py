@@ -21,7 +21,7 @@ class GapMasker():
         try:
             self.check_seqs(target)
             return self.write_gap_positions(target)
-        except Exception, e:
+        except Exception as e:
             print(e)
             return
 
