@@ -1,5 +1,13 @@
 #!/usr/bin/env python
 from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from builtins import next
+from builtins import hex
+from builtins import str
+from builtins import zip
+from builtins import range
+from builtins import object
 
 # standard lib
 import glob
@@ -26,15 +34,12 @@ from .constants import SORT_KEY
 from .distance_matrix import DistanceMatrix
 from .errors import optioncheck, directorycheck
 from . import tasks
-from .parameters import PartitionParameters
 from .partition import Partition
 from .parutils import SequentialJobHandler
-from .tree import Tree
-from .utils import fileIO, setup_progressbar, model_translate, smooth_freqs, alignment_to_partials, create_gamma_model, flatten_list
+from .utils import fileIO, setup_progressbar, model_translate, smooth_freqs, create_gamma_model, flatten_list
 from .utils.decorators import lazyprop
 
-import json
-import sys
+# set up logging
 import logging
 logger = logging.getLogger(__name__)
 
@@ -237,7 +242,8 @@ class RecordsHandler(object):
         for i, f in enumerate(files):
             if f.endswith('.gz') or f.endswith('.bz2'):
                 fd, tmpfile = tempfile.mkstemp()
-                with fileIO.freader(f, f.endswith('.gz'), f.endswith('.bz2')) as reader, fileIO.fwriter(tmpfile) as writer:
+                with fileIO.freader(f, f.endswith('.gz'), f.endswith('.bz2')) as reader,\
+                     fileIO.fwriter(tmpfile) as writer:
                     for line in reader:
                          writer.write(line)
                 try:
@@ -289,7 +295,7 @@ class RecordsHandler(object):
             filename = glob.glob(hook)
             try:
                 with fileIO.freader(filename[0]) as infile:
-                    d = json.load(infile, parse_int=True)
+                    d = json.loads(infile.read().decode('utf-8'), parse_int=True)
 
                 rec.parameters.construct_from_dict(d)
 
@@ -383,7 +389,7 @@ class RecordsCalculatorMixin(object):
                    'fastgeo': tasks.EqualLeafSetGeodesicTreeDistance,
                    'fastrf': tasks.EqualLeafSetRobinsonFouldsTreeDistance,
                    'fastwrf': tasks.EqualLeafSetWeightedRobinsonFouldsTreeDistance}
-        optioncheck(metric, metrics.keys())
+        optioncheck(metric, list(metrics.keys()))
         task_interface = metrics[metric]()
         if metric.startswith('fast'):
             trees = (PhyloTree(newick, False) for newick in self.trees)
@@ -799,7 +805,7 @@ class Optimiser(object):
         partitions p1 and p2 
         """
         if p1 is None or p2 is None:
-            return range(len(self.insts))
+            return list(range(len(self.insts)))
         return set(flatten_list(set(p1) - set(p2)))
 
     def update_perlocus_likelihood_objects_old(self, partition, changed):
@@ -869,7 +875,9 @@ class Optimiser(object):
         prev_lktable = self.lktable
 
         if use_proportions:
-            logproportions = np.log(np.array([len(x) for x in partition.get_membership()], dtype=np.double)/partition.num_elements())
+            sizes = np.array([len(x) for x in partition.get_membership()], dtype=np.double)
+            total = partition.num_elements()
+            logproportions = np.log(sizes/total)
         else:
             logproportions = np.zeros(partition.num_elements())
 
@@ -908,7 +916,7 @@ class Optimiser(object):
 
     def _fill_empty_groups(self, probs, assignment):
         new_assignment = np.array(assignment.tolist())
-        for k in xrange(probs.shape[1]):
+        for k in range(probs.shape[1]):
             if np.count_nonzero(assignment==k) == 0:
                 logger.info('Group {} became empty'.format(k))
                 # Group k is empty, so needs another group to transfer a member
@@ -933,7 +941,7 @@ class Optimiser(object):
         least one member, assign the data point with highest probability of
         membership """
         new_assignment = np.array(assignment.tolist())
-        for k in xrange(self.numgrp):
+        for k in range(self.numgrp):
             if np.count_nonzero(assignment==k) == 0:
                 logger.info('Group {} became empty'.format(k))
                 best = np.where(probs[:,k]==probs[:,k].max())[0][0]

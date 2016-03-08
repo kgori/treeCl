@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 from __future__ import print_function
+from __future__ import division
+from builtins import str
+from builtins import range
+from builtins import object
 
 # standard library
 
@@ -128,11 +132,11 @@ class Spectral(ClusteringManager, EMMixin):
         try:
             options.reverse[pruning_option]
         except KeyError:
-            raise OptionError(pruning_option, options.reverse.values())
+            raise OptionError(pruning_option, list(options.reverse.values()))
         try:
             options.reverse[scale_option]
         except KeyError:
-            raise OptionError(scale_option, options.reverse.values())
+            raise OptionError(scale_option, list(options.reverse.values()))
 
         if pruning_option == options.PRUNING_MANUAL:
             _check_val(manual_pruning, 2, self.dm.df.shape[0])

@@ -1,3 +1,8 @@
+from __future__ import absolute_import
+from builtins import zip
+from builtins import str
+from builtins import range
+from builtins import object
 import itertools
 import json
 import tempfile
@@ -18,12 +23,12 @@ from .constants import RANDOM_SEED
 from .wrappers.phylogenetics import FastTree, parse_fasttree_output, Raxml, Phyml
 from .parsers import RaxmlParser, PhymlParser
 import logging
+from future.utils import with_metaclass
 logger = logging.getLogger(__name__)
 import numpy as np
 
 
-class TaskInterface(object):
-    __metaclass__ = ABCMeta
+class TaskInterface(with_metaclass(ABCMeta, object)):
     _name = None
 
     @abstractmethod
@@ -433,7 +438,7 @@ class RaxmlTaskInterface(TaskInterface):
                 if os.path.exists(likely_qfile):
                     qfile = likely_qfile
                 else:
-                    with tempfile.NamedTemporaryFile(delete=False) as tmpfile:
+                    with tempfile.NamedTemporaryFile(mode='w', delete=False) as tmpfile:
                         qfile = tmpfile.name
                         to_delete.append(tmpfile.name)
                         mymodel = 'DNAX' if rec.is_dna() else model.replace('PROT', '').replace('GAMMA', '')
@@ -592,8 +597,7 @@ class SimulatorTaskInterface(TaskInterface):
                                result['ml_tree'],
                                partition['rates'] if 'rates' in partition else None)
 
-class TreeDistanceTaskInterface(TaskInterface):
-    __metaclass__ = ABCMeta
+class TreeDistanceTaskInterface(with_metaclass(ABCMeta, TaskInterface)):
     _name = 'TreeDistance'
 
     def scrape_args(self, trees, normalise=False):

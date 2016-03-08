@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
+from builtins import range
+from builtins import object
 # standard library
 import bz2
-try:
-    import cPickle as pickle
-except ImportError:
-    import pickle
+import pickle
 import glob
 import gzip
 import os

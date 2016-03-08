@@ -1,3 +1,4 @@
+from builtins import map
 #!/usr/bin/env python
 from UserDict import UserDict
 import re
@@ -11,7 +12,7 @@ class Translator(UserDict):
         """ Build a regular expression object based on the keys of
         the current dictionary """
 
-        return re.compile("(%s)" % "|".join(map(re.escape, self.keys())))
+        return re.compile("(%s)" % "|".join(map(re.escape, list(self.keys()))))
 
     def __call__(self, mo):
         """ This handler will be invoked for each regex match """

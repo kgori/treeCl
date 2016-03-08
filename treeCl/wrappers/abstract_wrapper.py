@@ -1,3 +1,8 @@
+from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
+from builtins import bytes
+from builtins import object
 from abc import ABCMeta, abstractmethod, abstractproperty
 from locale import getpreferredencoding
 import os
@@ -6,17 +11,14 @@ from subprocess import PIPE, Popen
 import sys
 import threading
 import logging
+from future.utils import with_metaclass
 logger = logging.getLogger(__name__)
 
 IS_PY3 = sys.version_info[0] == 3
 POSIX = 'posix' in sys.builtin_module_names
 DEFAULT_ENCODING = getpreferredencoding() or "UTF-8"
 
-if IS_PY3:
-    from queue import Queue
-else:
-    from Queue import Queue
-
+from queue import Queue
 
 class ExternalProcessError(Exception):
     pass
@@ -50,7 +52,7 @@ def _kwargs_to_args(kwargs, num_hyphens):
     return ' '.join(processed)
 
 
-class AbstractWrapper(object):
+class AbstractWrapper(with_metaclass(ABCMeta, object)):
     """
     Abstract Base Class:
     Run an external program as a subprocess with non-blocking collection of stdout.
@@ -84,7 +86,6 @@ class AbstractWrapper(object):
     Keyword handling borrowed from sh: https://amoffat.github.io/sh
 
     """
-    __metaclass__ = ABCMeta
 
     def __init__(self, executable=None, verbose=True):
         """

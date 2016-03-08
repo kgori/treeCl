@@ -1,3 +1,9 @@
+from __future__ import print_function
+from __future__ import division
+from builtins import str
+from builtins import range
+from builtins import object
+from past.utils import old_div
 __author__ = 'kgori'
 
 from collections import defaultdict
@@ -30,7 +36,7 @@ def entropies(partition_1, partition_2):
         print('Partition lists are not the same length')
         return 0
     else:
-        total = float(partition_1.num_elements())  # Ensure float division later
+        total = partition_1.num_elements()
 
     m1 = partition_1.get_membership()
     m2 = partition_2.get_membership()
@@ -40,7 +46,7 @@ def entropies(partition_1, partition_2):
     entropy_2 = 0
     mut_inf = 0
     for i in range(l1):
-        prob1 = len(m1[i]) / total
+        prob1 = len(m1[i]) / total  # float division ensured by __future__ import
         entropy_1 -= prob1 * np.log2(prob1)
         for j in range(l2):
             if i == 0:  # only calculate these once
@@ -134,7 +140,7 @@ class Partition(object):
         would all work. Variance is inversely related to sum(alpha)
         """
         props = np.concatenate([[0], (scipy.stats.dirichlet.rvs(alpha) * size).cumsum().round().astype(int)])
-        indices = np.array(range(size))
+        indices = np.array(list(range(size)))
         random.shuffle(indices)
         x = []
         for i in range(len(props)-1):
