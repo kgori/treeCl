@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from __future__ import print_function
+from builtins import zip
 from ..alignment import Alignment
 
 docstring = '''
@@ -62,7 +63,7 @@ def ambiguate(sequence1, sequence2, delete_ambiguous=False):
     chars with 'X'. These seqs are deleted later with remove_empty """
     delete = False
     combination = list()
-    z = zip(sequence1, sequence2)
+    z = list(zip(sequence1, sequence2))
     for (a, b) in z:
         if a == b:
             combination.append(a)

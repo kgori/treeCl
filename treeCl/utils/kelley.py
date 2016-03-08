@@ -1,4 +1,7 @@
 from __future__ import division, print_function
+from builtins import zip
+from builtins import str
+from builtins import object
 
 import numpy as np
 

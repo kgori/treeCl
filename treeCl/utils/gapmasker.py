@@ -1,8 +1,10 @@
 from __future__ import print_function
+from builtins import str
+from builtins import object
 from collections import defaultdict
 
 
-class GapMasker():
+class GapMasker(object):
     def __init__(self, template):
         self.template = template
         self.gap_positions = self.get_gap_positions()
