@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 from __future__ import print_function
+from __future__ import division
+from builtins import str
+from builtins import range
+from builtins import object
+from past.utils import old_div
 
 # standard lib
 
@@ -245,10 +250,10 @@ def binsearch_dists(matrix, tolerance=0.001):
         if (dists > tolerance).all():
             maxk = guessk
             last_result = (guessk, dists)
-            guessk = mink + (guessk - mink) / 2
+            guessk = mink + old_div((guessk - mink), 2)
         else:
             mink = guessk
-            guessk += (maxk - guessk) / 2
+            guessk += old_div((maxk - guessk), 2)
 
     if last_result[0] == guessk + 1:
         return last_result
@@ -267,10 +272,10 @@ def binsearch_mask(matrix, logic='or'):
         if isconnected(test_mask) and (test_dist > 1e-6).all():
             maxk = guessk  # either correct or too high
             result = (guessk, test_mask)
-            guessk = mink + (guessk - mink) / 2  # try a lower number
+            guessk = mink + old_div((guessk - mink), 2)  # try a lower number
         else:
             mink = guessk  # too low
-            guessk += (maxk - guessk) / 2
+            guessk += old_div((maxk - guessk), 2)
 
     if result[0] == guessk + 1:
         k, mask = result

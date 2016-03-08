@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 from __future__ import print_function
+from __future__ import absolute_import
+from builtins import str
+from builtins import range
+from builtins import object
 
 # standard library
 import itertools
@@ -11,11 +15,8 @@ from matplotlib.colors import hex2color
 import numpy as np
 
 # treeCl
-from .collection import Collection
-from .clustering import Spectral, MultidimensionalScaling
 from .distance_matrix import CoordinateMatrix, DistanceMatrix
 from .partition import Partition
-from .errors import optioncheck
 from .utils import flatten_list
 from .colours import ggColorSlice
 
