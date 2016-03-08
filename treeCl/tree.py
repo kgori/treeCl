@@ -1,6 +1,13 @@
 #!/usr/bin/env python
 from __future__ import print_function
 from __future__ import absolute_import
+from __future__ import division
+from builtins import next
+from builtins import zip
+from builtins import str
+from builtins import range
+from builtins import object
+from past.utils import old_div
 
 # standard library
 import itertools
@@ -30,7 +37,7 @@ def _infinite_labels_generator(labels, start=2, shuffle=True):
     l = len(labels)
     loop1 = random.sample(labels, l) if shuffle else labels
     return itertools.chain.from_iterable([loop1, ('{}{}'.format(x, y) for x, y in
-                                                  itertools.izip(itertools.cycle(labels),
+                                                  zip(itertools.cycle(labels),
                                                                  itertools.chain.from_iterable(
                                                                      itertools.repeat(i, len(loop1)) for i
                                                                      in
@@ -292,7 +299,7 @@ class NNI(object):
             weights = np.array([1.0 for n in self.valid_nodes])
             logger.debug('Weights (weighted choice=False): {}'.format(weights))
 
-        return weighted_choice(zip(self.valid_nodes, weights))
+        return weighted_choice(list(zip(self.valid_nodes, weights)))
 
     def get_exchangeable_nodes(self, n):
         """
@@ -433,7 +440,7 @@ class ILS(object):
             weights = np.array([1.0 for n in self.valid_nodes])
             logger.debug('Weights (weighted choice=False): {}'.format(weights))
 
-        return weighted_choice(zip(self.valid_nodes, weights))
+        return weighted_choice(list(zip(self.valid_nodes, weights)))
 
     def get_matching_edge(self, starting_node, time):
         def edge_matches_time(edge):

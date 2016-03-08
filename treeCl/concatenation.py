@@ -1,3 +1,8 @@
+from __future__ import division
+from builtins import zip
+from builtins import str
+from builtins import object
+from past.utils import old_div
 import numpy as np
 from .alignment import Alignment
 from .tasks import TreeCollectionTaskInterface
@@ -71,7 +76,7 @@ class Concatenation(object):
 
     @lazyprop
     def coverage(self):
-        total = float(self.collection.num_species())
+        total = self.collection.num_species()
         return [self.collection.lengths[i] / total for i in self.indices]
 
     @lazyprop

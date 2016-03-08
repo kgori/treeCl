@@ -1,5 +1,10 @@
 from __future__ import print_function
 from __future__ import absolute_import
+from __future__ import division
+from builtins import str
+from builtins import zip
+from builtins import range
+from builtins import object
 import collections
 import itertools
 import os
@@ -8,18 +13,15 @@ import tempfile
 import numpy as np
 from six import string_types
 
-# import bpp
-from .parameters import Parameters, PartitionParameters
+from .parameters import Parameters
 from .utils import fileIO, alignment_to_partials, concatenate, sample_wr
 from .distance_matrix import DistanceMatrix
-from Bio.Seq import Seq, UnknownSeq
+from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio.Align import MultipleSeqAlignment
 from Bio.Alphabet import IUPAC
 from Bio import AlignIO
-from collections import defaultdict
 from phylo_utils.likcalc import discrete_gamma, sitewise_lik, sitewise_lik_derivs
-from phylo_utils import seq_to_partials
 from phylo_utils.markov import TransitionMatrix
 from phylo_utils.models import LG, GTR
 from phylo_utils.likcalc import _evolve_states, _weighted_choices
@@ -179,7 +181,7 @@ class Alignment(object):
         for site in sites:
             weights[site] += 1
 
-        for v in weights.itervalues():
+        for v in weights.values():
             if v > 1:
                 ucl += v * np.log(v)
         return ucl - n * np.log(n)
@@ -218,7 +220,7 @@ class Alignment(object):
         Return a new Alignment that is a bootstrap replicate of self
         """
         new_sites = sorted(sample_wr(self.get_sites()))
-        seqs = zip(self.get_names(), (''.join(seq) for seq in zip(*new_sites)))
+        seqs = list(zip(self.get_names(), (''.join(seq) for seq in zip(*new_sites))))
         return self.__class__(seqs)
 
 
@@ -304,7 +306,7 @@ def pairdists(alignment, ncat=4, tolerance=1e-6):
                 break  # Converged
 
         distances[i, j] = distances[j, i] = brlen
-        variances[i, j] = variances[j, i] = np.abs(-1/d2lk)
+        variances[i, j] = variances[j, i] = np.abs(-1.0/d2lk)
     dm = DistanceMatrix.from_array(distances, names=seqnames)
     vm = DistanceMatrix.from_array(variances, names=seqnames)
     return dm, vm

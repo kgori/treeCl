@@ -2,6 +2,7 @@
 Data structures to hold model parameters and attributes such as alignment file paths
 """
 from __future__ import absolute_import
+from builtins import object
 import json
 import sys
 import logging
@@ -33,7 +34,6 @@ class BaseParameters(object):
     def construct_from_dict(self, dict):
         for k, v in dict.items():
             if '_{}'.format(k) in self.__slots__:
-                #logger.debug('Set attributes {}, {}'.format(k, v))
                 setattr(self, k, v)
 
     def write(self, fileobj=sys.stdout, indent=None):
@@ -193,7 +193,6 @@ class Parameters(BaseParameters):
             tmp = {int(k): v for (k, v) in self._partitions.items()}
         except AttributeError:
             tmp = {}
-        #logger.debug('tmp = {}'.format(tmp))
         self._partitions = []
         for k in sorted(tmp):
             pp = PartitionParameters()
