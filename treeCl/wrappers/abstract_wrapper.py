@@ -1,3 +1,4 @@
+from __future__ import print_function
 from abc import ABCMeta, abstractmethod, abstractproperty
 from locale import getpreferredencoding
 import os
