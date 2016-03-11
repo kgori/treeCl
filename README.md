@@ -42,7 +42,7 @@ full of sequence alignments in fasta '*.fas' or phylip
 '*.phy' formats. These can also be zipped using gzip or 
 bzip2, treeCl will load them directly.
 """
-c = Collection(input_dir='input_dir', file_format='phylip')
+c = treeCl.Collection(input_dir='input_dir', file_format='phylip')
 
 """
 Now it's time to calculate some trees. The simplest way to 
