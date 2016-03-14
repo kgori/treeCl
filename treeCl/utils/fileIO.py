@@ -139,9 +139,9 @@ def freader(filename, gz=False, bz=False):
     if gz:
         return gzip.open(filename, 'rb')
     elif bz:
-        return bz2.BZ2File(filename, 'r')
+        return bz2.BZ2File(filename, 'rb')
     else:
-        return open(filename, 'r')
+        return open(filename, 'rb')
 
 
 def fwriter(filename, gz=False, bz=False):
