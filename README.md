@@ -161,7 +161,7 @@ concats = [c.concatenate(grp) for grp in partition.get_membership()]
 alignments = [conc.alignment for conc in concats]
 
 # Get a list of the loci in each group
-loci = sc.get_partition_memberships(partition)
+loci = sc.get_partition_members(partition)
 
 # Get trees for each group
 trees = sc.get_partition_trees(partition)
