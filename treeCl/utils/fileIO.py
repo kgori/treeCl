@@ -68,7 +68,7 @@ class TempDir(object):
 
 class NonDeletingTempFile(TempFile):
     def __exit__(self, type, value, tb):
-        pass
+        os.close(self._fd)
 
 class NonDeletingTempDir(TempDir):
     def __exit__(self, type, value, tb):

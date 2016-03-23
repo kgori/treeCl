@@ -8,7 +8,6 @@ from builtins import object
 import collections
 import itertools
 import os
-import tempfile
 
 import numpy as np
 from six import string_types
@@ -168,8 +167,8 @@ class Alignment(object):
             return os.path.abspath(alignment), False
 
         except (IOError, TypeError, AssertionError):
-            tmpfile = os.path.abspath(tempfile.mkstemp()[1])
-            self.write_alignment(tmpfile, "phylip", interleaved=True)
+            with fileIO.NonDeletingTempFile() as tmpfile:
+                self.write_alignment(tmpfile, "phylip", interleaved=True)
             return tmpfile, True
 
     def get_unconstrained_likelihood(self):
