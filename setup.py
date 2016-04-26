@@ -33,7 +33,7 @@ class my_build_ext(build_ext):
                     e.extra_link_args.append('-mmacosx-version-min=10.7')
         build_ext.build_extensions(self)
 
-compile_args = ['-std=c++1y']
+compile_args = ['-std=c++11']
 
 extensions = [
     Extension(name='tree_collection',
