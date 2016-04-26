@@ -14,7 +14,9 @@ __author__ = 'kgori'
 """
 Introduced this workaround for a bug in multiprocessing where
 errors are thrown for an EINTR interrupt.
-Workaround taken from http://stackoverflow.com/a/5395277
+Workaround taken from http://stackoverflow.com/a/5395277 - but
+changed because can't subclass from multiprocessing.Queue (it's
+a factory method)
 """
 import errno
 
@@ -28,17 +30,15 @@ def retry_on_eintr(function, *args, **kw):
             else:
                 raise
 
-class RetryQueue(multiprocessing.Queue):
-    """Queue which will retry if interrupted with EINTR."""
-    def get(self, block=True, timeout=None):
-        return retry_on_eintr(multiprocessing.Queue.get, self, block, timeout)
+def get_from_queue(queue, block=True, timeout=None):
+    return retry_on_eintr(queue.get, block, timeout)
 """
 End of workaround
 """
 
 def fun(f, q_in, q_out):
     while True:
-        (i, x) = q_in.get()
+        (i, x) = get_from_queue(q_in)
         if i is None:
             break
         q_out.put((i, f(*x)))
@@ -165,8 +165,8 @@ def processpool_map(task, args, message, concurrency, batchsize=1):
         pbar = setup_progressbar(message, len(args), simple_progress=True)
         pbar.start()
     
-    q_in   = RetryQueue()  # Should I limit either queue size? Limiting in-queue
-    q_out  = RetryQueue()  # increases time taken to send jobs, makes pbar less useful
+    q_in   = multiprocessing.Queue()  # Should I limit either queue size? Limiting in-queue
+    q_out  = multiprocessing.Queue()  # increases time taken to send jobs, makes pbar less useful
 
     proc = [multiprocessing.Process(target=fun, args=(batched_task, q_in, q_out)) for _ in range(concurrency)]
     for p in proc:
@@ -177,7 +177,7 @@ def processpool_map(task, args, message, concurrency, batchsize=1):
     res = []
     completed_count = 0
     for _ in range(len(sent)):
-        result = q_out.get()
+        result = get_from_queue(q_out)
         res.append(result)
         completed_count += len(result[1])
         if PROGRESS:
