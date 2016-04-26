@@ -11,6 +11,31 @@ logger = logging.getLogger(__name__)
 
 __author__ = 'kgori'
 
+"""
+Introduced this workaround for a bug in multiprocessing where
+errors are thrown for an EINTR interrupt.
+Workaround taken from http://stackoverflow.com/a/5395277
+"""
+import errno
+
+def retry_on_eintr(function, *args, **kw):
+    while True:
+        try:
+            return function(*args, **kw)
+        except IOError as e:
+            if e.errno == errno.EINTR:
+                continue
+            else:
+                raise
+
+class RetryQueue(multiprocessing.Queue):
+    """Queue which will retry if interrupted with EINTR."""
+    def get(self, block=True, timeout=None):
+        return retry_on_eintr(multiprocessing.Queue.get, self, block, timeout)
+"""
+End of workaround
+"""
+
 def fun(f, q_in, q_out):
     while True:
         (i, x) = q_in.get()
@@ -140,8 +165,8 @@ def processpool_map(task, args, message, concurrency, batchsize=1):
         pbar = setup_progressbar(message, len(args), simple_progress=True)
         pbar.start()
     
-    q_in   = multiprocessing.Queue()  # Should I limit either queue size? Limiting in-queue
-    q_out  = multiprocessing.Queue()  # increases time taken to send jobs, makes pbar less useful
+    q_in   = RetryQueue()  # Should I limit either queue size? Limiting in-queue
+    q_out  = RetryQueue()  # increases time taken to send jobs, makes pbar less useful
 
     proc = [multiprocessing.Process(target=fun, args=(batched_task, q_in, q_out)) for _ in range(concurrency)]
     for p in proc:
