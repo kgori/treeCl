@@ -114,6 +114,17 @@ class RaxmlParserTests(unittest.TestCase):
         parse_result = self.parser.to_dict(self.infoq, self.resultq, True)
         self.assertEqual(parse_result['partitions'][0]['name'], 'class1_1')
 
+class ParallelTests(unittest.TestCase):
+    def setUp(self):
+        self.c = treeCl.Collection(input_dir=os.path.join(thisdir, 'data'),
+                                   param_dir=os.path.join(thisdir, 'data', 'cache'),
+                                   file_format='phylip',
+                                   show_progressbars=False)
+
+    def test(self):
+        handler = treeCl.parutils.ProcesspoolJobHandler(2)
+        dm = self.c.get_inter_tree_distances('geo', jobhandler=handler)
+        self.assertAlmostEqual(dm.df.values.sum(), 412.70677069540181)
 
 def main():
     unittest.main()
