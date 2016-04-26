@@ -11,9 +11,34 @@ logger = logging.getLogger(__name__)
 
 __author__ = 'kgori'
 
+"""
+Introduced this workaround for a bug in multiprocessing where
+errors are thrown for an EINTR interrupt.
+Workaround taken from http://stackoverflow.com/a/5395277 - but
+changed because can't subclass from multiprocessing.Queue (it's
+a factory method)
+"""
+import errno
+
+def retry_on_eintr(function, *args, **kw):
+    while True:
+        try:
+            return function(*args, **kw)
+        except IOError as e:
+            if e.errno == errno.EINTR:
+                continue
+            else:
+                raise
+
+def get_from_queue(queue, block=True, timeout=None):
+    return retry_on_eintr(queue.get, block, timeout)
+"""
+End of workaround
+"""
+
 def fun(f, q_in, q_out):
     while True:
-        (i, x) = q_in.get()
+        (i, x) = get_from_queue(q_in)
         if i is None:
             break
         q_out.put((i, f(*x)))
@@ -152,7 +177,7 @@ def processpool_map(task, args, message, concurrency, batchsize=1):
     res = []
     completed_count = 0
     for _ in range(len(sent)):
-        result = q_out.get()
+        result = get_from_queue(q_out)
         res.append(result)
         completed_count += len(result[1])
         if PROGRESS:
