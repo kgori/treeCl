@@ -211,6 +211,8 @@ def raxml_task(executable, alignment_file, model, partitions_file=None, outfile=
         name = os.path.basename(name)
         seed=random.randint(1000, 9999)
         outdir=os.path.abspath(tmpd)
+        if not os.path.exists(outdir):
+            outdir = os.path.abspath('.')
         logger.debug('Raxml ouput files will be written to {}'.format(outdir))
         cmd = basecmd + '-m {model} -n {name} -s {seqfile} -p {seed} -O -w {outdir}'.format(
             model=model, name=name, seqfile=afl, seed=seed,
