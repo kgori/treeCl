@@ -441,7 +441,7 @@ class RaxmlTaskInterface(TaskInterface):
                     with tempfile.NamedTemporaryFile(mode='w', delete=False) as tmpfile:
                         qfile = tmpfile.name
                         to_delete.append(tmpfile.name)
-                        mymodel = 'DNAX' if rec.is_dna() else model.replace('PROT', '').replace('GAMMA', '')
+                        mymodel = 'DNAX' if rec.is_dna() else model.replace('PROT', '').replace('GAMMA', '').replace('CAT', '')
                         partition_string = '{model}, {name} = 1-{seqlen}\n'.format(
                             model=mymodel,
                             name=rec.name, seqlen=len(rec))

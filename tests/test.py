@@ -114,6 +114,19 @@ class RaxmlParserTests(unittest.TestCase):
         parse_result = self.parser.to_dict(self.infoq, self.resultq, True)
         self.assertEqual(parse_result['partitions'][0]['name'], 'class1_1')
 
+class RaxmlRunnerTests(unittest.TestCase):
+    def setUp(self):
+        self.c = treeCl.Collection(input_dir=os.path.join(thisdir, 'data', 'mini'), file_format='phylip',
+                                   show_progressbars=False)
+
+    def test_can_run_GAMMA(self):
+        self.c.calc_trees(model='PROTGAMMAWAG')
+        self.assertFalse(self.c[0].parameters.ml_tree is None)
+
+    def test_can_run_CAT(self):
+        self.c.calc_trees(model='PROTCATWAG')
+        self.assertFalse(self.c[0].parameters.ml_tree is None)
+
 class ParallelTests(unittest.TestCase):
     def setUp(self):
         self.c = treeCl.Collection(input_dir=os.path.join(thisdir, 'data'),

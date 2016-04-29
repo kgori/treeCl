@@ -111,15 +111,17 @@ class RaxmlParser(object):
 
     def __init__(self):
         self.ALPHA_LABEL = Regex(r'alpha\[\d+\]:')
-        self.LNL_LABEL = Literal('GAMMA-based Likelihood:')
+        self.LNL_LABEL = Literal('Final GAMMA-based Score of best tree')
         self.FRQ_LABEL = Regex(r'Base frequencies: (?=\d+)') ^ Regex(r'ML estimate base freqs\[\d+\]:')
         self.NAMES_LABEL = Regex(r'Partition: \d+ with name:\s+')
         self.RATES_LABEL = Regex(r'rates\[\d+\].+?:')
+        self.MODEL_LABEL = Literal('Substitution Matrix:')
         self.alpha = OneOrMore(Suppress(SkipTo(self.ALPHA_LABEL)) + Suppress(self.ALPHA_LABEL) + FLOAT)
         self.lnl = Suppress(SkipTo(self.LNL_LABEL)) + Suppress(self.LNL_LABEL) + FLOAT
         self.frq = OneOrMore(Group(Suppress(SkipTo(self.FRQ_LABEL)) + Suppress(self.FRQ_LABEL) + OneOrMore(FLOAT)))
         self.names = OneOrMore(Suppress(SkipTo(self.NAMES_LABEL)) + Suppress(self.NAMES_LABEL) + CharsNotIn('\n') + Suppress(LineEnd()))
         self.rates = OneOrMore(Group(Suppress(SkipTo(self.RATES_LABEL)) + Suppress(self.RATES_LABEL) + OneOrMore(FLOAT)))
+        self.model = Suppress(SkipTo(self.MODEL_LABEL)) + Suppress(self.MODEL_LABEL) + WORD
 
         MODEL_LABEL = Literal('Substitution Matrix:')
         SCORE_LABEL = Literal('Final GAMMA  likelihood:')
