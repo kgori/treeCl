@@ -50,7 +50,7 @@ extensions = [
 ]
 
 # Install splash
-VERSION = '0.1.17'
+VERSION = '0.1.18'
 
 logo = """
 ═══════════ ╔═╗┬
@@ -86,7 +86,7 @@ setup(name="treeCl",
       ],
       install_requires=[
           'biopython',
-          'cython',
+          'cython>=0.19.0',
           'dendropy>=4.0.0',
           'fastcluster',
           'futures',
@@ -96,7 +96,7 @@ setup(name="treeCl",
           'numpy',
           'pandas',
           'phylo_utils',
-          'progressbar-latest',
+          'progressbar-latest==2.4',
           'PyYaml',
           'scipy',
           'scikit-bio',

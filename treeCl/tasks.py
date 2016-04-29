@@ -211,7 +211,9 @@ def raxml_task(executable, alignment_file, model, partitions_file=None, outfile=
         name = os.path.basename(name)
         seed=random.randint(1000, 9999)
         outdir=os.path.abspath(tmpd)
-        logger.debug('Raxml ouput files will be written to {}'.format(outdir))
+        if not os.path.exists(outdir):
+            outdir = os.path.abspath('.')
+        logger.debug('Raxml output files will be written to {}'.format(outdir))
         cmd = basecmd + '-m {model} -n {name} -s {seqfile} -p {seed} -O -w {outdir}'.format(
             model=model, name=name, seqfile=afl, seed=seed,
             outdir=outdir)
@@ -266,6 +268,15 @@ def raxml_task(executable, alignment_file, model, partitions_file=None, outfile=
 
         logger.debug('Info file found - {}'.format('yes' if os.path.exists(info_file) else 'no'))
         logger.debug('Result file found - {}'.format('yes' if os.path.exists(result_file) else 'no'))
+        logger.debug('Output directory found - {}'.format('yes' if os.path.isdir(outdir) else 'no'))
+
+        if not os.path.exists(info_file):
+            info_file = os.path.join(os.path.abspath('.'), 'RAxML_info.{}'.format(name))
+            logger.debug('Fallback info file ({}) found - {}'.format(info_file, 'yes' if os.path.exists(info_file) else 'no'))
+
+        if not os.path.exists(result_file):
+            result_file = os.path.join(os.path.abspath('.'), 'RAxML_result.{}'.format(name))
+            logger.debug('Fallback result file ({}) found - {}'.format(result_file, 'yes' if os.path.exists(result_file) else 'no'))
 
         parser = RaxmlParser()
         result = parser.to_dict(info_file, result_file, dash_f_e=dash_f_e)
@@ -441,7 +452,7 @@ class RaxmlTaskInterface(TaskInterface):
                     with tempfile.NamedTemporaryFile(mode='w', delete=False) as tmpfile:
                         qfile = tmpfile.name
                         to_delete.append(tmpfile.name)
-                        mymodel = 'DNAX' if rec.is_dna() else model.replace('PROT', '').replace('GAMMA', '')
+                        mymodel = 'DNAX' if rec.is_dna() else model.replace('PROT', '').replace('GAMMA', '').replace('CAT', '')
                         partition_string = '{model}, {name} = 1-{seqlen}\n'.format(
                             model=mymodel,
                             name=rec.name, seqlen=len(rec))
