@@ -213,7 +213,7 @@ def raxml_task(executable, alignment_file, model, partitions_file=None, outfile=
         outdir=os.path.abspath(tmpd)
         if not os.path.exists(outdir):
             outdir = os.path.abspath('.')
-        logger.debug('Raxml ouput files will be written to {}'.format(outdir))
+        logger.debug('Raxml output files will be written to {}'.format(outdir))
         cmd = basecmd + '-m {model} -n {name} -s {seqfile} -p {seed} -O -w {outdir}'.format(
             model=model, name=name, seqfile=afl, seed=seed,
             outdir=outdir)
@@ -272,7 +272,7 @@ def raxml_task(executable, alignment_file, model, partitions_file=None, outfile=
 
         if not os.path.exists(info_file):
             info_file = os.path.join(os.path.abspath('.'), 'RAxML_info.{}'.format(name))
-            logger.debug('Fallback rnfo file ({}) found - {}'.format(info_file, 'yes' if os.path.exists(info_file) else 'no'))
+            logger.debug('Fallback info file ({}) found - {}'.format(info_file, 'yes' if os.path.exists(info_file) else 'no'))
 
         if not os.path.exists(result_file):
             result_file = os.path.join(os.path.abspath('.'), 'RAxML_result.{}'.format(name))
