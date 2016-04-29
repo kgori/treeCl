@@ -14,8 +14,9 @@ addons:
       - ubuntu-toolchain-r-test
     packages:
       - build-essential
-      - gcc-4.8
-      - g++-4.8
+      - gcc-4.7
+      - g++-4.7
+      - raxml
 
 before_install:
   - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
@@ -25,8 +26,8 @@ before_install:
   - if [ -d $HOME/miniconda2 ]; then export PATH=$HOME/miniconda2/bin:$PATH; fi
   - echo $PATH
   - conda update --yes conda
-  - export CC=gcc-4.8
-  - export CXX=g++-4.8
+  - export CC=gcc-4.7
+  - export CXX=g++-4.7
 
 install:
   - conda install --yes python=$TRAVIS_PYTHON_VERSION cython numpy scipy matplotlib nose pandas scikit-bio scikit-learn pyparsing pyyaml six biopython
