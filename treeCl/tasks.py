@@ -268,6 +268,15 @@ def raxml_task(executable, alignment_file, model, partitions_file=None, outfile=
 
         logger.debug('Info file found - {}'.format('yes' if os.path.exists(info_file) else 'no'))
         logger.debug('Result file found - {}'.format('yes' if os.path.exists(result_file) else 'no'))
+        logger.debug('Output directory found - {}'.format('yes' if os.path.isdir(outdir) else 'no'))
+
+        if not os.path.exists(info_file):
+            info_file = os.path.join(os.path.abspath('.'), 'RAxML_info.{}'.format(name))
+            logger.debug('Fallback rnfo file ({}) found - {}'.format(info_file, 'yes' if os.path.exists(info_file) else 'no'))
+
+        if not os.path.exists(result_file):
+            info_file = os.path.join(os.path.abspath('.'), 'RAxML_result.{}'.format(name))
+            logger.debug('Fallback result file ({}) found - {}'.format(result_file, 'yes' if os.path.exists(result_file) else 'no'))
 
         parser = RaxmlParser()
         result = parser.to_dict(info_file, result_file, dash_f_e=dash_f_e)
