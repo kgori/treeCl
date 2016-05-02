@@ -48,21 +48,30 @@ def parse_fasttree_output(s):
 
     try:
         freqs_match = re.search(r'GTR Frequencies:\s+([0-9.-]+)\s+([0-9.-]+)\s+([0-9.-]+)\s+([0-9.-]+)',s)
-        if freqs_match:
-            freqs = []
-            for i in range(1, 5):
-                freqs.append(float(freqs_match.group(i)))
-    except:
+    except AttributeError:
+        raise AttributeError('Couldn\'t parse GTR frequencies')
+        return None
+
+    if freqs_match:
+        freqs = []
+        for i in range(1, 5):
+            freqs.append(float(freqs_match.group(i)))
+    else:
         freqs = []
 
     try:
         rates_match = re.search(r'GTR rates\(ac ag at cg ct gt\)\s+([0-9.-]+)\s+([0-9.-]+)\s+([0-9.-]+)\s+([0-9.-]+)\s+([0-9.-]+)\s+([0-9.-]+)\s+',s)
-        if rates_match:
-            rates = []
-            for i in range(1, 7):
-                rates.append(float(rates_match.group(i)))
-    except:
+    except AttributeError:
+        raise AttributeError('Couldn\'t parse GTR rates')
+        return None
+
+    if rates_match:
         rates = []
+        for i in range(1, 7):
+            rates.append(float(rates_match.group(i)))
+    else:
+        rates = []
+
 
     result = {'likelihood': loglk, 'partitions': {0: {'alpha': alpha}}}
     if freqs:
