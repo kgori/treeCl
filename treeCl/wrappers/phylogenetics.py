@@ -39,7 +39,6 @@ class FastTree(AbstractWrapper):
         self._help = self.get_stderr()
 
 def parse_fasttree_output(s):
-
     try:
         loglk, alpha = (float(x) for x in re.search(r'Gamma\(\d+\) LogLk = ([0-9-.]+) alpha = ([0-9.]+)', s).groups())
     except AttributeError:
@@ -47,7 +46,8 @@ def parse_fasttree_output(s):
         return None
 
     try:
-        freqs_match = re.search(r'GTR Frequencies:\s+([0-9.-]+)\s+([0-9.-]+)\s+([0-9.-]+)\s+([0-9.-]+)',s)
+        freqs_match = re.search(r'GTR Frequencies:\s+([0-9.-]+)\s+([0-9.-]+)\s+([0-9.-]+)\s+([0-9.-]+)', s)
+
     except AttributeError:
         raise AttributeError('Couldn\'t parse GTR frequencies')
         return None
@@ -60,7 +60,9 @@ def parse_fasttree_output(s):
         freqs = []
 
     try:
-        rates_match = re.search(r'GTR rates\(ac ag at cg ct gt\)\s+([0-9.-]+)\s+([0-9.-]+)\s+([0-9.-]+)\s+([0-9.-]+)\s+([0-9.-]+)\s+([0-9.-]+)\s+',s)
+        rates_match = re.search(
+            r'GTR rates\(ac ag at cg ct gt\)\s+([0-9.-]+)\s+([0-9.-]+)\s+([0-9.-]+)\s+([0-9.-]+)\s+([0-9.-]+)\s+([0-9.-]+)\s+',s)
+
     except AttributeError:
         raise AttributeError('Couldn\'t parse GTR rates')
         return None
