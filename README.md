@@ -6,7 +6,7 @@
 phylogenetic similarity. It takes a collection of alignments, infers their phylogenetic trees,
 and clusters them based on a matrix of between-tree distances. Finally, it calculates a single representative tree for each cluster.
 
-You can read the paper [here](http://arxiv.org/abs/1510.02356)
+You can read the paper [here](https://dx.doi.org/10.1093/molbev/msw038)
 
 ## Installation
 
