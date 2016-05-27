@@ -50,11 +50,7 @@ extensions = [
 ]
 
 # Install splash
-<<<<<<< Updated upstream
-VERSION = '0.1.19'
-=======
 VERSION = '0.1.22'
->>>>>>> Stashed changes
 
 logo = """
 ═══════════ ╔═╗┬
