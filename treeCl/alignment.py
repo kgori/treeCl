@@ -133,7 +133,7 @@ class Alignment(object):
     def read_alignment(self, *args, **kwargs):
         filename = args[0]
         args = args[1:]
-        with open(filename) as fl:
+        with fileIO.freader(filename) as fl:
             msa = AlignIO.read(fl, *args, **kwargs)
         self.infile = filename
         # guess alphabet

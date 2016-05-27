@@ -2,9 +2,22 @@
 import unittest
 import treeCl
 import os
-from treeCl import Partition
+from treeCl import Partition, Alignment
 
 thisdir = os.path.dirname(os.path.realpath(__file__))
+
+class AlignmentTests(unittest.TestCase):
+    def test_read_phylip_file(self):
+        filename = os.path.join(thisdir, 'data', 'mini', 'class1_1.phy')
+        al = Alignment(filename, 'phylip')
+        expected = ['Sp1', 'Sp2', 'Sp3', 'Sp4', 'Sp5']
+        self.assertListEqual(expected, al.get_names())
+
+    def test_read_gzip_phylip_file(self):
+        filename = os.path.join(thisdir, 'data', 'mini', 'class1_1.phy.gz')
+        al = Alignment(filename, 'phylip')
+        expected = ['Sp1', 'Sp2', 'Sp3', 'Sp4', 'Sp5']
+        self.assertListEqual(expected, al.get_names())
 
 
 class PartitionTests(unittest.TestCase):
