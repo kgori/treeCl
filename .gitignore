@@ -1,4 +1,5 @@
 aa_alignments
+*.phy.reduced
 tree_collection/cython/build/
 extensions/cpp/py_seq.*
 extensions/tree_collection/cython/py_wrapper.cpp
