@@ -50,7 +50,7 @@ extensions = [
 ]
 
 # Install splash
-VERSION = '0.1.19'
+VERSION = '0.1.20'
 
 logo = """
 ═══════════ ╔═╗┬
@@ -85,6 +85,7 @@ setup(name="treeCl",
           # 'bin/pre_npbs.py',
       ],
       install_requires=[
+          'autowrap',
           'biopython',
           'cython>=0.19.0',
           'dendropy>=4.0.0',
@@ -95,7 +96,7 @@ setup(name="treeCl",
           'nose',
           'numpy',
           'pandas',
-          'phylo_utils',
+          'phylo_utils==0.0.5',
           'progressbar-latest==2.4',
           'PyYaml',
           'scipy',
