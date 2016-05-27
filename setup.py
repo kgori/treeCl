@@ -50,7 +50,11 @@ extensions = [
 ]
 
 # Install splash
+<<<<<<< Updated upstream
 VERSION = '0.1.19'
+=======
+VERSION = '0.1.22'
+>>>>>>> Stashed changes
 
 logo = """
 ═══════════ ╔═╗┬
@@ -101,7 +105,7 @@ setup(name="treeCl",
           'scipy',
           'scikit-bio',
           'scikit-learn',
-          'tree_distance',
+          'tree_distance>=1.0.5',
       ],
       cmdclass={'build_ext': my_build_ext},
       ext_modules=extensions,
