@@ -19,6 +19,37 @@ class AlignmentTests(unittest.TestCase):
         expected = ['Sp1', 'Sp2', 'Sp3', 'Sp4', 'Sp5']
         self.assertListEqual(expected, al.get_names())
 
+    def test_read_bzip2_phylip_file(self):
+        filename = os.path.join(thisdir, 'data', 'mini', 'class1_1.phy.bz2')
+        al = Alignment(filename, 'phylip')
+        expected = ['Sp1', 'Sp2', 'Sp3', 'Sp4', 'Sp5']
+        self.assertListEqual(expected, al.get_names())
+
+    def test_read_fasta_file(self):
+        filename = os.path.join(thisdir, 'data', 'mini', 'class1_1.fas')
+        al = Alignment(filename, 'fasta')
+        expected = ['Sp1', 'Sp2', 'Sp3', 'Sp4', 'Sp5']
+        self.assertListEqual(expected, al.get_names())
+
+    def test_read_gzip_fasta_file(self):
+        filename = os.path.join(thisdir, 'data', 'mini', 'class1_1.fas.gz')
+        al = Alignment(filename, 'fasta')
+        expected = ['Sp1', 'Sp2', 'Sp3', 'Sp4', 'Sp5']
+        self.assertListEqual(expected, al.get_names())
+
+    def test_read_bzip2_fasta_file(self):
+        filename = os.path.join(thisdir, 'data', 'mini', 'class1_1.fas.bz2')
+        al = Alignment(filename, 'fasta')
+        expected = ['Sp1', 'Sp2', 'Sp3', 'Sp4', 'Sp5']
+        self.assertListEqual(expected, al.get_names())
+
+    def compute_distance_correct_result(self):
+        pass
+
+    def compute_distance_throws_datatype_mismatch(self):
+        self.assertRaises(ValueError)
+
+
 
 class PartitionTests(unittest.TestCase):
     def setUp(self):

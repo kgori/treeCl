@@ -20,6 +20,7 @@ from tree_distance import PhyloTree
 
 # treeCl
 from .errors import optioncheck
+from .constants import ISPY3
 from .utils import fileIO, weighted_choice
 from .utils.decorators import lazyprop
 from .utils.math import truncated_exponential
@@ -839,7 +840,10 @@ class Tree(object):
         """
         if not self._phylotree or self._dirty:
             try:
-                self._phylotree = PhyloTree(self.newick, self.rooted)
+                if ISPY3:
+                    self._phylotree = PhyloTree(self.newick.encode(), self.rooted)
+                else:
+                    self._phylotree = PhyloTree(self.newick, self.rooted)
             except ValueError:
                 logger.error('Couldn\'t convert to C++ PhyloTree -- are there bootstrap values?')
             self._dirty = False

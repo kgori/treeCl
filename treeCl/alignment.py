@@ -7,12 +7,13 @@ from builtins import range
 from builtins import object
 import collections
 import itertools
-import os
+import io, os
 
 import numpy as np
 from six import string_types
 
 from .parameters import Parameters
+from .constants import ISPY3
 from .utils import fileIO, alignment_to_partials, concatenate, sample_wr
 from .distance_matrix import DistanceMatrix
 from Bio.Seq import Seq
@@ -22,8 +23,9 @@ from Bio.Alphabet import IUPAC
 from Bio import AlignIO
 from phylo_utils.likcalc import discrete_gamma, sitewise_lik, sitewise_lik_derivs
 from phylo_utils.markov import TransitionMatrix
-from phylo_utils.models import LG, GTR
+import phylo_utils.models
 from phylo_utils.likcalc import _evolve_states, _weighted_choices
+from phylo_utils.likelihood import LnlModel, Leaf
 import logging
 logger = logging.getLogger(__name__)
 
@@ -134,7 +136,11 @@ class Alignment(object):
         filename = args[0]
         args = args[1:]
         with fileIO.freader(filename) as fl:
-            msa = AlignIO.read(fl, *args, **kwargs)
+            if ISPY3:
+                handle = io.TextIOWrapper(fl)
+                msa = AlignIO.read(handle, *args, **kwargs)
+            else:
+                msa = AlignIO.read(fl, *args, **kwargs)
         self.infile = filename
         # guess alphabet
         self._msa = self._guess_alphabet(msa)
@@ -201,11 +207,17 @@ class Alignment(object):
         if self._msa:
             return [sr.name for sr in self._msa]
 
-    def compute_distances(self, ncat=4, tolerance=1e-6):
-        try:
-            return pairdists(self, ncat, tolerance)
-        except:
-            return
+    def compute_distances(self, model, alpha=None, ncat=4, tolerance=1e-6):
+        """
+        Compute pairwise distances between all sequences according to
+        a given substitution model, `model`, of type phylo_utils.models.Model
+        (e.g. phylo_utils.models.WAG(freqs), phylo_utils.models.GTR(rates, freqs))
+        The number of gamma categories is controlled by `ncat`. Setting ncat=1
+        disable gamma rate variation. The gamma alpha parameter must be supplied
+        to enable gamma rate variation.
+        """
+        return pairdists(self, model, alpha, ncat, tolerance)
+
 
     def simulate(self, nsites, transition_matrix, tree, ncat=1, alpha=1):
         """
@@ -223,46 +235,73 @@ class Alignment(object):
         return self.__class__(seqs)
 
 
-def pairdists(alignment, ncat=4, tolerance=1e-6):
-    """ Load an alignment, calculate all pairwise distances and variances """
-    def calc(brlen):
-        """
-        Inner function calculates l'hood + derivs at branch length = brlen
-        """
-        result = sum([sitewise_lik_derivs(tm.get_p_matrix(gamma_rates[k]*brlen),
-                                          tm.get_dp_matrix(gamma_rates[k]*brlen),
-                                          tm.get_d2p_matrix(gamma_rates[k]*brlen),
-                                          tm.freqs, partials[key1], partials[key2])*(1.0/ncat)
-                              for k in range(ncat)])
-        lk = np.log(result[:,0]).sum()
-        dlk = (result[:,1]/result[:,0]).sum()
-        d2lk = ((result[:,0]*result[:,2] - result[:,1]**2)/result[:,0]**2).sum()
-        return lk, dlk, d2lk
+class BranchLengthOptimiser(object):
+    """
+    Wrapper for use with scipy optimiser (e.g. brenth/brentq)
+    """
 
-    def get_step(dlk, d2lk):
-        step = dlk / np.abs(d2lk) # abs makes optimiser backtrack from a minimum likelihood
-        while (brlen + step) < 0:
-            step *= 0.5
-        return step
+    def __init__(self, node1, node2, initial_brlen=1.0):
+        self.root = node1
+        self.desc = node2
+        self.updated = None
+        self.__call__(initial_brlen)
 
-    try:
-        model = alignment.parameters.partitions.model
-        freqs = alignment.parameters.partitions.frequencies
-        alpha = alignment.parameters.partitions.alpha
-    except:
-        logger.error('No parameters available')
-        return
+    def __call__(self, brlen):
+        if self.updated != brlen:
+            self.updated = brlen
+            self.lnl, self.dlnl, self.d2lnl = self.root.compute_likelihood(self.desc, brlen, derivatives=True)
+        return self.lnl, self.dlnl, self.d2lnl
 
-    if model == 'LG':
-        subs_model = LG(freqs)
-    elif model == 'GTR':
-        rates = alignment.parameters.partitions.rates
-        subs_model = GTR(rates, freqs, True)
-    else:
+    def get_lnl(self, brlen):
+        return self.__call__(brlen)[0]
+
+    def get_dlnl(self, brlen):
+        return np.array([self.__call__(brlen)[1]])
+
+    def get_d2lnl(self, brlen):
+        return np.array([self.__call__(brlen)[2]])
+
+    def get_negative_lnl(self, brlen):
+        return -self.__call__(max(0,brlen))[0]
+
+    def get_negative_dlnl(self, brlen):
+        return -self.__call__(max(0,brlen))[1]
+
+    def get_negative_d2lnl(self, brlen):
+        return -self.__call__(max(0,brlen))[2]
+
+    def __str__(self):
+        return 'Branch length={}, Variance={}, Likelihood+derivatives = {} {} {}'.format(self.updated, -1 / self.d2lnl,
+                                                                                         self.lnl, self.dlnl,
+                                                                                         self.d2lnl)
+
+def brent_optimise(node1, node2, min_brlen=0.00001, max_brlen=10, verbose=True):
+    """
+    Optimise ML distance between two partials. min and max set brackets
+    """
+    from scipy.optimize import minimize_scalar
+    wrapper = BranchLengthOptimiser(node1, node2, (min_brlen + max_brlen) / 2.)
+    n = minimize_scalar(lambda x: -wrapper(x)[0], method='brent', bracket=(min_brlen, max_brlen))['x']
+    if verbose:
+        logger.info(wrapper)
+    return n, -1 / wrapper.get_d2lnl(n)
+
+
+def pairdists(alignment, subs_model, alpha=None, ncat=4, tolerance=1e-6):
+    """ Load an alignment, calculate all pairwise distances and variances
+        model parameter must be a Substitution model type from phylo_utils """
+
+    # Check
+    if not isinstance(subs_model, phylo_utils.models.Model):
         raise ValueError("Can't handle this model: {}".format(model))
+
+    if alpha is None:
+        alpha = 1.0
+        ncat = 1
 
     # Set up markov model
     tm = TransitionMatrix(subs_model)
+
     gamma_rates = discrete_gamma(alpha, ncat)
     partials = alignment_to_partials(alignment)
     seqnames = alignment.get_names()
@@ -270,9 +309,13 @@ def pairdists(alignment, ncat=4, tolerance=1e-6):
     distances = np.zeros((nseq, nseq))
     variances = np.zeros((nseq, nseq))
 
+    # Check the model has the appropriate size
+    if not subs_model.size == partials[seqnames[0]].shape[1]:
+        raise ValueError("Model {} expects {} states, but the alignment has {}".format(model.name,
+                                                                                       model.size,
+                                                                                       partials[seqnames[0]].shape[1]))
+
     for i, j in itertools.combinations(range(nseq), 2):
-        key1 = seqnames[i]
-        key2 = seqnames[j]
         maxiter = 100
 
         brlen = 1.0  # just have a guess

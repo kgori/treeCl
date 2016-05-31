@@ -30,7 +30,7 @@ from tree_distance import PhyloTree
 # treeCl
 from .alignment import Alignment
 from .concatenation import Concatenation
-from .constants import SORT_KEY
+from .constants import SORT_KEY, ISPY3
 from .distance_matrix import DistanceMatrix
 from .errors import optioncheck, directorycheck
 from . import tasks
@@ -245,7 +245,9 @@ class RecordsHandler(object):
                 with fileIO.freader(f, f.endswith('.gz'), f.endswith('.bz2')) as reader,\
                      fileIO.fwriter(tmpfile) as writer:
                     for line in reader:
-                         writer.write(line)
+                        if ISPY3:
+                            line = line.decode()
+                        writer.write(line)
                 try:
                     record = Alignment(tmpfile, file_format, True)
                 except ValueError:
