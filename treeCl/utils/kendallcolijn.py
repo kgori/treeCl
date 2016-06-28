@@ -87,10 +87,12 @@ class KendallColijn(object):
                 return 0
                 # raise AttributeError('Can\'t calculate tree distances when tree overlap is less than two leaves')
             else:
-                self.tree, other.tree = self._equalise_leaf_sets(other, False)
-                self.__init__(self.tree)
-                other.__init__(other.tree)
+                t1, t2 = self._equalise_leaf_sets(other, False)
+                tmp_self = KendallColijn(t1)
+                tmp_other = KendallColijn(t2)
 
-        return np.sqrt(((self.get_vector(lbda) - other.get_vector(lbda)) ** 2).sum())
+                return np.sqrt(((tmp_self.get_vector(lbda) - tmp_other.get_vector(lbda)) ** 2).sum())
+        else:
+            return np.sqrt(((self.get_vector(lbda) - other.get_vector(lbda)) ** 2).sum())
 
 
