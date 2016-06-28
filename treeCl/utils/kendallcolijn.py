@@ -18,6 +18,21 @@ class KendallColijn(object):
         m, M = self._get_vectors(tree._tree, info)
         self.little_m = m
         self.big_m = M
+        self.tree = tree
+
+    def _equalise_leaf_sets(self, other, inplace):
+        t1 = self.tree
+        t2 = other.tree
+        intersect = t1 & t2
+        if t1.labels != intersect:
+            pruned1 = t1.prune_to_subset(intersect, inplace)
+        else:
+            pruned1 = t1
+        if t2.labels != intersect:
+            pruned2 = t2.prune_to_subset(intersect, inplace)
+        else:
+            pruned2 = t2
+        return pruned1, pruned2
 
     def _precompute(self, tree):
         """
@@ -62,9 +77,20 @@ class KendallColijn(object):
         """
         return (1-lbda)*self.little_m + lbda*self.big_m
 
-    def get_distance(self, other, lbda=0.5):
+    def get_distance(self, other, lbda=0.5, min_overlap=4):
         """
         Return the Euclidean distance between vectors v of
         two trees. Must have the same leaf set (too lazy to check).
         """
-        return np.sqrt(((self.get_vector(lbda) - other.get_vector(lbda))**2).sum())
+        if self.tree ^ other.tree:
+            if len(self.tree & other.tree) < min_overlap:
+                return 0
+                # raise AttributeError('Can\'t calculate tree distances when tree overlap is less than two leaves')
+            else:
+                self.tree, other.tree = self._equalise_leaf_sets(other, False)
+                self.__init__(self.tree)
+                other.__init__(other.tree)
+
+        return np.sqrt(((self.get_vector(lbda) - other.get_vector(lbda)) ** 2).sum())
+
+
