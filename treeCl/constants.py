@@ -2,6 +2,7 @@
 # standard library
 import os
 import re
+import sys
 
 TMPDIR = os.getenv('TMPDIR', '/tmp')
 EPS = 1e-8  # a small number
@@ -27,3 +28,4 @@ logo = """
             ╰──┤
 ══════════════ ╰──
 """
+ISPY3 = sys.version_info.major>=3

@@ -9,6 +9,7 @@ import bz2
 import pickle
 import glob
 import gzip
+import io
 import os
 import shutil
 import tempfile
@@ -141,7 +142,7 @@ def freader(filename, gz=False, bz=False):
     elif bz:
         return bz2.BZ2File(filename, 'rb')
     else:
-        return open(filename, 'rb')
+        return io.open(filename, 'rb')
 
 
 def fwriter(filename, gz=False, bz=False):

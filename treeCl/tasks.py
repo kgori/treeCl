@@ -43,41 +43,41 @@ class TaskInterface(with_metaclass(ABCMeta, object)):
     def name(self):
         return self._name
 
-def eucdist_task(newick_string_a, newick_string_b, normalise):
+def eucdist_task(newick_string_a, newick_string_b, normalise, min_overlap=4):
     """
     Distributed version of tree_distance.eucdist
     Parameters: two valid newick strings and a boolean
     """
     tree_a = Tree(newick_string_a)
     tree_b = Tree(newick_string_b)
-    return treedist.eucdist(tree_a, tree_b, normalise)
+    return treedist.eucdist(tree_a, tree_b, normalise, min_overlap)
 
-def geodist_task(newick_string_a, newick_string_b, normalise):
+def geodist_task(newick_string_a, newick_string_b, normalise, min_overlap=4):
     """
     Distributed version of tree_distance.geodist
     Parameters: two valid newick strings and a boolean
     """
     tree_a = Tree(newick_string_a)
     tree_b = Tree(newick_string_b)
-    return treedist.geodist(tree_a, tree_b, normalise)
+    return treedist.geodist(tree_a, tree_b, normalise, min_overlap)
 
-def rfdist_task(newick_string_a, newick_string_b, normalise):
+def rfdist_task(newick_string_a, newick_string_b, normalise, min_overlap=4):
     """
     Distributed version of tree_distance.rfdist
     Parameters: two valid newick strings and a boolean
     """
     tree_a = Tree(newick_string_a)
     tree_b = Tree(newick_string_b)
-    return treedist.rfdist(tree_a, tree_b, normalise)
+    return treedist.rfdist(tree_a, tree_b, normalise, min_overlap)
 
-def wrfdist_task(newick_string_a, newick_string_b, normalise):
+def wrfdist_task(newick_string_a, newick_string_b, normalise, min_overlap=4):
     """
     Distributed version of tree_distance.rfdist
     Parameters: two valid newick strings and a boolean
     """
     tree_a = Tree(newick_string_a)
     tree_b = Tree(newick_string_b)
-    return treedist.wrfdist(tree_a, tree_b, normalise)
+    return treedist.wrfdist(tree_a, tree_b, normalise, min_overlap)
 
 ### TASKS that calculate trees
 def pll_task(alignment_file, partition_string, guidetree=None, tree_search=True, threads=1, seed=RANDOM_SEED, frequencies=None,
@@ -611,8 +611,8 @@ class SimulatorTaskInterface(TaskInterface):
 class TreeDistanceTaskInterface(with_metaclass(ABCMeta, TaskInterface)):
     _name = 'TreeDistance'
 
-    def scrape_args(self, trees, normalise=False):
-        return [(t1, t2, normalise) for (t1, t2) in itertools.combinations(trees, 2)]
+    def scrape_args(self, trees, normalise=False, min_overlap=4):
+        return [(t1, t2, normalise, min_overlap) for (t1, t2) in itertools.combinations(trees, 2)]
 
     @abstractmethod
     def get_task(self):

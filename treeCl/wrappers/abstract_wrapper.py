@@ -13,8 +13,7 @@ import threading
 import logging
 from future.utils import with_metaclass
 logger = logging.getLogger(__name__)
-
-IS_PY3 = sys.version_info[0] == 3
+from ..constants import ISPY3
 POSIX = 'posix' in sys.builtin_module_names
 DEFAULT_ENCODING = getpreferredencoding() or "UTF-8"
 
@@ -31,10 +30,10 @@ def _py2_and_3_joiner(sep, joinable):
     :param joinable:
     :return:
     """
-    if IS_PY3:
+    if ISPY3:
         sep = bytes(sep, DEFAULT_ENCODING)
     joined = sep.join(joinable)
-    return joined.decode(DEFAULT_ENCODING) if IS_PY3 else joined
+    return joined.decode(DEFAULT_ENCODING) if ISPY3 else joined
 
 
 def _kwargs_to_args(kwargs, num_hyphens):

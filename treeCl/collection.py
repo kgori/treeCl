@@ -30,7 +30,7 @@ from tree_distance import PhyloTree
 # treeCl
 from .alignment import Alignment
 from .concatenation import Concatenation
-from .constants import SORT_KEY
+from .constants import SORT_KEY, ISPY3
 from .distance_matrix import DistanceMatrix
 from .errors import optioncheck, directorycheck
 from . import tasks
@@ -245,7 +245,9 @@ class RecordsHandler(object):
                 with fileIO.freader(f, f.endswith('.gz'), f.endswith('.bz2')) as reader,\
                      fileIO.fwriter(tmpfile) as writer:
                     for line in reader:
-                         writer.write(line)
+                        if ISPY3:
+                            line = line.decode()
+                        writer.write(line)
                 try:
                     record = Alignment(tmpfile, file_format, True)
                 except ValueError:
@@ -379,7 +381,7 @@ class RecordsCalculatorMixin(object):
                 #logger.debug('Result - {}'.format(result))
                 rec.parameters.construct_from_dict(result)
 
-    def get_inter_tree_distances(self, metric, jobhandler=default_jobhandler, normalise=False, batchsize=1):
+    def get_inter_tree_distances(self, metric, jobhandler=default_jobhandler, normalise=False, min_overlap=4, batchsize=1):
         """ Generate a distance matrix from a fully-populated Collection """
         metrics = {'euc': tasks.EuclideanTreeDistance,
                    'geo': tasks.GeodesicTreeDistance,
@@ -395,7 +397,7 @@ class RecordsCalculatorMixin(object):
             trees = (PhyloTree(newick, False) for newick in self.trees)
         else:
             trees = self.trees
-        args = task_interface.scrape_args(trees, normalise)
+        args = task_interface.scrape_args(trees, normalise, min_overlap)
         logger.debug('{}'.format(args))
         msg = task_interface.name
         array = jobhandler(task_interface.get_task(), args, msg, batchsize)
