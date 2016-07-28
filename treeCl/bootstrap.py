@@ -4,6 +4,7 @@ import numpy as np
 from scipy.spatial.distance import pdist, squareform
 
 from .tasks import _fast_geo
+from .constants import ISPY3
 
 from tree_distance import PhyloTree
 
@@ -174,8 +175,12 @@ def optimise_gradient_descent(x, a, c, tolerance=0.001):
 
 def run_optimise_bootstrap_coords(boot_collection, ref_collection, ref_coords, task=_fast_geo, **kwargs):
     fit = np.empty((len(boot_collection), ref_coords.shape[1]))
-    query_trees = [PhyloTree(tree) for tree in boot_collection.trees]
-    ref_trees = [PhyloTree(tree) for tree in ref_collection.trees]
+    if ISPY3:
+        query_trees = [PhyloTree(tree.encode()) for tree in boot_collection.trees]
+        ref_trees = [PhyloTree(tree.encode()) for tree in ref_collection.trees]
+    else:
+        query_trees = [PhyloTree(tree) for tree in boot_collection.trees]
+        ref_trees = [PhyloTree(tree) for tree in ref_collection.trees]
     for i, tree in enumerate(query_trees):
         ref_dists = np.array([task(tree, ref_tree, False) for ref_tree in ref_trees])
         opt = OptimiseDistanceFit(ref_coords.values, ref_dists)
@@ -188,8 +193,12 @@ def run_out_of_sample_mds(boot_collection, ref_collection, ref_distance_matrix, 
             using recalc=True in kwargs
     """
     fit = np.empty((len(boot_collection), dimensions))
-    query_trees = [PhyloTree(tree) for tree in boot_collection.trees]
-    ref_trees = [PhyloTree(tree) for tree in ref_collection.trees]
+    if ISPY3:
+        query_trees = [PhyloTree(tree.encode()) for tree in boot_collection.trees]
+        ref_trees = [PhyloTree(tree.encode()) for tree in ref_collection.trees]
+    else:
+        query_trees = [PhyloTree(tree) for tree in boot_collection.trees]
+        ref_trees = [PhyloTree(tree) for tree in ref_collection.trees]
     for i, tree in enumerate(query_trees):
         distvec = np.array([task(tree, ref_tree, False) for ref_tree in ref_trees])
         oos = OutOfSampleMDS(ref_distance_matrix)
@@ -198,8 +207,12 @@ def run_out_of_sample_mds(boot_collection, ref_collection, ref_distance_matrix, 
 
 def run_analytical_fit(boot_collection, ref_collection, ref_coords, task=_fast_geo, **kwargs):
     fit = np.empty((len(boot_collection), ref_coords.shape[1]))
-    query_trees = [PhyloTree(tree) for tree in boot_collection.trees]
-    ref_trees = [PhyloTree(tree) for tree in ref_collection.trees]
+    if ISPY3:
+        query_trees = [PhyloTree(tree.encode()) for tree in boot_collection.trees]
+        ref_trees = [PhyloTree(tree.encode()) for tree in ref_collection.trees]
+    else:
+        query_trees = [PhyloTree(tree) for tree in boot_collection.trees]
+        ref_trees = [PhyloTree(tree) for tree in ref_collection.trees]
     for i, tree in enumerate(query_trees):
         ref_dists = np.array([task(tree, ref_tree, False) for ref_tree in ref_trees])
         aft = AnalyticalFit(ref_coords.values, **kwargs)
