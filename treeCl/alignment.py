@@ -247,6 +247,10 @@ class BranchLengthOptimiser(object):
         self.__call__(initial_brlen)
 
     def __call__(self, brlen):
+        if brlen < 0:
+            self.lnl, self.dlnl, self.d2lnl = -np.inf, np.nan, np.nan
+            self.updated = brlen
+            return self.lnl, self.dlnl, self.d2lnl
         if self.updated != brlen:
             self.updated = brlen
             self.lnl, self.dlnl, self.d2lnl = self.root.compute_likelihood(self.desc, brlen, derivatives=True)
@@ -275,7 +279,7 @@ class BranchLengthOptimiser(object):
                                                                                          self.lnl, self.dlnl,
                                                                                          self.d2lnl)
 
-def brent_optimise(node1, node2, min_brlen=0.00001, max_brlen=10, verbose=True):
+def brent_optimise(node1, node2, min_brlen=0.001, max_brlen=10, verbose=False):
     """
     Optimise ML distance between two partials. min and max set brackets
     """
@@ -284,10 +288,12 @@ def brent_optimise(node1, node2, min_brlen=0.00001, max_brlen=10, verbose=True):
     n = minimize_scalar(lambda x: -wrapper(x)[0], method='brent', bracket=(min_brlen, max_brlen))['x']
     if verbose:
         logger.info(wrapper)
+    if n < min_brlen:
+        n = min_brlen
+        wrapper(n)
     return n, -1 / wrapper.get_d2lnl(n)
 
-
-def pairdists(alignment, subs_model, alpha=None, ncat=4, tolerance=1e-6):
+def pairdists(alignment, subs_model, alpha=None, ncat=4, tolerance=1e-6, verbose=False):
     """ Load an alignment, calculate all pairwise distances and variances
         model parameter must be a Substitution model type from phylo_utils """
 
@@ -315,40 +321,14 @@ def pairdists(alignment, subs_model, alpha=None, ncat=4, tolerance=1e-6):
                                                                                        model.size,
                                                                                        partials[seqnames[0]].shape[1]))
 
+    nodes = [phylo_utils.likelihood.LnlModel(tm) for seq in range(nseq)]
+    for node, header in zip(nodes, seqnames):
+        node.set_partials(partials[header])  # retrieve partial likelihoods from partials dictionary
+
     for i, j in itertools.combinations(range(nseq), 2):
-        maxiter = 100
-
-        brlen = 1.0  # just have a guess
-        lk, dlk, d2lk = calc(brlen)
-        maxlk = lk
-        niter = 0
-        step = get_step(dlk, d2lk)
-
-        # This is the newton optimiser
-        while True:
-            niter += 1
-            if niter > maxiter:
-                break  # failed to converge somehow
-
-            # Do the calculation to work out the new step
-            lk, dlk, d2lk = calc(brlen + step)
-            if (lk - maxlk) < -1000*tolerance:
-                # the likelihood got worse, so the step was too big
-                # so restore the old values and halve the step, try again
-                step *= 0.5
-                continue
-
-            else:
-                # successful move. update brlen
-                brlen = brlen + step
-                maxlk = lk
-                step = get_step(dlk, d2lk)
-
-            if np.abs(dlk) < tolerance:
-                break  # Converged
-
+        brlen, var = brent_optimise(nodes[i], nodes[j], verbose=verbose)
         distances[i, j] = distances[j, i] = brlen
-        variances[i, j] = variances[j, i] = np.abs(-1.0/d2lk)
+        variances[i, j] = variances[j, i] = var
     dm = DistanceMatrix.from_array(distances, names=seqnames)
     vm = DistanceMatrix.from_array(variances, names=seqnames)
     return dm, vm
