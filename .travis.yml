@@ -3,7 +3,7 @@ language: python
 python:
   - 2.7
   - 3.4
-#  - 3.5
+  - 3.5
 
 compiler:
   - gcc
@@ -31,7 +31,7 @@ before_install:
   - export CXX=g++-4.7
 
 install:
-  - conda install --yes python=$TRAVIS_PYTHON_VERSION cython==0.21 numpy scipy matplotlib nose pandas scikit-bio scikit-learn pyparsing pyyaml six biopython
+  - conda install --yes python=$TRAVIS_PYTHON_VERSION cython numpy scipy matplotlib nose pandas scikit-bio scikit-learn pyparsing pyyaml six biopython
   - pip install .
 
 sudo: true
