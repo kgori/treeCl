@@ -50,7 +50,7 @@ extensions = [
 ]
 
 # Install splash
-VERSION = '0.1.24'
+VERSION = '0.1.25'
 
 logo = """
 ═══════════ ╔═╗┬
@@ -100,9 +100,9 @@ setup(name="treeCl",
           'progressbar-latest==2.4',
           'PyYaml',
           'scipy',
-          'scikit-bio',
+          'scikit-bio==0.4.2',
           'scikit-learn',
-          'tree_distance>=1.0.5',
+          'tree_distance>=1.0.6',
       ],
       setup_requires=['autowrap'],
       cmdclass={'build_ext': my_build_ext},

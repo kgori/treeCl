@@ -112,6 +112,24 @@ class CollectionTests(unittest.TestCase):
         expected = [511, 420, 139, 635, 229, 593, 228, 218, 404, 167, 227, 650, 104, 1172, 93]
         self.assertEqual(self.c.lengths, expected)
 
+    def test_read_parameters(self):
+        self.c = treeCl.Collection(input_dir=os.path.join(thisdir, 'data'),
+                                   param_dir=os.path.join(thisdir, 'data', 'cache'),
+                                   file_format='phylip',
+                                   show_progressbars=False)
+        rec = self.c[0]
+        self.assertEqual(rec.parameters.nj_tree[:72],
+                         '((((Sp1:1.47856,(Sp4:1.20999,((Sp8:0.00595845,Sp9:0.00469589):0.27853,Sp')
+
+    def test_read_trees(self):
+        self.c = treeCl.Collection(input_dir=os.path.join(thisdir, 'data'),
+                                   trees_dir=os.path.join(thisdir, 'data', 'trees'),
+                                   file_format='phylip',
+                                   show_progressbars=False)
+        rec = self.c[0]
+        self.assertEqual(rec.parameters.ml_tree[:72],
+                         '((((Sp1:1.48316688535948748573,(Sp4:1.16694627918414717271,((Sp8:0.00749')
+
 
 class TreeTests(unittest.TestCase):
     def test_RandomTree_defaultnames(self):
