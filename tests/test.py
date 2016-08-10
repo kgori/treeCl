@@ -119,7 +119,7 @@ class CollectionTests(unittest.TestCase):
                                    show_progressbars=False)
         rec = self.c[0]
         self.assertEqual(rec.parameters.nj_tree[:72],
-                         ('((((Sp1:1.47856,(Sp4:1.20999,((Sp8:0.00595845,Sp9:0.00469589):0.27853,Sp')
+                         '((((Sp1:1.47856,(Sp4:1.20999,((Sp8:0.00595845,Sp9:0.00469589):0.27853,Sp')
 
     def test_read_trees(self):
         self.c = treeCl.Collection(input_dir=os.path.join(thisdir, 'data'),
