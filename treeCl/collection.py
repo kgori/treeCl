@@ -88,6 +88,7 @@ class RecordsHandler(object):
             records=None,
             input_dir=None,
             param_dir=None,
+            trees_dir=None,
             file_format='phylip',
             header_grep=None,
             show_progressbars=True,
@@ -113,8 +114,11 @@ class RecordsHandler(object):
             raise ValueError('Provide a list of records, '
                             'or the path to a set of alignments')
 
-        if param_dir is not None:
+        if param_dir is not None and trees_dir is None:
             self.read_parameters(param_dir)
+
+        elif trees_dir is not None and param_dir is None:
+            self.read_trees(trees_dir)
 
         if not self.records:
             raise NoRecordsError(file_format, input_dir)
@@ -285,8 +289,37 @@ class RecordsHandler(object):
             pbar.finish()
         return records
 
-    def read_parameters(self, input_dir):
+    def read_trees(self, input_dir):
         """ Read a directory full of tree files, matching them up to the
+        already loaded alignments """
+
+        if self.show_progressbars:
+            pbar = setup_progressbar("Loading trees", len(self.records))
+            pbar.start()
+
+        for i, rec in enumerate(self.records):
+            hook = os.path.join(input_dir, '{}.nwk*'.format(rec.name))
+            filename = glob.glob(hook)
+            try:
+                with fileIO.freader(filename[0]) as infile:
+                    tree = infile.read().decode('utf-8')
+
+                d = dict(ml_tree=tree)
+
+                rec.parameters.construct_from_dict(d)
+
+            except (IOError, IndexError):
+                continue
+
+            finally:
+                if self.show_progressbars:
+                    pbar.update(i)
+
+        if self.show_progressbars:
+            pbar.finish()
+
+    def read_parameters(self, input_dir):
+        """ Read a directory full of json parameter files, matching them up to the
         already loaded alignments """
 
         if self.show_progressbars:
