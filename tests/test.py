@@ -133,7 +133,7 @@ class CollectionTests(unittest.TestCase):
 
 class ScorerTests(unittest.TestCase):
 
-    def __init__(self):
+    def setUp(self):
         self.workingdir = 'wdir'
 
     def tearDown(self):
@@ -141,7 +141,7 @@ class ScorerTests(unittest.TestCase):
             shutil.rmtree(self.workingdir)
 
     def test_scorer_can_write(self):
-        self.c = treeCl.Collection(input_dir=os.path.join(thisdir, 'data'),
+        c = treeCl.Collection(input_dir=os.path.join(thisdir, 'data'),
                                    param_dir=os.path.join(thisdir, 'data', 'cache'),
                                    file_format='phylip',
                                    show_progressbars=False)
@@ -152,7 +152,9 @@ class ScorerTests(unittest.TestCase):
         sc.write_partition(p)
 
         # check files were written
+        import glob
         files = glob.glob(os.path.join(self.workingdir, '*.phy'))
+
         self.assertTrue(len(files)>0)
 
 
