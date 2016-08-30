@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import unittest
 import treeCl
-import os
+import os, shutil
 from treeCl import Partition, Alignment
 
 thisdir = os.path.dirname(os.path.realpath(__file__))
@@ -129,6 +129,31 @@ class CollectionTests(unittest.TestCase):
         rec = self.c[0]
         self.assertEqual(rec.parameters.ml_tree[:72],
                          '((((Sp1:1.48316688535948748573,(Sp4:1.16694627918414717271,((Sp8:0.00749')
+
+
+class ScorerTests(unittest.TestCase):
+
+    def __init__(self):
+        self.workingdir = 'wdir'
+
+    def tearDown(self):
+        if os.path.isdir(self.workingdir):
+            shutil.rmtree(self.workingdir)
+
+    def test_scorer_can_write(self):
+        self.c = treeCl.Collection(input_dir=os.path.join(thisdir, 'data'),
+                                   param_dir=os.path.join(thisdir, 'data', 'cache'),
+                                   file_format='phylip',
+                                   show_progressbars=False)
+
+        raxml = treeCl.tasks.RaxmlTaskInterface()
+        sc = treeCl.Scorer(c, cache_dir=self.workingdir, task_interface=raxml)
+        p = treeCl.Partition([0,0,0,0,0,1,1,1,1,1,2,2,2,2,2])
+        sc.write_partition(p)
+
+        # check files were written
+        files = glob.glob(os.path.join(self.workingdir, '*.phy'))
+        self.assertTrue(len(files)>0)
 
 
 class TreeTests(unittest.TestCase):

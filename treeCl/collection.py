@@ -507,7 +507,10 @@ class Scorer(object):
         """
         Return a hash of the tuple of indices that specify the group
         """
-        return self.cache.get(grp, hashlib.sha1(hex(hash(grp))).hexdigest())
+        thehash = hex(hash(grp))
+        if ISPY3:  # use default encoding to get bytes
+            thehash = thehash.encode()
+        return self.cache.get(grp, hashlib.sha1(thehash).hexdigest())
 
     def check_work_done(self, grp):
         """
