@@ -50,7 +50,7 @@ extensions = [
 ]
 
 # Install splash
-VERSION = '0.1.23'
+VERSION = '0.1.26'
 
 logo = """
 ═══════════ ╔═╗┬
