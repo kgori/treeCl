@@ -471,6 +471,9 @@ class DistanceMatrix(Matrix):
             sys.stderr.write(str(err))
             return new_instance
 
+    def get_names(self):
+        return [str(x) for x in self.df.index]
+
     def set_names(self, names):
         if names is None:
             return

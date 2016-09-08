@@ -9,7 +9,7 @@ from builtins import object
 
 # third party
 import numpy as np
-from scipy.cluster.hierarchy import fcluster
+from scipy.cluster.hierarchy import fcluster, dendrogram
 from scipy.spatial.distance import squareform
 import fastcluster
 import skbio
@@ -63,7 +63,7 @@ spectral = enum(
     "KPCA",
     "ZELNIKMANOR")
 
-def _hclust(linkmat, nclusters):
+def _get_threshold(linkmat, nclusters):
     linkmat_size = len(linkmat)
     if nclusters <= 1:
         br_top = linkmat[linkmat_size - nclusters][2]
@@ -74,6 +74,10 @@ def _hclust(linkmat, nclusters):
     else:
         br_bottom = linkmat[linkmat_size - nclusters][2]
     threshold = 0.5 * (br_top + br_bottom)
+    return threshold
+
+def _hclust(linkmat, nclusters):
+    threshold = _get_threshold(linkmat, nclusters)
     t = fcluster(linkmat, threshold, criterion='distance')
     return Partition(t)
 
@@ -412,7 +416,52 @@ class Hierarchical(ClusteringManager):
         matrix = self.get_dm(noise)
 
         linkmat = fastcluster.linkage(squareform(matrix), method)
+        self.nclusters = nclusters  # Store these in case we want to plot
+        self.linkmat = linkmat      #
         return _hclust(linkmat, nclusters)
+
+    def plot_dendrogram(self, nclusters=None, leaf_font_size=8, leaf_rotation=90, names=None,
+                        title_font_size=16, ):
+        """
+        Plots the dendrogram of the most recently generated partition
+        :param nclusters: Override the plot default number of clusters
+
+        :return: matplotlib.pyplot.figure
+        """
+
+        if not hasattr(self, 'nclusters') and not hasattr(self, 'linkmat'):
+            raise ValueError("This instance has no plottable information.")
+
+        if nclusters is None:
+            nclusters = self.nclusters
+
+        threshold = _get_threshold(self.linkmat, nclusters)
+
+        import matplotlib.pyplot as plt
+        fig = plt.figure(figsize=(11.7, 8.3))
+
+        if names is not None:
+            labfn=lambda leaf: names[leaf]
+        else:
+            labfn=None
+            leaf_rotation=0
+
+        dendrogram(
+            self.linkmat,
+            color_threshold=threshold,
+            leaf_font_size=leaf_font_size,
+            leaf_rotation=leaf_rotation,
+            leaf_label_func=labfn,
+            count_sort=True,
+            )
+
+        plt.suptitle('Dendrogram', fontsize=title_font_size)
+        # plt.title('Distance metric: {0}    Linkage method: {1}    Number of classes: {2}'.format(compound_key[0],
+        #           compound_key[1], compound_key[2]), fontsize=12)
+        plt.axhline(threshold, color='grey', ls='dashed')
+        plt.xlabel('Gene')
+        plt.ylabel('Distance')
+        return fig
 
 
 class Automatic(ClusteringManager):
