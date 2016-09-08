@@ -179,6 +179,24 @@ class DistanceMatrixTests(unittest.TestCase):
         dm = treeCl.DistanceMatrix.from_csv(os.path.join(thisdir, 'data', 'cache', 'geo_dm.csv'))
         self.assertAlmostEqual(dm.df.values.sum(), 412.70677069540181)
 
+    def test_get_names(self):
+        dm = treeCl.DistanceMatrix.from_csv(os.path.join(thisdir, 'data', 'cache', 'geo_dm.csv'))
+        names = dm.get_names()
+        self.assertListEqual(names, ['class1_1', 'class1_2',
+                                     'class1_3', 'class1_4',
+                                     'class1_5', 'class2_1',
+                                     'class2_2', 'class2_3',
+                                     'class2_4', 'class2_5',
+                                     'class3_1', 'class3_2',
+                                     'class3_3', 'class3_4',
+                                     'class3_5'])
+
+    def test_set_names(self):
+        dm = treeCl.DistanceMatrix.from_csv(os.path.join(thisdir, 'data', 'cache', 'geo_dm.csv'))
+        new_names = list('abcdefghijklmno')
+        dm.set_names(new_names)
+        self.assertListEqual(dm.get_names(), new_names)
+
     def test_calculation(self):
         c = treeCl.Collection(input_dir=os.path.join(thisdir, 'data'),
                               param_dir=os.path.join(thisdir, 'data', 'cache'),
@@ -186,6 +204,7 @@ class DistanceMatrixTests(unittest.TestCase):
                               show_progressbars=False)
         dm = c.get_inter_tree_distances('geo')
         self.assertAlmostEqual(dm.df.values.sum(), 412.70677069540181)
+
 
 class RaxmlParserTests(unittest.TestCase):
     def setUp(self):
