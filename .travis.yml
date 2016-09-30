@@ -31,8 +31,8 @@ before_install:
   - export CXX=g++-4.7
 
 install:
-  - conda install --yes python=$TRAVIS_PYTHON_VERSION cython future numpy scipy matplotlib nose pandas scikit-bio scikit-learn pyparsing pyyaml six biopython
-  - pip install autowrap
+  - conda create -n travis --yes python=$TRAVIS_PYTHON_VERSION cython future numpy scipy matplotlib nose pandas scikit-bio scikit-learn pyparsing pyyaml six biopython
+  - source activate travis
   - pip install .
 
 sudo: true

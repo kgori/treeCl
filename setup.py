@@ -50,7 +50,7 @@ extensions = [
 ]
 
 # Install splash
-VERSION = '0.1.27'
+VERSION = '0.1.28'
 
 logo = """
 ═══════════ ╔═╗┬
@@ -85,7 +85,6 @@ setup(name="treeCl",
           # 'bin/pre_npbs.py',
       ],
       install_requires=[
-          'autowrap',
           'biopython',
           'cython>=0.19.0',
           'dendropy>=4.0.0',
@@ -104,7 +103,6 @@ setup(name="treeCl",
           'scikit-learn',
           'tree_distance>=1.0.6',
       ],
-      setup_requires=['autowrap'],
       cmdclass={'build_ext': my_build_ext},
       ext_modules=extensions,
       test_suite='tests',
