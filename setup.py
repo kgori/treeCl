@@ -85,7 +85,6 @@ setup(name="treeCl",
           # 'bin/pre_npbs.py',
       ],
       install_requires=[
-          'autowrap',
           'biopython',
           'cython>=0.19.0',
           'dendropy>=4.0.0',
