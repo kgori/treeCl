@@ -7,9 +7,10 @@ from builtins import range
 from builtins import object
 import collections
 import itertools
-import io, os
+import io, os, random
 
 import numpy as np
+import pandas as pd
 from six import string_types
 
 from .parameters import Parameters
@@ -146,8 +147,16 @@ class Alignment(object):
         self._msa = self._guess_alphabet(msa)
 
     def _guess_alphabet(self, msa):
-        allchars = [char.upper() for sr in msa for char in str(sr.seq) if char.upper() not in '-?X']
-        probably_dna = set(allchars).issubset(set(IUPAC.ambiguous_dna.letters))
+        if msa.get_alignment_length() > 1000:
+            allchars = [char for sr in msa for char in random.sample(list(sr.seq.upper()), 1000)]
+        elif len(msa) > 100:
+            allchars = [char for sr in random.sample(list(msa), 100) for char in sr.seq.upper()]
+        elif len(msa) > 100 and msa.get_alignment_length() > 1000:
+            allchars = [char for sr in random.sample(list(msa), 100)
+                            for char in random.sample(list(sr.seq.upper(), 1000))]
+        else:
+            allchars = [char for sr in msa for char in str(sr.seq.upper())]
+        probably_dna = (set(allchars) - set('-?X')).issubset(set(IUPAC.ambiguous_dna.letters))
         if probably_dna:
             alphabet = IUPAC.ambiguous_dna
         else:
@@ -233,6 +242,15 @@ class Alignment(object):
         new_sites = sorted(sample_wr(self.get_sites()))
         seqs = list(zip(self.get_names(), (''.join(seq) for seq in zip(*new_sites))))
         return self.__class__(seqs)
+
+    def to_data_frame(self):
+        seqs = [str(sr.seq) for sr in self._msa]
+        arr = np.array([list(seq) for seq in seqs])
+        return pd.DataFrame(arr, index=self.get_names())
+
+    @classmethod
+    def from_data_frame(cls, df):
+        return cls([(label, ''.join(row)) for (label, row) in df.iterrows()])
 
 
 class BranchLengthOptimiser(object):
