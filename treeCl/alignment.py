@@ -244,9 +244,7 @@ class Alignment(object):
         return self.__class__(seqs)
 
     def to_data_frame(self):
-        seqs = [str(sr.seq) for sr in self._msa]
-        arr = np.array([list(seq) for seq in seqs])
-        return pd.DataFrame(arr, index=self.get_names())
+        return pd.DataFrame([list(sr.seq) for sr in self._msa], index=self.get_names())
 
     @classmethod
     def from_data_frame(cls, df):
