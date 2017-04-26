@@ -83,7 +83,7 @@ class Alignment(object):
                 self.read_alignment(args[0], args[1])
 
         else:
-            logger.warn('Failed to initialise alignment - couldn\'t read args as a file or interpret as sequences')
+            logger.warning('Failed to initialise alignment - couldn\'t read args as a file or interpret as sequences')
             self._msa = None
 
         if 'alphabet' in kwargs and self._msa is not None:
@@ -376,8 +376,7 @@ class SequenceSimulator(object):
         for node in self.tree.preorder(skip_seed=True):
             l = node.edge.length or 0
             if l == 0:
-                print ('warning')
-                #logger.warn('This tree has zero length edges')
+                logger.warning('This tree has zero length edges')
             nstates = self.states.shape[0]
             node.pmats = np.empty((ncat, nstates, nstates))
             for i in range(ncat):
