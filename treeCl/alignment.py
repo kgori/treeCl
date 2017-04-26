@@ -22,11 +22,10 @@ from Bio.SeqRecord import SeqRecord
 from Bio.Align import MultipleSeqAlignment
 from Bio.Alphabet import IUPAC
 from Bio import AlignIO
-from phylo_utils.likcalc import discrete_gamma, sitewise_lik, sitewise_lik_derivs
+from phylo_utils.likcalc import discrete_gamma
 from phylo_utils.markov import TransitionMatrix
 import phylo_utils.models
 from phylo_utils.likcalc import _evolve_states, _weighted_choices
-from phylo_utils.likelihood import LnlModel, Leaf
 import logging
 logger = logging.getLogger(__name__)
 

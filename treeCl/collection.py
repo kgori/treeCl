@@ -14,7 +14,6 @@ import glob
 import hashlib
 import itertools
 import json
-import math
 import os
 import random
 import sys

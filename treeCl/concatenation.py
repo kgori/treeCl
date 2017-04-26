@@ -6,9 +6,8 @@ from past.utils import old_div
 import numpy as np
 from .alignment import Alignment
 from .tasks import TreeCollectionTaskInterface
-from .tree import Tree
 from .utils.decorators import lazyprop
-from .utils import flatten_list, concatenate, fileIO
+from .utils import concatenate, fileIO
 from Bio import AlignIO
 
 __author__ = 'kgori'

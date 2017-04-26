@@ -13,7 +13,6 @@ import sys
 import numpy as np
 import pandas as pd
 import sklearn
-from scipy.spatial.distance import squareform
 
 # treeCl
 from . import errors

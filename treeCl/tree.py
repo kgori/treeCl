@@ -21,7 +21,6 @@ from tree_distance import PhyloTree
 # treeCl
 from .errors import optioncheck
 from .constants import ISPY3
-from .utils import fileIO, weighted_choice
 from .utils.decorators import lazyprop
 from .utils.math import truncated_exponential
 
