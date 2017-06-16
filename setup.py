@@ -67,7 +67,7 @@ print(logo)
 setup(name="treeCl",
       version=VERSION,
       author='Kevin Gori',
-      author_email='kgori@ebi.ac.uk',
+      author_email='kcg25@cam.ac.uk',
       description='Phylogenetic Clustering Package',
       url='https://github.com/kgori/treeCl.git',
       packages=find_packages(),
