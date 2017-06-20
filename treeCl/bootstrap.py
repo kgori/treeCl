@@ -173,46 +173,46 @@ def optimise_gradient_descent(x, a, c, tolerance=0.001):
 
 ### Functions to add bootstraps to collections
 
-def run_optimise_bootstrap_coords(boot_collection, ref_collection, ref_coords, task=_fast_geo, **kwargs):
+def run_optimise_bootstrap_coords(boot_collection, ref_collection, ref_coords, task=_fast_geo, rooted=False, **kwargs):
     fit = np.empty((len(boot_collection), ref_coords.shape[1]))
     if ISPY3:
-        query_trees = [PhyloTree(tree.encode()) for tree in boot_collection.trees]
-        ref_trees = [PhyloTree(tree.encode()) for tree in ref_collection.trees]
+        query_trees = [PhyloTree(tree.encode(), rooted) for tree in boot_collection.trees]
+        ref_trees = [PhyloTree(tree.encode(), rooted) for tree in ref_collection.trees]
     else:
-        query_trees = [PhyloTree(tree) for tree in boot_collection.trees]
-        ref_trees = [PhyloTree(tree) for tree in ref_collection.trees]
+        query_trees = [PhyloTree(tree, rooted) for tree in boot_collection.trees]
+        ref_trees = [PhyloTree(tree, rooted) for tree in ref_collection.trees]
     for i, tree in enumerate(query_trees):
         ref_dists = np.array([task(tree, ref_tree, False) for ref_tree in ref_trees])
         opt = OptimiseDistanceFit(ref_coords.values, ref_dists)
         fit[i] = opt.newton(**kwargs)
     return fit
 
-def run_out_of_sample_mds(boot_collection, ref_collection, ref_distance_matrix, index, dimensions, task=_fast_geo, **kwargs):
+def run_out_of_sample_mds(boot_collection, ref_collection, ref_distance_matrix, index, dimensions, task=_fast_geo, rooted=False, **kwargs):
     """
     index = index of the locus the bootstrap sample corresponds to - only important if
             using recalc=True in kwargs
     """
     fit = np.empty((len(boot_collection), dimensions))
     if ISPY3:
-        query_trees = [PhyloTree(tree.encode()) for tree in boot_collection.trees]
-        ref_trees = [PhyloTree(tree.encode()) for tree in ref_collection.trees]
+        query_trees = [PhyloTree(tree.encode(), rooted) for tree in boot_collection.trees]
+        ref_trees = [PhyloTree(tree.encode(), rooted) for tree in ref_collection.trees]
     else:
-        query_trees = [PhyloTree(tree) for tree in boot_collection.trees]
-        ref_trees = [PhyloTree(tree) for tree in ref_collection.trees]
+        query_trees = [PhyloTree(tree, rooted) for tree in boot_collection.trees]
+        ref_trees = [PhyloTree(tree, rooted) for tree in ref_collection.trees]
     for i, tree in enumerate(query_trees):
         distvec = np.array([task(tree, ref_tree, False) for ref_tree in ref_trees])
         oos = OutOfSampleMDS(ref_distance_matrix)
         fit[i] = oos.fit(index, distvec, dimensions=dimensions, **kwargs)
     return fit
 
-def run_analytical_fit(boot_collection, ref_collection, ref_coords, task=_fast_geo, **kwargs):
+def run_analytical_fit(boot_collection, ref_collection, ref_coords, task=_fast_geo, rooted=False, **kwargs):
     fit = np.empty((len(boot_collection), ref_coords.shape[1]))
     if ISPY3:
-        query_trees = [PhyloTree(tree.encode()) for tree in boot_collection.trees]
-        ref_trees = [PhyloTree(tree.encode()) for tree in ref_collection.trees]
+        query_trees = [PhyloTree(tree.encode(), rooted) for tree in boot_collection.trees]
+        ref_trees = [PhyloTree(tree.encode(), rooted) for tree in ref_collection.trees]
     else:
-        query_trees = [PhyloTree(tree) for tree in boot_collection.trees]
-        ref_trees = [PhyloTree(tree) for tree in ref_collection.trees]
+        query_trees = [PhyloTree(tree, rooted) for tree in boot_collection.trees]
+        ref_trees = [PhyloTree(tree, rooted) for tree in ref_collection.trees]
     for i, tree in enumerate(query_trees):
         ref_dists = np.array([task(tree, ref_tree, False) for ref_tree in ref_trees])
         aft = AnalyticalFit(ref_coords.values, **kwargs)
