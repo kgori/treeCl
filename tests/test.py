@@ -205,6 +205,36 @@ class DistanceMatrixTests(unittest.TestCase):
         dm = c.get_inter_tree_distances('geo')
         self.assertAlmostEqual(dm.df.values.sum(), 412.70677069540181)
 
+    def test_embed_cmds(self):
+        dm = treeCl.DistanceMatrix.from_csv(os.path.join(thisdir, 'data', 'cache', 'geo_dm.csv'))
+        embed = dm.embedding(3, 'cmds')
+        self.assertEqual(embed.shape, (15, 3))
+
+    def test_embed_kpca(self):
+        dm = treeCl.DistanceMatrix.from_csv(os.path.join(thisdir, 'data', 'cache', 'geo_dm.csv'))
+        embed = dm.embedding(3, 'kpca')
+        self.assertEqual(embed.shape, (15, 3))
+
+    def test_embed_mmds(self):
+        dm = treeCl.DistanceMatrix.from_csv(os.path.join(thisdir, 'data', 'cache', 'geo_dm.csv'))
+        embed = dm.embedding(3, 'mmds')
+        self.assertEqual(embed.shape, (15, 3))
+
+    def test_embed_nmmds(self):
+        dm = treeCl.DistanceMatrix.from_csv(os.path.join(thisdir, 'data', 'cache', 'geo_dm.csv'))
+        embed = dm.embedding(3, 'nmmds')
+        self.assertEqual(embed.shape, (15, 3))
+
+    def test_embed_spectral(self):
+        dm = treeCl.DistanceMatrix.from_csv(os.path.join(thisdir, 'data', 'cache', 'geo_dm.csv'))
+        embed = dm.embedding(3, 'spectral')
+        self.assertEqual(embed.shape, (15, 3))
+
+    def test_embed_tsne(self):
+        dm = treeCl.DistanceMatrix.from_csv(os.path.join(thisdir, 'data', 'cache', 'geo_dm.csv'))
+        tsne = dm.embedding(3, 'tsne')
+        self.assertEqual(tsne.shape, (15, 3))
+
 
 class RaxmlParserTests(unittest.TestCase):
     def setUp(self):
