@@ -21,6 +21,10 @@ from treeCl.constants import logo, SORT_KEY
 from treeCl.errors import directorycheck, directorymake, filecheck
 from treeCl.utils import fileIO, symmetrise
 
+# set up logging
+import logging
+logger = logging.getLogger(__name__)
+
 
 def print_distance_matrix_update(args):
     """ User update function: distance matrix calculation """
@@ -61,6 +65,9 @@ def approx_ic(lnl, k, n, penalty='aic'):
         penalty_term = 2.0 * k * n / (n - k - 1)
     elif penalty == 'bic':
         penalty_term = k * np.log(n)
+    else:
+        logger.warning("Unrecognised IC penalty - {}".format(penalty))
+        penalty_term = 0
 
     return -2.0 * lnl + penalty_term
 
@@ -346,21 +353,21 @@ def parse_args():
     parser.add_argument('-a', action='store_true', help=help_messages['a'])
     parser.add_argument('-b', action='store_true', help=help_messages['b'])
     parser.add_argument('-c', type=str, choices=cchoices, nargs='+',
-                        help=help_messages['c'], required=True)
+                        help=help_messages['c'])
     parser.add_argument('-d', type=str, choices=dchoices,
-                        help=help_messages['d'], required=True)
+                        help=help_messages['d'])
     parser.add_argument('-e', action='store_true', help=help_messages['e'])
     parser.add_argument('-f', type=str, choices=fchoices,
-                        help=help_messages['f'], required=True)
+                        help=help_messages['f'])
     parser.add_argument('-g', type=str, choices=lchoices,
-                        help=help_messages['g'], required=True)
+                        help=help_messages['g'])
     parser.add_argument('-i', type=str,
-                        help=help_messages['i'], required=True)
+                        help=help_messages['i'])
     parser.add_argument('-l', type=int, help=help_messages['l'], default=0)
     parser.add_argument('-m', type=str, choices=mchoices, nargs='+',
-                        help=help_messages['m'], required=True)
+                        help=help_messages['m'])
     parser.add_argument('-o', type=str,
-                        help=help_messages['o'], required=True)
+                        help=help_messages['o'])
     parser.add_argument('-p', '--scorer_out', dest='p', type=str,
                         help=help_messages['p'])
     parser.add_argument('-q', '--scorer_in', dest='q', type=str,
