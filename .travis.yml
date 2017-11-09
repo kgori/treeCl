@@ -33,7 +33,7 @@ before_install:
 install:
   - conda create -n travis --yes python=$TRAVIS_PYTHON_VERSION cython future numpy scipy matplotlib nose pandas scikit-bio scikit-learn pyparsing pyyaml six biopython
   - source activate travis
-  - pip install .
+  - pip install --no_binary ":all:" .
 
 sudo: true
 
