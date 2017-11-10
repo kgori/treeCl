@@ -273,7 +273,7 @@ class RaxmlRunnerTests(unittest.TestCase):
         self.assertFalse(self.c[0].parameters.ml_tree is None)
 
     def test_can_run_fast_tree(self):
-        self.c.calc_trees(indices=[0], fast_tree=True)
+        self.c.calc_trees(indices=[0], fast_tree=True, model='PROTGAMMALGF')
         self.assertFalse(self.c[0].parameters.ml_tree is None)
 
 
