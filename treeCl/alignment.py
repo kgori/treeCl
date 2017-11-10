@@ -181,7 +181,7 @@ class Alignment(object):
             return os.path.abspath(alignment), False
 
         except (IOError, TypeError, AssertionError):
-            with fileIO.NonDeletingTempFile() as tmpfile:
+            with fileIO.TempFile(disable_delete=True) as tmpfile:
                 self.write_alignment(tmpfile, "phylip", interleaved=True)
             return tmpfile, True
 
