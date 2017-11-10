@@ -391,7 +391,19 @@ class RecordsCalculatorMixin(object):
                 # j += 1
             # pbar.finish()
 
-    def calc_trees(self, indices=None, task_interface=None, jobhandler=default_jobhandler, batchsize=1, **kwargs):
+    def calc_trees(self, indices=None, task_interface=None, jobhandler=default_jobhandler, batchsize=1,
+                   **kwargs):
+        """
+        Infer phylogenetic trees for the loaded Alignments
+
+        :param indices: Only run inference on the alignments at these given indices
+        :param task_interface: Inference tool specified via TaskInterface (default RaxmlTaskInterface)
+        :param jobhandler: Launch jobs via this JobHandler (default SequentialJobHandler; also available are
+            ThreadpoolJobHandler and ProcesspoolJobHandler for running inference in parallel)
+        :param batchsize: Batch size for Thread- or ProcesspoolJobHandlers)
+        :param kwargs: Remaining arguments to pass to the TaskInterface
+        :return: None
+        """
         if indices is None:
             indices = list(range(len(self)))
 

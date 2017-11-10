@@ -76,8 +76,9 @@ class TempDir(object):
 
 class TempFileList(object):
 
-    def __init__(self, filelist):
+    def __init__(self, filelist, disable_delete=False):
         self._filelist = filelist
+        self.disable_delete = disable_delete
 
     def __enter__(self):
         return self._filelist
@@ -85,7 +86,8 @@ class TempFileList(object):
     def __exit__(self, type, value, tb):
         for fl in self._filelist:
             try:
-                os.remove(fl)
+                if not self.disable_delete:
+                    os.remove(fl)
             except:
                 pass  # No need to crash if deletion fails, just ignore
 

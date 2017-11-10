@@ -135,14 +135,25 @@ class RaxmlParser(object):
 
         model = Suppress(SkipTo(MODEL_LABEL)) + Suppress(MODEL_LABEL) + WORD
         likelihood = Suppress(SkipTo(SCORE_LABEL)) + Suppress(SCORE_LABEL) + FLOAT
-        description = Suppress(SkipTo(DESC_LABEL)) + Suppress(DESC_LABEL) + INT + Suppress(NAME_LEADIN) + SPACEDWORD + Suppress(DATATYPE_LEADIN) + WORD
+        description = (Suppress(SkipTo(DESC_LABEL)) +
+                       Suppress(DESC_LABEL) + INT +
+                       Suppress(NAME_LEADIN) +
+                       SPACEDWORD +
+                       Suppress(DATATYPE_LEADIN) +
+                       WORD)
         alpha = Suppress(ALPHA_LEADIN) + FLOAT
         rates = Suppress(RATES_LABEL) + FLOAT
         freqs = Suppress(FREQS_LABEL) + FLOAT
 
         self._dash_f_e_parser = (Group(OneOrMore(model)) +
                                  likelihood +
-                                 Group(OneOrMore(Group(description + alpha + Suppress(TREELENGTH_LEADIN) + Suppress(FLOAT) + Group(OneOrMore(rates)) + Group(OneOrMore(freqs))))))
+                                 Group(OneOrMore(Group(description +
+                                                       alpha +
+                                                       Suppress(TREELENGTH_LEADIN) +
+                                                       Suppress(FLOAT) +
+                                                       Group(OneOrMore(rates)) +
+                                                       Group(OneOrMore(freqs))
+                                                       ))))
 
     def parse(self, filename):
         with open(filename) as fl:
