@@ -173,6 +173,43 @@ class TreeTests(unittest.TestCase):
         n = '((((Sp1:0.0523947839547,Sp2:1.37159604411):2.36974538201,((Sp3:0.179093762783,(Sp4:0.615505083102,Sp5:0.344065892719):0.0724725996144):0.307962158157,(Sp6:1.48158479406,Sp7:3.13329090451):1.62357461752):0.62792640958):2.64647302212,(Sp8:0.145879857199,Sp9:4.33463301328):0.785221836876):0.0653625005117,((((Sp10:0.0327158596802,Sp11:0.346629825105):0.513499606131,Sp12:0.0931894502388):1.75462968872,(Sp13:0.0508398281971,Sp14:0.902409030743):0.248348229186):2.66397475192,(Sp15:0.623334704667,Sp16:0.727987265987):2.45688940891):1.00011564391):0.0;'
         self.assertEqual(treeCl.tree.Tree(n).newick, n)
 
+    def test_rnni(self):
+        """
+        Issue 15: Tree.rnni raises a type error because it calls an unimported function
+        (and also shadows the fn name with a bool variable). This test asserts that rnni
+        doesn't throw any error on valid input.
+        """
+        t = treeCl.tree.Tree(newick="((((T4:42.9474018906,T10:42.9474018906):112.903906732,(T6:14.3433500048,(T2:1.53929863217,T5:1.53929863217):12.8040513726):141.507958618):22.1730692315,T9:178.024377854):34.9689886128,(T3:190.011180702,((T1:0,T8:0):147.182729024,T7:147.182729024):42.8284516785):22.9821857647):2.44503258424;")
+        try:
+            t.rnni(times=3)
+        except:
+            self.fail('Tree.rnni() raised an exception unexpectedly')
+
+    def test_rspr(self):
+        """
+        Issue 15: Tree.rnni raises a type error because it calls an unimported function
+        (and also shadows the fn name with a bool variable). This test asserts that rspr
+        also doesn't throw any error on valid input.
+        """
+        t = treeCl.tree.Tree(newick="((((T4:42.9474018906,T10:42.9474018906):112.903906732,(T6:14.3433500048,(T2:1.53929863217,T5:1.53929863217):12.8040513726):141.507958618):22.1730692315,T9:178.024377854):34.9689886128,(T3:190.011180702,((T1:0,T8:0):147.182729024,T7:147.182729024):42.8284516785):22.9821857647):2.44503258424;")
+        try:
+            t.rspr(times=3)
+        except:
+            self.fail('Tree.rspr() raised an exception unexpectedly')
+
+    def test_rils(self):
+        """
+        Issue 15: Tree.rnni raises a type error because it calls an unimported function
+        (and also shadows the fn name with a bool variable). This test asserts that ILS.rils
+        also doesn't throw any error on valid input.
+        """
+        t = treeCl.tree.Tree(
+            newick="((((T4:42.9474018906,T10:42.9474018906):112.903906732,(T6:14.3433500048,(T2:1.53929863217,T5:1.53929863217):12.8040513726):141.507958618):22.1730692315,T9:178.024377854):34.9689886128,(T3:190.011180702,((T1:0,T8:0):147.182729024,T7:147.182729024):42.8284516785):22.9821857647):2.44503258424;")
+        ils = treeCl.tree.ILS(t)
+        try:
+            ils.rils()
+        except:
+            self.fail('ILS.rils() raised an exception unexpectedly')
 
 class DistanceMatrixTests(unittest.TestCase):
     def test_from_csv(self):
@@ -205,6 +242,36 @@ class DistanceMatrixTests(unittest.TestCase):
         dm = c.get_inter_tree_distances('geo')
         self.assertAlmostEqual(dm.df.values.sum(), 412.70677069540181)
 
+    def test_embed_cmds(self):
+        dm = treeCl.DistanceMatrix.from_csv(os.path.join(thisdir, 'data', 'cache', 'geo_dm.csv'))
+        embed = dm.embedding(3, 'cmds')
+        self.assertEqual(embed.shape, (15, 3))
+
+    def test_embed_kpca(self):
+        dm = treeCl.DistanceMatrix.from_csv(os.path.join(thisdir, 'data', 'cache', 'geo_dm.csv'))
+        embed = dm.embedding(3, 'kpca')
+        self.assertEqual(embed.shape, (15, 3))
+
+    def test_embed_mmds(self):
+        dm = treeCl.DistanceMatrix.from_csv(os.path.join(thisdir, 'data', 'cache', 'geo_dm.csv'))
+        embed = dm.embedding(3, 'mmds')
+        self.assertEqual(embed.shape, (15, 3))
+
+    def test_embed_nmmds(self):
+        dm = treeCl.DistanceMatrix.from_csv(os.path.join(thisdir, 'data', 'cache', 'geo_dm.csv'))
+        embed = dm.embedding(3, 'nmmds')
+        self.assertEqual(embed.shape, (15, 3))
+
+    def test_embed_spectral(self):
+        dm = treeCl.DistanceMatrix.from_csv(os.path.join(thisdir, 'data', 'cache', 'geo_dm.csv'))
+        embed = dm.embedding(3, 'spectral')
+        self.assertEqual(embed.shape, (15, 3))
+
+    def test_embed_tsne(self):
+        dm = treeCl.DistanceMatrix.from_csv(os.path.join(thisdir, 'data', 'cache', 'geo_dm.csv'))
+        tsne = dm.embedding(3, 'tsne')
+        self.assertEqual(tsne.shape, (15, 3))
+
 
 class RaxmlParserTests(unittest.TestCase):
     def setUp(self):
@@ -222,6 +289,7 @@ class RaxmlParserTests(unittest.TestCase):
         parse_result = self.parser.to_dict(self.infoq, self.resultq, True)
         self.assertEqual(parse_result['partitions'][0]['name'], 'class1_1')
 
+
 class RaxmlRunnerTests(unittest.TestCase):
     def setUp(self):
         self.c = treeCl.Collection(input_dir=os.path.join(thisdir, 'data', 'mini'), file_format='phylip',
@@ -234,6 +302,17 @@ class RaxmlRunnerTests(unittest.TestCase):
     def test_can_run_CAT(self):
         self.c.calc_trees(model='PROTCATWAG')
         self.assertFalse(self.c[0].parameters.ml_tree is None)
+
+    def test_can_run_on_DNA(self):
+        self.c = treeCl.Collection(input_dir=os.path.join(thisdir, 'data', 'dna_alignments'), file_format='phylip',
+                                   show_progressbars=False)
+        self.c.calc_trees(indices=[0], model='GTRGAMMA')
+        self.assertFalse(self.c[0].parameters.ml_tree is None)
+
+    def test_can_run_fast_tree(self):
+        self.c.calc_trees(indices=[0], fast_tree=True, model='PROTGAMMALGF')
+        self.assertFalse(self.c[0].parameters.ml_tree is None)
+
 
 class ParallelTests(unittest.TestCase):
     def setUp(self):

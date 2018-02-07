@@ -336,6 +336,25 @@ def _embedding_spectral(matrix, dimensions=3, unit_length=True,
     return normalise_rows(coords) if unit_length else coords
 
 
+def _embedding_tsne(matrix, dimensions=3, early_exaggeration=12.0,
+                    method='barnes_hut', perplexity=30, learning_rate=200,
+                    n_iter=1000):
+    """
+    Private method to perform tSNE embedding
+    :param matrix: treeCl Distance Matrix
+    :param dimensions: Number of dimensions in which to embed points
+    :return: treeCl CoordinateMatrix
+    """
+    tsne = sklearn.manifold.TSNE(n_components=dimensions,
+                                 metric="precomputed",
+                                 early_exaggeration=early_exaggeration,
+                                 method=method,
+                                 perplexity=perplexity,
+                                 learning_rate=learning_rate,
+                                 n_iter=1000)
+    return tsne.fit_transform(matrix)
+
+
 def _embedding_metric_mds(matrix, dimensions=3):
     """
     Private method to calculate MMDS embedding
@@ -506,6 +525,7 @@ class DistanceMatrix(Matrix):
             mmds: Metric MultiDimensional Scaling
             nmmds: Non-Metric MultiDimensional Scaling
             spectral: Spectral decomposition of Laplacian matrix
+            tsne: t-distributed Stochastic Neighbour Embedding
 
         Valid kwargs:
             kpca: affinity_matrix - a precomputed array of affinities
@@ -521,7 +541,7 @@ class DistanceMatrix(Matrix):
         :param kwargs: unit_length (bool), affinity_matrix (np.array), sigma (float), initial_coords (np.array)
         :return: coordinate matrix (np.array)
         """
-        errors.optioncheck(method, ['cmds', 'kpca', 'mmds', 'nmmds', 'spectral'])
+        errors.optioncheck(method, ['cmds', 'kpca', 'mmds', 'nmmds', 'spectral', 'tsne'])
         if method == 'cmds':
             array =  _embedding_classical_mds(self.to_array(), dimensions, **kwargs)
         elif method == 'kpca':
@@ -532,6 +552,8 @@ class DistanceMatrix(Matrix):
             array = _embedding_nonmetric_mds(self.to_array(), dimensions, **kwargs)
         elif method == 'spectral':
             array = _embedding_spectral(self.to_array(), dimensions, **kwargs)
+        elif method == 'tsne':
+            array = _embedding_tsne(self.to_array(), dimensions, **kwargs)
 
         return CoordinateMatrix(array, names=self.df.index)
 

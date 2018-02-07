@@ -18,8 +18,12 @@ addons:
       - g++-4.7
 
 before_install:
-  - sudo apt-get -qq update
-  - sudo apt-get install -y raxml
+  - wget https://github.com/stamatak/standard-RAxML/archive/v8.2.11.tar.gz
+  - tar xf v8.2.11.tar.gz
+  - cd standard-RAxML-8.2.11
+  - make -f Makefile.AVX.gcc
+  - sudo mv raxmlHPC-AVX /usr/bin
+  - cd ..
   - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
   - chmod +x miniconda.sh
   - ./miniconda.sh -b
@@ -33,7 +37,7 @@ before_install:
 install:
   - conda create -n travis --yes python=$TRAVIS_PYTHON_VERSION cython future numpy scipy matplotlib nose pandas scikit-bio scikit-learn pyparsing pyyaml six biopython
   - source activate travis
-  - pip install .
+  - pip install --no-binary ":all:" .
 
 sudo: true
 

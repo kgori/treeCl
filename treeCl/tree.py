@@ -21,6 +21,7 @@ from tree_distance import PhyloTree
 # treeCl
 from .errors import optioncheck
 from .constants import ISPY3
+from .utils import fileIO, weighted_choice
 from .utils.decorators import lazyprop
 from .utils.math import truncated_exponential
 
@@ -284,9 +285,9 @@ class NNI(object):
             excludes.append(child_a)
         self.valid_nodes = set([n for n in self.tree._tree.nodes() if not n in excludes])
 
-    def choose_node(self, weighted_choice=False, transform=None):
+    def choose_node(self, use_weighted_choice=False, transform=None):
         self._validate()
-        if weighted_choice:
+        if use_weighted_choice:
             weights = np.array([n.edge.length for n in self.valid_nodes])
             if any(weight is None for weight in weights):
                 logger.debug('Not all weights were valid: {}'.format(weights))
@@ -337,8 +338,8 @@ class NNI(object):
         parent_2.add_child(node_1)
         self.tree._tree.encode_bipartitions()
 
-    def rnni(self, weighted_choice=False, transform=None):
-        n = self.choose_node(weighted_choice, transform)
+    def rnni(self, use_weighted_choice=False, transform=None):
+        n = self.choose_node(use_weighted_choice, transform)
         a, b, c, d = self.get_exchangeable_nodes(n)
         self.do_nni(random.choice([a, b]), random.choice([c, d]))
 
@@ -346,7 +347,7 @@ class NNI(object):
 def collapse(t, threshold=None, keep_lengths=True, support_key=None, length_threshold=0.0):
 
     to_collapse = []
-    for node in t.postorder_node_iter():
+    for node in t._tree.postorder_node_iter():
         if node.is_leaf():
             if node.edge_length < length_threshold:
                 node.edge_length = 0
@@ -423,11 +424,11 @@ class ILS(object):
         self._make_ultrametric()
         self.tree._tree.calc_node_ages()
         excludes = [self.tree._tree.seed_node] + self.tree._tree.seed_node.child_nodes() + self.tree._tree.leaf_nodes()
-        self.valid_nodes = self.tree._tree.get_node_set(filter_fn=lambda x: not x in excludes)
+        self.valid_nodes = self.tree._tree.nodes(filter_fn=lambda x: not x in excludes)
 
-    def choose_node(self, weighted_choice=False, transform=None):
+    def choose_node(self, use_weighted_choice=False, transform=None):
         self._validate()
-        if weighted_choice:
+        if use_weighted_choice:
             weights = np.array([n.edge.length for n in self.valid_nodes])
             if any(weight is None for weight in weights):
                 logger.debug('Not all weights were valid: {}'.format(weights))
@@ -570,13 +571,17 @@ class ILS(object):
             b.edge.length = (new_n1_age - ages[1])
             c.edge.length = (new_n2_age - ages[2])
 
-        self.tree._tree.reindex_taxa()
+        # used to be .reindex_taxa() before dendropy 4.
+        # migrate_taxon_namespace is recommended migrated function,
+        # but not sure if its even needed anymore.
+        self.tree._tree.migrate_taxon_namespace(self.tree._tree.taxon_namespace)
+
         self.tree._tree.encode_bipartitions()
         self._validate()
         logger.debug(self.tree)
 
-    def rils(self, weighted_choice=True, transform=None):
-        n = self.choose_node(weighted_choice, transform)
+    def rils(self, use_weighted_choice=True, transform=None):
+        n = self.choose_node(use_weighted_choice, transform)
         logger.debug('Chosen node = {} age = {} parent age = {}'.format([leaf.taxon.label for leaf in n.leaf_nodes()], n.age, n.parent_node.age))
         self.ils(n)
 
@@ -725,13 +730,13 @@ class NNI2(object):
             self.tree._dirty = True
         return self.tree
 
-    def rnni(self, weighted_choice=False, invert_weights=False):
+    def rnni(self, use_weighted_choice=False, invert_weights=False):
         """
         Apply a random NNI operation at a randomly selected edge
         The edge can be chosen uniformly, or weighted by length --
         invert_weights favours short edges.
         """
-        if weighted_choice:
+        if use_weighted_choice:
             leaves = list(self.tree._tree.leaf_edge_iter())
             e, _ = self.tree.map_event_onto_tree(excluded_edges=leaves, invert_weights=invert_weights)
         else:
@@ -1134,8 +1139,8 @@ class Tree(object):
 
     def rnni(self, times=1, **kwargs):
         """ Applies a NNI operation on a randomly chosen edge.
-        keyword args: weighted_choice (True/False)
-                      invert_weights (True/False)
+        keyword args: use_weighted_choice (True/False) weight the random edge selection by edge length
+                      transform (callable) transforms the edges using this function, prior to weighted selection
         """
 
         nni = NNI(self.copy())

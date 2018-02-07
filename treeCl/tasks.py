@@ -199,15 +199,15 @@ def raxml_task(executable, alignment_file, model, partitions_file=None, outfile=
     if threads > 1:
         if 'raxmlHPC' in executable and not 'PTHREADS' in executable:
             executable = executable.replace('raxmlHPC', 'raxmlHPC-PTHREADS')
+            logger.debug("Sequential executable modified because threading requested: {}".format(executable))
         basecmd = '-T {} '.format(threads)
-        logger.debug("Sequential executable modified because threading requested: {}".format(executable))
     else:
         basecmd = ''
 
     # initialise RAxML wrapper
     rax = Raxml(executable, verbose=False)
 
-    with fileIO.TempDir() as tmpd, fileIO.TempFile(tmpd) as name:
+    with fileIO.TempDir(disable_delete=False) as tmpd, fileIO.TempFile(tmpd, disable_delete=False) as name:
         name = os.path.basename(name)
         seed=random.randint(1000, 9999)
         outdir=os.path.abspath(tmpd)
@@ -248,7 +248,8 @@ def raxml_task(executable, alignment_file, model, partitions_file=None, outfile=
         elif parsimony:
             # Need to follow up
             parsimony_tree_file = os.path.join(outdir, 'RAxML_parsimonyTree.{}'.format(name))
-            logger.debug('Parsimony tree file exists {}'.format('yes' if os.path.exists(parsimony_tree_file) else 'no'))
+            logger.debug('Parsimony tree file exists {}'
+                         .format('yes' if os.path.exists(parsimony_tree_file) else 'no'))
             cmd = basecmd + '-m {model} -n modopt -s {seqfile} -p {seed} -O -w {outdir} -f e -t {parsimony}'.format(
                 model=model, seqfile=afl, seed=seed, outdir=outdir, parsimony=parsimony_tree_file)
             if pfl:
@@ -272,11 +273,13 @@ def raxml_task(executable, alignment_file, model, partitions_file=None, outfile=
 
         if not os.path.exists(info_file):
             info_file = os.path.join(os.path.abspath('.'), 'RAxML_info.{}'.format(name))
-            logger.debug('Fallback info file ({}) found - {}'.format(info_file, 'yes' if os.path.exists(info_file) else 'no'))
+            logger.debug('Fallback info file ({}) found - {}'
+                         .format(info_file, 'yes' if os.path.exists(info_file) else 'no'))
 
         if not os.path.exists(result_file):
             result_file = os.path.join(os.path.abspath('.'), 'RAxML_result.{}'.format(name))
-            logger.debug('Fallback result file ({}) found - {}'.format(result_file, 'yes' if os.path.exists(result_file) else 'no'))
+            logger.debug('Fallback result file ({}) found - {}'
+                         .format(result_file, 'yes' if os.path.exists(result_file) else 'no'))
 
         parser = RaxmlParser()
         result = parser.to_dict(info_file, result_file, dash_f_e=dash_f_e)
@@ -423,9 +426,33 @@ class BionjTaskInterface(TaskInterface):
 
 
 class RaxmlTaskInterface(TaskInterface):
+    """
+    Provides a high-level interface to the RAxML tree inference program.
+    Using the interface is a two-stage process. First, call the `scrape_args`
+    method on a list of `Alignment` objects to generate a list of command line
+    arguments for RAxML, and a list of temporary files that will need cleaning
+    up. Second, use the `get_task` method to access a `raxml_task` function that
+    can be passed, with the argument list, to a JobHandler to run the jobs.
+    """
     _name = 'Raxml'
 
-    def scrape_args(self, records, executable='raxmlHPC-AVX', partition_files=None, model=None, outfiles=None, threads=1, parsimony=False, fast_tree=False):
+    def scrape_args(self, records, executable='raxmlHPC-AVX', partition_files=None,
+                    model=None, outfiles=None, threads=1, parsimony=False, fast_tree=False):
+        """
+        Examine a list of records and generate RAxML command line arguments for tree inference.
+        :param records: list of `Alignment` records
+        :param executable: name of the RAxML executable on the system to use. Must be in the user's path.
+        :param partition_files: List of RAxML partition files used to describe any partitioning scheme
+            to be used (optional)
+        :param model: Choice of model to use. Defaults to GTRGAMMA for DNA, or PROTGAMMALGX for amino acid alignments.
+        :param outfiles: A list of output file locations to write results (required length = 1 per alignment)
+        :param threads: Number of threads for RAxML to use. This is independent of any threading used by the
+            `JobHandler`, and the user should be sure that their choice is appropriate for the number of threads
+            available to their system, and for the RAxML executable being used.
+        :param parsimony: Use RAxML's parsimony tree search only
+        :param fast_tree: Use RAxML's experimental fast tree search (-f E)
+        :return: (List of command line arguments, List of created temporary files)
+        """
         args = []
         to_delete = []
         if partition_files is None:
@@ -462,6 +489,10 @@ class RaxmlTaskInterface(TaskInterface):
         return args, to_delete
 
     def get_task(self):
+        """
+        Access the RAxML command line interface wrapper
+        :return: `raxml_task` function used to dispatch jobs to system RAxML
+        """
         return raxml_task
 
 

@@ -43,7 +43,8 @@ __all__ = [
 
 class TempFile(object):
 
-    def __init__(self, dir_=None):
+    def __init__(self, dir_=None, disable_delete=False):
+        self.disable_delete = disable_delete
         if dir_ is not None and not os.path.exists(dir_):
             raise IOError('Directory "{}" does not exist'.format(dir_))
         self.dir = dir_
@@ -53,32 +54,31 @@ class TempFile(object):
         return os.path.abspath(self._wrapped_tmp)
 
     def __exit__(self, type, value, tb):
+        # Always close the file, but only delete if disable_delete option allows it
         os.close(self._fd)
-        os.remove(self._wrapped_tmp)
+        if not self.disable_delete:
+            os.remove(self._wrapped_tmp)
 
 
 class TempDir(object):
+
+    def __init__(self, disable_delete=False):
+        self.disable_delete = disable_delete
 
     def __enter__(self):
         self._wrapped_tmpdir = tempfile.mkdtemp()
         return os.path.abspath(self._wrapped_tmpdir)
 
     def __exit__(self, type, value, tb):
-        shutil.rmtree(self._wrapped_tmpdir)
+        if not self.disable_delete:
+            shutil.rmtree(self._wrapped_tmpdir)
 
-
-class NonDeletingTempFile(TempFile):
-    def __exit__(self, type, value, tb):
-        os.close(self._fd)
-
-class NonDeletingTempDir(TempDir):
-    def __exit__(self, type, value, tb):
-        pass
 
 class TempFileList(object):
 
-    def __init__(self, filelist):
+    def __init__(self, filelist, disable_delete=False):
         self._filelist = filelist
+        self.disable_delete = disable_delete
 
     def __enter__(self):
         return self._filelist
@@ -86,7 +86,8 @@ class TempFileList(object):
     def __exit__(self, type, value, tb):
         for fl in self._filelist:
             try:
-                os.remove(fl)
+                if not self.disable_delete:
+                    os.remove(fl)
             except:
                 pass  # No need to crash if deletion fails, just ignore
 

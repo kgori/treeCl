@@ -50,7 +50,7 @@ extensions = [
 ]
 
 # Install splash
-VERSION = '0.1.29'
+VERSION = '0.1.30'
 
 logo = """
 ═══════════ ╔═╗┬
@@ -78,7 +78,7 @@ setup(name="treeCl",
       scripts=[
           # 'bin/simulator',
           # 'bin/collapse',
-          'bin/treeCl',
+          # 'bin/treeCl',
           # 'bin/seqconvert',
           # 'bin/bootstrap',
           # 'bin/npbs.py',
