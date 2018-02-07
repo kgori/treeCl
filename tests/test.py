@@ -179,7 +179,7 @@ class TreeTests(unittest.TestCase):
         (and also shadows the fn name with a bool variable). This test asserts that rnni
         doesn't throw any error on valid input.
         """
-        t = treeCl.tree(newick="((((T4:42.9474018906,T10:42.9474018906):112.903906732,(T6:14.3433500048,(T2:1.53929863217,T5:1.53929863217):12.8040513726):141.507958618):22.1730692315,T9:178.024377854):34.9689886128,(T3:190.011180702,((T1:0,T8:0):147.182729024,T7:147.182729024):42.8284516785):22.9821857647):2.44503258424;")
+        t = treeCl.tree.Tree(newick="((((T4:42.9474018906,T10:42.9474018906):112.903906732,(T6:14.3433500048,(T2:1.53929863217,T5:1.53929863217):12.8040513726):141.507958618):22.1730692315,T9:178.024377854):34.9689886128,(T3:190.011180702,((T1:0,T8:0):147.182729024,T7:147.182729024):42.8284516785):22.9821857647):2.44503258424;")
         try:
             t.rnni(times=3)
         except:
@@ -191,11 +191,25 @@ class TreeTests(unittest.TestCase):
         (and also shadows the fn name with a bool variable). This test asserts that rspr
         also doesn't throw any error on valid input.
         """
-        t = treeCl.tree(newick="((((T4:42.9474018906,T10:42.9474018906):112.903906732,(T6:14.3433500048,(T2:1.53929863217,T5:1.53929863217):12.8040513726):141.507958618):22.1730692315,T9:178.024377854):34.9689886128,(T3:190.011180702,((T1:0,T8:0):147.182729024,T7:147.182729024):42.8284516785):22.9821857647):2.44503258424;")
+        t = treeCl.tree.Tree(newick="((((T4:42.9474018906,T10:42.9474018906):112.903906732,(T6:14.3433500048,(T2:1.53929863217,T5:1.53929863217):12.8040513726):141.507958618):22.1730692315,T9:178.024377854):34.9689886128,(T3:190.011180702,((T1:0,T8:0):147.182729024,T7:147.182729024):42.8284516785):22.9821857647):2.44503258424;")
         try:
             t.rspr(times=3)
         except:
             self.fail('Tree.rspr() raised an exception unexpectedly')
+
+    def test_rils(self):
+        """
+        Issue 15: Tree.rnni raises a type error because it calls an unimported function
+        (and also shadows the fn name with a bool variable). This test asserts that ILS.rils
+        also doesn't throw any error on valid input.
+        """
+        t = treeCl.tree.Tree(
+            newick="((((T4:42.9474018906,T10:42.9474018906):112.903906732,(T6:14.3433500048,(T2:1.53929863217,T5:1.53929863217):12.8040513726):141.507958618):22.1730692315,T9:178.024377854):34.9689886128,(T3:190.011180702,((T1:0,T8:0):147.182729024,T7:147.182729024):42.8284516785):22.9821857647):2.44503258424;")
+        ils = treeCl.tree.ILS(t)
+        try:
+            ils.rils()
+        except:
+            self.fail('ILS.rils() raised an exception unexpectedly')
 
 class DistanceMatrixTests(unittest.TestCase):
     def test_from_csv(self):

@@ -347,7 +347,7 @@ class NNI(object):
 def collapse(t, threshold=None, keep_lengths=True, support_key=None, length_threshold=0.0):
 
     to_collapse = []
-    for node in t.postorder_node_iter():
+    for node in t._tree.postorder_node_iter():
         if node.is_leaf():
             if node.edge_length < length_threshold:
                 node.edge_length = 0
@@ -424,7 +424,7 @@ class ILS(object):
         self._make_ultrametric()
         self.tree._tree.calc_node_ages()
         excludes = [self.tree._tree.seed_node] + self.tree._tree.seed_node.child_nodes() + self.tree._tree.leaf_nodes()
-        self.valid_nodes = self.tree._tree.get_node_set(filter_fn=lambda x: not x in excludes)
+        self.valid_nodes = self.tree._tree.nodes(filter_fn=lambda x: not x in excludes)
 
     def choose_node(self, use_weighted_choice=False, transform=None):
         self._validate()
@@ -571,7 +571,11 @@ class ILS(object):
             b.edge.length = (new_n1_age - ages[1])
             c.edge.length = (new_n2_age - ages[2])
 
-        self.tree._tree.reindex_taxa()
+        # used to be .reindex_taxa() before dendropy 4.
+        # migrate_taxon_namespace is recommended migrated function,
+        # but not sure if its even needed anymore.
+        self.tree._tree.migrate_taxon_namespace(self.tree._tree.taxon_namespace)
+
         self.tree._tree.encode_bipartitions()
         self._validate()
         logger.debug(self.tree)
