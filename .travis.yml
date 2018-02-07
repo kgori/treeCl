@@ -2,8 +2,8 @@ language: python
 
 python:
   - 2.7
-  - 3.4
   - 3.5
+  - 3.6
 
 compiler:
   - gcc
@@ -52,3 +52,4 @@ deploy:
     tags: true
     repo: kgori/treeCl
     branch: master
+    python: 2.7
