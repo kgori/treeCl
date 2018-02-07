@@ -173,6 +173,29 @@ class TreeTests(unittest.TestCase):
         n = '((((Sp1:0.0523947839547,Sp2:1.37159604411):2.36974538201,((Sp3:0.179093762783,(Sp4:0.615505083102,Sp5:0.344065892719):0.0724725996144):0.307962158157,(Sp6:1.48158479406,Sp7:3.13329090451):1.62357461752):0.62792640958):2.64647302212,(Sp8:0.145879857199,Sp9:4.33463301328):0.785221836876):0.0653625005117,((((Sp10:0.0327158596802,Sp11:0.346629825105):0.513499606131,Sp12:0.0931894502388):1.75462968872,(Sp13:0.0508398281971,Sp14:0.902409030743):0.248348229186):2.66397475192,(Sp15:0.623334704667,Sp16:0.727987265987):2.45688940891):1.00011564391):0.0;'
         self.assertEqual(treeCl.tree.Tree(n).newick, n)
 
+    def test_rnni(self):
+        """
+        Issue 15: Tree.rnni raises a type error because it calls an unimported function
+        (and also shadows the fn name with a bool variable). This test asserts that rnni
+        doesn't throw any error on valid input.
+        """
+        t = treeCl.tree(newick="((((T4:42.9474018906,T10:42.9474018906):112.903906732,(T6:14.3433500048,(T2:1.53929863217,T5:1.53929863217):12.8040513726):141.507958618):22.1730692315,T9:178.024377854):34.9689886128,(T3:190.011180702,((T1:0,T8:0):147.182729024,T7:147.182729024):42.8284516785):22.9821857647):2.44503258424;")
+        try:
+            t.rnni(times=3)
+        except:
+            self.fail('Tree.rnni() raised an exception unexpectedly')
+
+    def test_rspr(self):
+        """
+        Issue 15: Tree.rnni raises a type error because it calls an unimported function
+        (and also shadows the fn name with a bool variable). This test asserts that rspr
+        also doesn't throw any error on valid input.
+        """
+        t = treeCl.tree(newick="((((T4:42.9474018906,T10:42.9474018906):112.903906732,(T6:14.3433500048,(T2:1.53929863217,T5:1.53929863217):12.8040513726):141.507958618):22.1730692315,T9:178.024377854):34.9689886128,(T3:190.011180702,((T1:0,T8:0):147.182729024,T7:147.182729024):42.8284516785):22.9821857647):2.44503258424;")
+        try:
+            t.rspr(times=3)
+        except:
+            self.fail('Tree.rspr() raised an exception unexpectedly')
 
 class DistanceMatrixTests(unittest.TestCase):
     def test_from_csv(self):
