@@ -425,8 +425,22 @@ class RecordsCalculatorMixin(object):
                 #logger.debug('Result - {}'.format(result))
                 rec.parameters.construct_from_dict(result)
 
-    def get_inter_tree_distances(self, metric, jobhandler=default_jobhandler, normalise=False, min_overlap=4, batchsize=1):
-        """ Generate a distance matrix from a fully-populated Collection """
+    def get_inter_tree_distances(self, metric, jobhandler=default_jobhandler,
+                                 normalise=False, min_overlap=4, overlap_fail_value=0,
+                                 batchsize=1):
+        """ Generate a distance matrix from a fully-populated Collection.
+        :param metric: str. Tree distance metric to use. Choice of 'euc', 'geo', 'rf', 'wrf'.
+        :param jobhandler: treeCl.Jobhandler. Choice of SequentialJobHandler, ThreadpoolJobHandler, or
+        ProcesspoolJobHandler.
+        :param normalise: Bool. Whether to normalise the tree distance to the size of the leaf set.
+        :param min_overlap: int. Trees with fewer leaves in common than this threshold will not have their distance
+        calculated, but instead the distance returned will be the value in `overlap_fail_value`.
+        :param overlap_fail_value: Any. The distance between trees with fewer leaves in common than `min_overlap`
+        is set to this value.
+        :param batchsize: int. Number of jobs to process in a batch when using a ProcesspoolJobHandler or a
+        ThreadpoolJobHandler.
+        :returns treeCl.DistanceMatrix.
+        """
         metrics = {'euc': tasks.EuclideanTreeDistance,
                    'geo': tasks.GeodesicTreeDistance,
                    'rf': tasks.RobinsonFouldsTreeDistance,
@@ -441,7 +455,7 @@ class RecordsCalculatorMixin(object):
             trees = (PhyloTree(newick, False) for newick in self.trees)
         else:
             trees = self.trees
-        args = task_interface.scrape_args(trees, normalise, min_overlap)
+        args = task_interface.scrape_args(trees, normalise, min_overlap, overlap_fail_value)
         logger.debug('{}'.format(args))
         msg = task_interface.name
         array = jobhandler(task_interface.get_task(), args, msg, batchsize)
