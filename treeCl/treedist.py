@@ -29,7 +29,7 @@ def _equalise_leaf_sets(t1, t2, inplace):
     return pruned1, pruned2
 
 
-def _generic_distance_calc(fn, t1, t2, normalise, min_overlap=4):
+def _generic_distance_calc(fn, t1, t2, normalise, min_overlap=4, overlap_fail_value=0):
     """(fn, t1, t2, normalise)
 
     Calculates the distance between trees t1 and t2. Can optionally be normalised to range [0, 1].
@@ -37,7 +37,8 @@ def _generic_distance_calc(fn, t1, t2, normalise, min_overlap=4):
     some overhead - if the trees are known to have the same leaves, then the underlying distance function [listed below]
     can be called instead, although in these cases the Tree arguments will need to be replaced with Tree.phylotree
     to make sure the appropriate data structure is passed.
-    The distance is taken to be zero if the leaf overlap between the trees is less than `min_overlap`.
+    By default the distance is taken to be zero if the leaf overlap between the trees is less than `min_overlap`. This
+    value can be customised using the parameter `overlap_fail_value`.
     E.g.
         treeCl.treedist.eucdist(t1, t2, False) is the leafset checking equivalent of
         treeCl.treedist.getEuclideanDistance(t1.phylotree, t2.phylotree, False)
@@ -58,11 +59,12 @@ def _generic_distance_calc(fn, t1, t2, normalise, min_overlap=4):
     :param t2: Tree
     :param normalise: boolean
     :param min_overlap: int
+    :param overlap_fail_value: any
     :return: float
     """
     if t1 ^ t2:
         if len(t1 & t2) < min_overlap:
-            return 0
+            return overlap_fail_value
             #raise AttributeError('Can\'t calculate tree distances when tree overlap is less than two leaves')
         else:
             t1, t2 = _equalise_leaf_sets(t1, t2, False)
@@ -70,7 +72,7 @@ def _generic_distance_calc(fn, t1, t2, normalise, min_overlap=4):
     return fn(t1.phylotree, t2.phylotree, normalise)
 
 
-def _generic_matrix_calc(fn, trees, normalise, min_overlap=4):
+def _generic_matrix_calc(fn, trees, normalise, min_overlap=4, overlap_fail_value=0):
     """(fn, trees, normalise)
 
     Calculates all pairwise distances between trees given in the parameter 'trees'.
@@ -100,7 +102,7 @@ def _generic_matrix_calc(fn, trees, normalise, min_overlap=4):
     pbar = setup_progressbar('Calculating tree distances', 0.5 * len(trees) * (len(trees) - 1))
     pbar.start()
     for i, (t1, t2) in enumerate(jobs):
-        results.append(_generic_distance_calc(fn, t1, t2, normalise, min_overlap))
+        results.append(_generic_distance_calc(fn, t1, t2, normalise, min_overlap, overlap_fail_value))
         pbar.update(i)
     pbar.finish()
     return scipy.spatial.distance.squareform(results)

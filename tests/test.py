@@ -142,9 +142,9 @@ class ScorerTests(unittest.TestCase):
 
     def test_scorer_can_write(self):
         c = treeCl.Collection(input_dir=os.path.join(thisdir, 'data'),
-                                   param_dir=os.path.join(thisdir, 'data', 'cache'),
-                                   file_format='phylip',
-                                   show_progressbars=False)
+                              param_dir=os.path.join(thisdir, 'data', 'cache'),
+                              file_format='phylip',
+                              show_progressbars=False)
 
         raxml = treeCl.tasks.RaxmlTaskInterface()
         sc = treeCl.Scorer(c, cache_dir=self.workingdir, task_interface=raxml)
@@ -210,6 +210,70 @@ class TreeTests(unittest.TestCase):
             ils.rils()
         except:
             self.fail('ILS.rils() raised an exception unexpectedly')
+
+
+class TreeDistanceTests(unittest.TestCase):
+    def setUp(self):
+        self.c = treeCl.Collection(input_dir=os.path.join(thisdir, 'data'),
+                                   trees_dir=os.path.join(thisdir, 'data', 'trees'),
+                                   file_format='phylip',
+                                   show_progressbars=False)
+        self.tree1 = treeCl.Tree(self.c[0].tree)
+        self.tree2 = treeCl.Tree(self.c[1].tree)
+
+    def test_geo(self):
+        distance = treeCl.treedist.geodist(self.tree1, self.tree2, False)
+        self.assertAlmostEqual(distance, 0.7051762453884542)
+
+    def test_geo_normalised(self):
+        distance = treeCl.treedist.geodist(self.tree1, self.tree2, True)
+        self.assertAlmostEqual(distance, 0.11511918913951155)
+
+    def test_euc(self):
+        distance = treeCl.treedist.eucdist(self.tree1, self.tree2, False)
+        self.assertAlmostEqual(distance, 0.6463384798834909)
+
+    def test_euc_normalised(self):
+        distance = treeCl.treedist.eucdist(self.tree1, self.tree2, True)
+        self.assertAlmostEqual(distance, 0.10551399341715575)
+
+    def test_wrf(self):
+        distance = treeCl.treedist.wrfdist(self.tree1, self.tree2, False)
+        self.assertAlmostEqual(distance, 2.1666480728499717)
+
+    def test_wrf_normalised(self):
+        distance = treeCl.treedist.wrfdist(self.tree1, self.tree2, True)
+        self.assertAlmostEqual(distance, 0.1063259354618597)
+
+    def test_rf(self):
+        distance = treeCl.treedist.rfdist(self.tree1, self.tree2, False)
+        self.assertAlmostEqual(distance, 2.0)
+
+    def test_rf_normalised(self):
+        distance = treeCl.treedist.rfdist(self.tree1, self.tree2, True)
+        self.assertAlmostEqual(distance, 0.14285714285714285)
+
+    def test_intertree(self):
+        dm = self.c.get_inter_tree_distances('rf')
+        self.assertAlmostEquals(dm.values[0, 1],
+                          treeCl.treedist.rfdist(self.tree1, self.tree2, False))
+
+    def test_intertree_partial_overlap(self):
+        self.c[0].parameters.ml_tree = treeCl.Tree(self.c[0].parameters.ml_tree).prune_to_subset(
+            set(['Sp1', 'Sp2', 'Sp3', 'Sp4', 'Sp5', 'Sp6', 'Sp7'])).newick
+        self.c[1].parameters.ml_tree = treeCl.Tree(self.c[1].parameters.ml_tree).prune_to_subset(
+            set(['Sp4', 'Sp5', 'Sp6', 'Sp7', 'Sp8', 'Sp9', 'Sp10'])).newick
+        dm = self.c.get_inter_tree_distances('geo')
+        self.assertAlmostEquals(dm.values[0, 1], 0.35314280333144532)
+
+    def test_intertree_partial_overlap_value_replacement(self):
+        self.c[0].parameters.ml_tree = treeCl.Tree(self.c[0].parameters.ml_tree).prune_to_subset(
+            set(['Sp1', 'Sp2', 'Sp3', 'Sp4', 'Sp5', 'Sp6', 'Sp7'])).newick
+        self.c[1].parameters.ml_tree = treeCl.Tree(self.c[1].parameters.ml_tree).prune_to_subset(
+            set(['Sp4', 'Sp5', 'Sp6', 'Sp7', 'Sp8', 'Sp9', 'Sp10'])).newick
+        dm = self.c.get_inter_tree_distances('geo', min_overlap=5, overlap_fail_value=-1)
+        self.assertEquals(dm.values[0, 1], -1)
+
 
 class DistanceMatrixTests(unittest.TestCase):
     def test_from_csv(self):
