@@ -3,6 +3,7 @@ import unittest
 import treeCl
 import os, shutil
 from treeCl import Partition, Alignment
+from treeCl.utils.misc import binom_coeff
 
 thisdir = os.path.dirname(os.path.realpath(__file__))
 
@@ -385,10 +386,29 @@ class ParallelTests(unittest.TestCase):
                                    file_format='phylip',
                                    show_progressbars=False)
 
-    def test(self):
+    def test_sequential(self):
+        handler = treeCl.parutils.SequentialJobHandler()
+        dm = self.c.get_inter_tree_distances('geo', jobhandler=handler)
+        self.assertAlmostEqual(dm.df.values.sum(), 412.70677069540181)
+
+    def test_processpool(self):
         handler = treeCl.parutils.ProcesspoolJobHandler(2)
         dm = self.c.get_inter_tree_distances('geo', jobhandler=handler)
         self.assertAlmostEqual(dm.df.values.sum(), 412.70677069540181)
+
+    def test_threadpool(self):
+        handler = treeCl.parutils.ThreadpoolJobHandler(2)
+        dm = self.c.get_inter_tree_distances('geo', jobhandler=handler)
+        self.assertAlmostEqual(dm.df.values.sum(), 412.70677069540181)
+
+
+class MiscTests(unittest.TestCase):
+    def test_binom_coeff(self):
+        inputs =  [1, 2,  5, 10,   53,    3289]
+        outputs = [0, 1, 10, 45, 1378, 5407116]
+        testvals = [binom_coeff(n) for n in inputs]
+        self.assertListEqual(testvals, outputs)
+
 
 def main():
     unittest.main()
