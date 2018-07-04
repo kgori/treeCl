@@ -7,6 +7,7 @@ from .constants import PARALLEL_PROFILE
 from .utils import setup_progressbar, grouper, flatten_list
 import logging
 import multiprocessing
+import sys
 logger = logging.getLogger(__name__)
 
 __author__ = 'kgori'
@@ -64,9 +65,13 @@ def get_client():
         return None
 
 def tupleise(args):
-    return [a if isinstance(a, (tuple, list)) else (a,) for a in args]
+    for a in args:
+        if isinstance(a, (tuple, list)):
+            yield a
+        else:
+            yield (a,)
 
-def parallel_map(client, task, args, message, batchsize=1, background=False):
+def parallel_map(client, task, args, message, batchsize=1, background=False, nargs=None):
     """
     Helper to map a function over a sequence of inputs, in parallel, with progress meter.
     :param client: IPython.parallel.Client instance
@@ -95,7 +100,7 @@ def parallel_map(client, task, args, message, batchsize=1, background=False):
     pbar.finish()
     return map_result
 
-def sequential_map(task, args, message):
+def sequential_map(task, args, message, nargs=None):
     """
     Helper to map a function over a sequence of inputs, sequentially, with progress meter.
     :param client: IPython.parallel.Client instance
@@ -107,7 +112,12 @@ def sequential_map(task, args, message):
                       but longer execution time per job.
     :return: IPython.parallel.AsyncMapResult
     """
-    njobs = len(args)
+    if nargs is not None:
+        njobs = nargs
+    elif isinstance(args, (tuple, list)):
+        njobs = len(args)
+    else:
+        njobs = int(sys.maxsize/1000000)  # sys.maxsize is too large for progressbar to display ETA (datetime issue)
     pbar = setup_progressbar(message, njobs, simple_progress=True)
     pbar.start()
     map_result = []
@@ -117,13 +127,18 @@ def sequential_map(task, args, message):
     pbar.finish()
     return map_result
 
-def threadpool_map(task, args, message, concurrency, batchsize=1):
+def threadpool_map(task, args, message, concurrency, batchsize=1, nargs=None):
     """
     Helper to map a function over a range of inputs, using a threadpool, with a progress meter
     """
     import concurrent.futures
 
-    njobs = len(args)
+    if nargs is not None:
+        njobs = nargs
+    elif isinstance(args, (tuple, list)):
+        njobs = len(args)
+    else:
+        njobs = int(sys.maxsize/1000000)  # sys.maxsize is too large for progressbar to display ETA (datetime issue)
     batches = grouper(batchsize, tupleise(args))
     batched_task = lambda batch: [task(*job) for job in batch]
     PROGRESS = message is not None
@@ -150,11 +165,16 @@ def threadpool_map(task, args, message, concurrency, batchsize=1):
 
     return flatten_list([fut.result() for fut in futures])
 
-def processpool_map(task, args, message, concurrency, batchsize=1):
+def processpool_map(task, args, message, concurrency, batchsize=1, nargs=None):
     """
     See http://stackoverflow.com/a/16071616
     """
-    njobs = len(args)
+    if nargs is not None:
+        njobs = nargs
+    elif isinstance(args, (tuple, list)):
+        njobs = len(args)
+    else:
+        njobs = int(sys.maxsize/1000000)  # sys.maxsize is too large for progressbar to display ETA (datetime issue)
     batches = grouper(batchsize, tupleise(args))
     def batched_task(*batch):
         return [task(*job) for job in batch]
@@ -162,7 +182,7 @@ def processpool_map(task, args, message, concurrency, batchsize=1):
     PROGRESS = message is not None
     if PROGRESS:
         message += ' (PP:{}w:{}b)'.format(concurrency, batchsize)
-        pbar = setup_progressbar(message, len(args), simple_progress=True)
+        pbar = setup_progressbar(message, njobs, simple_progress=True)
         pbar.start()
     
     q_in   = multiprocessing.Queue()  # Should I limit either queue size? Limiting in-queue
@@ -206,10 +226,10 @@ class SequentialJobHandler(JobHandler):
     """
     Jobs are handled using a simple map
     """
-    def __call__(self, task, args, message, batchsize):
+    def __call__(self, task, args, message, batchsize, nargs=None):
         if batchsize > 1:
             logger.warn("Setting batchsize > 1 has no effect when using a SequentialJobHandler")
-        return sequential_map(task, args, message)
+        return sequential_map(task, args, message, nargs)
 
 
 class ThreadpoolJobHandler(JobHandler):
@@ -219,8 +239,8 @@ class ThreadpoolJobHandler(JobHandler):
     def __init__(self, concurrency):
         self.concurrency = concurrency
 
-    def __call__(self, task, args, message, batchsize):
-        return threadpool_map(task, args, message, self.concurrency, batchsize)
+    def __call__(self, task, args, message, batchsize, nargs=None):
+        return threadpool_map(task, args, message, self.concurrency, batchsize, nargs)
 
 
 class ProcesspoolJobHandler(JobHandler):
@@ -230,8 +250,8 @@ class ProcesspoolJobHandler(JobHandler):
     def __init__(self, concurrency):
         self.concurrency = concurrency
 
-    def __call__(self, task, args, message, batchsize):
-        return processpool_map(task, args, message, self.concurrency, batchsize)
+    def __call__(self, task, args, message, batchsize, nargs=None):
+        return processpool_map(task, args, message, self.concurrency, batchsize, nargs)
 
 
 class IPythonJobHandler(JobHandler):
