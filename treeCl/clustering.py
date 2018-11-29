@@ -22,8 +22,18 @@ except ImportError:
     Biopython_Unavailable = True
 
 from sklearn.cluster import AffinityPropagation, DBSCAN, KMeans
-from sklearn.mixture import GMM
 from sklearn.manifold import spectral_embedding
+
+# GMM was deprecated in scikit-learn version 0.18 and fully removed in 0.20
+import pkg_resources
+sklearn_version = [int(x) for x in pkg_resources.get_distribution("scikit-learn").version.split('.')]
+USE_GAUSSIAN_MIXTURE =  tuple(sklearn_version) >= (0, 20, 0)
+if USE_GAUSSIAN_MIXTURE:
+    print("USING GAUSSIANMIXTURE!")
+    from sklearn.mixture import GaussianMixture
+else:
+    print("USING GMM!")
+    from sklearn.mixture import GMM
 
 # treeCl
 from .distance_matrix import DistanceMatrix, rbf, binsearch_mask, kmask, kscale, affinity, laplace, eigen, double_centre, \
@@ -113,7 +123,10 @@ class EMMixin(object):
 
     @staticmethod
     def gmm(nclusters, coords, n_init=50, n_iter=500):
-        est = GMM(n_components=nclusters, n_init=n_init, n_iter=n_iter)
+        if USE_GAUSSIAN_MIXTURE:
+            est = GaussianMixture(n_components=nclusters, n_init=n_init, max_iter=n_iter)
+        else:
+            est = GMM(n_components=nclusters, n_init=n_init, n_iter=n_iter)
         est.fit(coords)
         return Partition(est.predict(coords))
 

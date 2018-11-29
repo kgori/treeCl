@@ -212,7 +212,7 @@ def plot_embedding(coordinates, partition=None, add_sphere=False, point_size=8,
     for grp in range(ngrp):
         index = np.array(members[grp])
         points = coordinates[index,:dimensions].T
-        ax.scatter(*points, s=point_size, c=colours[grp], edgecolor=colours[grp], label='Group {}'.format(grp+1), **kwargs)
+        ax.scatter(*points, s=point_size, c=colours[grp], edgecolor=None, label='Group {}'.format(grp+1), **kwargs)
 
     if xlab:
         ax.set_xlabel(xlab)

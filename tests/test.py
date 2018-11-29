@@ -95,6 +95,16 @@ class PartitionTests(unittest.TestCase):
         p = Partition.random([12, 12, 12], 12)
         self.assertEqual(p.num_groups(), 3)
 
+    def test_equal(self):
+        p1 = Partition([0,0,0,0,0,2,2,2,2,2,1,1,1,1,1])
+        p2 = Partition([2,2,2,2,2,1,1,1,1,1,0,0,0,0,0])
+        self.assertEqual(p1, p2)
+
+    def test_not_equal(self):
+        p1 = Partition([0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1])
+        p2 = Partition([0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0])
+        self.assertNotEqual(p1, p2)
+
 
 class CollectionTests(unittest.TestCase):
     def setUp(self):
@@ -336,6 +346,20 @@ class DistanceMatrixTests(unittest.TestCase):
         tsne = dm.embedding(3, 'tsne')
         self.assertEqual(tsne.shape, (15, 3))
 
+
+class ClusteringTests(unittest.TestCase):
+    def setUp(self):
+        self.dm = treeCl.DistanceMatrix.from_csv(os.path.join(thisdir, 'data', 'cache', 'geo_dm.csv'))
+
+    def test_spectral_kmeans(self):
+        cl = treeCl.Spectral(self.dm)
+        p = cl.cluster(3, method=treeCl.clustering.methods.KMEANS)
+        self.assertEqual(len(p), 3)
+
+    def test_spectral_gmm(self):
+        cl = treeCl.Spectral(self.dm)
+        p = cl.cluster(3, method=treeCl.clustering.methods.GMM)
+        self.assertEqual(len(p), 3)
 
 class RaxmlParserTests(unittest.TestCase):
     def setUp(self):
