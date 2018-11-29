@@ -468,7 +468,9 @@ class DistanceMatrix(Matrix):
     def from_csv(cls, filename, **kwargs):
         with fileIO.freader(filename) as handle:
             new_instance = cls()
-            new_instance.df = pd.DataFrame.from_csv(handle, **kwargs)
+            if not 'index_col' in kwargs:
+                kwargs['index_col'] = 0  # new behaviour in pandas
+            new_instance.df = pd.read_csv(handle, **kwargs)
         return new_instance
 
     def to_csv(self, filename, **kwargs):

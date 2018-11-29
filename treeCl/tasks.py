@@ -192,14 +192,14 @@ def fasttree_task(alignment_file, dna=False):
     result['partitions'][0]['model'] = 'GTR' if dna else 'WAG'
     return result
 
-def raxml_task(executable, alignment_file, model, partitions_file=None, outfile=None, threads=1, parsimony=False, fast_tree=False):
+def raxml_task(executable, alignment_file, model, partitions_file=None, outfile=None, threads=1, parsimony=False, fast_tree=False, n_starts=1):
     logger.debug('raxml_task: executable {}, alignment_file {}, model {}, partitions_file {}, outfile {}, threads {}, parsimony {}, fast_tree {}'.format(executable, alignment_file, model, partitions_file, outfile, threads, parsimony, fast_tree))
     afl = os.path.abspath(alignment_file)
     pfl = os.path.abspath(partitions_file) if partitions_file else None
     if threads > 1:
         if 'raxmlHPC' in executable and not 'PTHREADS' in executable:
             executable = executable.replace('raxmlHPC', 'raxmlHPC-PTHREADS')
-            logger.debug("Sequential executable modified because threading requested: {}".format(executable))
+            logger.warn("Sequential executable modified because threading requested: {}".format(executable))
         basecmd = '-T {} '.format(threads)
     else:
         basecmd = ''
@@ -217,6 +217,16 @@ def raxml_task(executable, alignment_file, model, partitions_file=None, outfile=
         cmd = basecmd + '-m {model} -n {name} -s {seqfile} -p {seed} -O -w {outdir}'.format(
             model=model, name=name, seqfile=afl, seed=seed,
             outdir=outdir)
+
+        try:
+            n_starts = int(n_starts)
+        except ValueError:
+            logger.warn('Value given for n_starts ("{}") is not an integer. Setting n_starts=1'.format(n_starts))
+            n_starts = 1
+
+        if n_starts > 1:
+            cmd += ' -N {}'.format(int(n_starts))
+
         if pfl:
             cmd += ' -q {}'.format(pfl)
         if fast_tree:
@@ -264,7 +274,7 @@ def raxml_task(executable, alignment_file, model, partitions_file=None, outfile=
 
         else:
             info_file = os.path.join(outdir, 'RAxML_info.{}'.format(name))
-            result_file = os.path.join(outdir, 'RAxML_result.{}'.format(name))
+            result_file = os.path.join(outdir, 'RAxML_bestTree.{}'.format(name))
             dash_f_e = False
 
         logger.debug('Info file found - {}'.format('yes' if os.path.exists(info_file) else 'no'))
@@ -437,7 +447,8 @@ class RaxmlTaskInterface(TaskInterface):
     _name = 'Raxml'
 
     def scrape_args(self, records, executable='raxmlHPC-AVX', partition_files=None,
-                    model=None, outfiles=None, threads=1, parsimony=False, fast_tree=False):
+                    model=None, outfiles=None, threads=1, parsimony=False, fast_tree=False,
+                    n_starts=1):
         """
         Examine a list of records and generate RAxML command line arguments for tree inference.
         :param records: list of `Alignment` records
@@ -485,7 +496,7 @@ class RaxmlTaskInterface(TaskInterface):
                             name=rec.name, seqlen=len(rec))
                         tmpfile.write(partition_string)
 
-            args.append((executable, filename, model, qfile, ofile, threads, parsimony, fast_tree))
+            args.append((executable, filename, model, qfile, ofile, threads, parsimony, fast_tree, n_starts))
         return args, to_delete
 
     def get_task(self):
