@@ -1,0 +1,96 @@
+
+
+This is RAxML version 8.2.11 released by Alexandros Stamatakis on June 2017.
+
+With greatly appreciated code contributions by:
+Andre Aberer      (HITS)
+Simon Berger      (HITS)
+Alexey Kozlov     (HITS)
+Kassian Kobert    (HITS)
+David Dao         (KIT and HITS)
+Sarah Lutteropp   (KIT and HITS)
+Nick Pattengale   (Sandia)
+Wayne Pfeiffer    (SDSC)
+Akifumi S. Tanabe (NRIFS)
+Charlie Taylor    (UF)
+
+
+Alignment has 503 distinct alignment patterns
+
+Proportion of gaps and completely undetermined characters in this alignment: 5.32%
+
+RAxML rapid hill-climbing mode
+
+Using 3 distinct models/data partitions with joint branch length optimization
+
+
+Executing 2 inferences on the original alignment using 2 distinct randomized MP trees
+
+All free model parameters will be estimated by RAxML
+GAMMA model of rate heterogeneity, ML estimate of alpha-parameter
+
+GAMMA Model parameters will be estimated up to an accuracy of 0.1000000000 Log Likelihood units
+
+Partition: 0
+Alignment Patterns: 92
+Name: p1
+DataType: AA
+Substitution Matrix: LG
+Using ML estimate of base frequencies
+
+
+
+Partition: 1
+Alignment Patterns: 200
+Name: p2
+DataType: AA
+Substitution Matrix: LG
+Using ML estimate of base frequencies
+
+
+
+Partition: 2
+Alignment Patterns: 211
+Name: p3
+DataType: AA
+Substitution Matrix: WAG
+Using ML estimate of base frequencies
+
+
+
+
+RAxML was called as follows:
+
+/Users/kg8/homebrew/bin/raxmlHPC-AVX -m PROTGAMMALGX -n hand -s /Users/kg8/Documents/repositories/treeCl/tests/data/class1_1.phy -p 9600 -O -w /var/folders/hy/0ksb55693118c2f_gg_wt5lr000gh2/T/tmpxjdddfx4 -N 2 -q /var/folders/hy/0ksb55693118c2f_gg_wt5lr000gh2/T/tmpa4lw6nl0 
+
+
+Partition: 0 with name: p1
+Initial base frequencies, prior to ML estimate: 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 
+
+Partition: 1 with name: p2
+Initial base frequencies, prior to ML estimate: 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 
+
+Partition: 2 with name: p3
+Initial base frequencies, prior to ML estimate: 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 0.050 
+
+Inference[0]: Time 9.811994 GAMMA-based likelihood -10528.963334, best rearrangement setting 5
+alpha[0]: 364.014093 ML estimate base freqs[0]: 0.058725 0.051571 0.046151 0.061140 0.021702 0.041016 0.072847 0.073271 0.029989 0.065176 0.094756 0.063071 0.025892 0.028991 0.049385 0.052040 0.053462 0.012507 0.019707 0.078602 alpha[1]: 285.075442 ML estimate base freqs[1]: 0.080853 0.062040 0.035056 0.046691 0.017117 0.041690 0.064245 0.065469 0.020997 0.056682 0.104892 0.070495 0.031964 0.045065 0.045039 0.051851 0.041935 0.014564 0.040807 0.062544 alpha[2]: 126.195441 ML estimate base freqs[2]: 0.079638 0.055278 0.033366 0.048089 0.012253 0.032462 0.072684 0.060096 0.026451 0.063062 0.104275 0.050401 0.028006 0.042201 0.032595 0.061632 0.060264 0.018171 0.035759 0.083317
+Inference[1]: Time 9.640380 GAMMA-based likelihood -10528.963143, best rearrangement setting 5
+alpha[0]: 364.305486 ML estimate base freqs[0]: 0.058725 0.051571 0.046155 0.061136 0.021702 0.041016 0.072847 0.073271 0.029989 0.065176 0.094756 0.063071 0.025892 0.028991 0.049385 0.052040 0.053462 0.012507 0.019707 0.078602 alpha[1]: 285.166591 ML estimate base freqs[1]: 0.080853 0.062040 0.035056 0.046691 0.017117 0.041690 0.064245 0.065469 0.020997 0.056682 0.104892 0.070495 0.031964 0.045065 0.045039 0.051851 0.041935 0.014564 0.040807 0.062544 alpha[2]: 126.245550 ML estimate base freqs[2]: 0.079638 0.055278 0.033366 0.048089 0.012253 0.032462 0.072684 0.060096 0.026451 0.063062 0.104275 0.050401 0.028006 0.042201 0.032595 0.061631 0.060264 0.018171 0.035759 0.083317 
+
+
+Conducting final model optimizations on all 2 trees under GAMMA-based models ....
+
+Inference[0] final GAMMA-based Likelihood: -10528.707585 tree written to file /var/folders/hy/0ksb55693118c2f_gg_wt5lr000gh2/T/tmpxjdddfx4/RAxML_result.hand.RUN.0
+Inference[1] final GAMMA-based Likelihood: -10528.707585 tree written to file /var/folders/hy/0ksb55693118c2f_gg_wt5lr000gh2/T/tmpxjdddfx4/RAxML_result.hand.RUN.1
+
+
+Starting final GAMMA-based thorough Optimization on tree 0 likelihood -10528.707585 .... 
+
+Final GAMMA-based Score of best tree -10528.707585
+
+Program execution info written to /var/folders/hy/0ksb55693118c2f_gg_wt5lr000gh2/T/tmpxjdddfx4/RAxML_info.hand
+Best-scoring ML tree written to: /var/folders/hy/0ksb55693118c2f_gg_wt5lr000gh2/T/tmpxjdddfx4/RAxML_bestTree.hand
+
+Overall execution time: 22.300272 secs or 0.006195 hours or 0.000258 days
+
