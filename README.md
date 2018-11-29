@@ -1,6 +1,6 @@
 # ``treeCl`` - Phylogenetic Tree Clustering
 
-![Travis build status](https://travis-ci.org/kgori/treeCl.svg?branch=travis)
+![Travis build status](https://travis-ci.org/kgori/treeCl.svg?branch=master)
 
 ``treeCl`` is a python package for clustering gene families by
 phylogenetic similarity. It takes a collection of alignments, infers their phylogenetic trees,
