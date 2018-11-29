@@ -86,6 +86,9 @@ class Partition(object):
     def __getitem__(self, index):
         return self.membership[index]
 
+    def __eq__(self, other):
+        return self.partition_vector == other.partition_vector
+
     @property
     def partition_vector(self):
         return self._partition_vector
