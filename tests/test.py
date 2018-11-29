@@ -353,6 +353,23 @@ class RaxmlParserTests(unittest.TestCase):
         parse_result = self.parser.to_dict(self.infoq, self.resultq, True)
         self.assertEqual(parse_result['partitions'][0]['name'], 'class1_1')
 
+    def test_can_parse_dna_multiple_starts(self):
+        info = os.path.join(thisdir, 'data', 'parsing', 'RAxML_info.dnamulti')
+        tree = os.path.join(thisdir, 'data', 'parsing', 'RAxML_bestTree.dnamulti')
+        parse_result = self.parser.to_dict(info, tree, False)
+        self.assertEqual(parse_result['partitions'][0]['rates'],
+                         [0.713025, 1.907700, 1.010704, 0.900610, 1.628844, 1.000000])
+
+    def test_can_parse_aa_multiple_starts(self):
+        info = os.path.join(thisdir, 'data', 'parsing', 'RAxML_info.aamulti')
+        tree = os.path.join(thisdir, 'data', 'parsing', 'RAxML_bestTree.aamulti')
+        parse_result = self.parser.to_dict(info, tree, False)
+        self.assertEqual(parse_result['partitions'][0]['frequencies'],
+                         [0.058725, 0.051571, 0.046151, 0.061140, 0.021702,
+                          0.041016, 0.072847, 0.073271, 0.029989, 0.065176,
+                          0.094756, 0.063071, 0.025892, 0.028991, 0.049385,
+                          0.052040, 0.053462, 0.012507, 0.019707, 0.078602])
+
 
 class RaxmlRunnerTests(unittest.TestCase):
     def setUp(self):

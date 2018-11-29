@@ -1,0 +1,96 @@
+
+
+This is RAxML version 8.2.11 released by Alexandros Stamatakis on June 2017.
+
+With greatly appreciated code contributions by:
+Andre Aberer      (HITS)
+Simon Berger      (HITS)
+Alexey Kozlov     (HITS)
+Kassian Kobert    (HITS)
+David Dao         (KIT and HITS)
+Sarah Lutteropp   (KIT and HITS)
+Nick Pattengale   (Sandia)
+Wayne Pfeiffer    (SDSC)
+Akifumi S. Tanabe (NRIFS)
+Charlie Taylor    (UF)
+
+
+Alignment has 858 distinct alignment patterns
+
+Proportion of gaps and completely undetermined characters in this alignment: 0.00%
+
+RAxML rapid hill-climbing mode
+
+Using 3 distinct models/data partitions with joint branch length optimization
+
+
+Executing 2 inferences on the original alignment using 2 distinct randomized MP trees
+
+All free model parameters will be estimated by RAxML
+GAMMA model of rate heterogeneity, ML estimate of alpha-parameter
+
+GAMMA Model parameters will be estimated up to an accuracy of 0.1000000000 Log Likelihood units
+
+Partition: 0
+Alignment Patterns: 288
+Name: p1
+DataType: DNA
+Substitution Matrix: GTR
+Base frequencies: ML estimate
+
+
+
+Partition: 1
+Alignment Patterns: 279
+Name: p2
+DataType: DNA
+Substitution Matrix: GTR
+Base frequencies: ML estimate
+
+
+
+Partition: 2
+Alignment Patterns: 291
+Name: p3
+DataType: DNA
+Substitution Matrix: GTR
+Base frequencies: ML estimate
+
+
+
+
+RAxML was called as follows:
+
+/Users/kg8/homebrew/bin/raxmlHPC-AVX -m GTRGAMMA -n hand -s class0_0_dna.phy -p 9600 -O -w /var/folders/hy/0ksb55693118c2f_gg_wt5lr000gh2/T/tmpxjdddfx4/parser_test -N 2 -q /var/folders/hy/0ksb55693118c2f_gg_wt5lr000gh2/T/tmpxjdddfx4/parser_test/qfile.txt 
+
+
+Partition: 0 with name: p1
+Initial base frequencies, prior to ML estimate: 0.250 0.250 0.250 0.250 
+
+Partition: 1 with name: p2
+Initial base frequencies, prior to ML estimate: 0.250 0.250 0.250 0.250 
+
+Partition: 2 with name: p3
+Initial base frequencies, prior to ML estimate: 0.250 0.250 0.250 0.250 
+
+Inference[0]: Time 3.828973 GAMMA-based likelihood -14073.609821, best rearrangement setting 5
+alpha[0]: 0.519179 rates[0] ac ag at cg ct gt: 0.713025 1.907700 1.010704 0.900610 1.628844 1.000000 ML estimate base freqs[0]: 0.217526 0.296327 0.256963 0.229184 alpha[1]: 0.436494 rates[1] ac ag at cg ct gt: 0.828615 1.396299 0.861176 0.871358 1.753980 1.000000 ML estimate base freqs[1]: 0.237447 0.297681 0.255985 0.208886 alpha[2]: 0.491444 rates[2] ac ag at cg ct gt: 0.809578 1.785728 0.757191 0.980973 2.056712 1.000000 ML estimate base freqs[2]: 0.229007 0.294520 0.253874 0.222599 
+Inference[1]: Time 3.913409 GAMMA-based likelihood -14073.612207, best rearrangement setting 5
+alpha[0]: 0.519179 rates[0] ac ag at cg ct gt: 0.712741 1.907123 1.010357 0.900360 1.628421 1.000000 ML estimate base freqs[0]: 0.217530 0.296329 0.256960 0.229180 alpha[1]: 0.436495 rates[1] ac ag at cg ct gt: 0.828583 1.396272 0.861142 0.871356 1.753914 1.000000 ML estimate base freqs[1]: 0.237448 0.297681 0.255984 0.208886 alpha[2]: 0.491446 rates[2] ac ag at cg ct gt: 0.809402 1.785339 0.757020 0.980700 2.056342 1.000000 ML estimate base freqs[2]: 0.229009 0.294521 0.253874 0.222596 
+
+
+Conducting final model optimizations on all 2 trees under GAMMA-based models ....
+
+Inference[0] final GAMMA-based Likelihood: -14072.528670 tree written to file /var/folders/hy/0ksb55693118c2f_gg_wt5lr000gh2/T/tmpxjdddfx4/parser_test/RAxML_result.hand.RUN.0
+Inference[1] final GAMMA-based Likelihood: -14072.528670 tree written to file /var/folders/hy/0ksb55693118c2f_gg_wt5lr000gh2/T/tmpxjdddfx4/parser_test/RAxML_result.hand.RUN.1
+
+
+Starting final GAMMA-based thorough Optimization on tree 0 likelihood -14072.528670 .... 
+
+Final GAMMA-based Score of best tree -14072.528670
+
+Program execution info written to /var/folders/hy/0ksb55693118c2f_gg_wt5lr000gh2/T/tmpxjdddfx4/parser_test/RAxML_info.hand
+Best-scoring ML tree written to: /var/folders/hy/0ksb55693118c2f_gg_wt5lr000gh2/T/tmpxjdddfx4/parser_test/RAxML_bestTree.hand
+
+Overall execution time: 8.932646 secs or 0.002481 hours or 0.000103 days
+

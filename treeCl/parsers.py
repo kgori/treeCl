@@ -5,6 +5,8 @@ from builtins import object
 from pyparsing import Suppress, SkipTo, Word, Regex, Literal, OneOrMore, Group, LineEnd, CharsNotIn, nums, alphanums, ParseException
 import logging
 logger = logging.getLogger(__name__)
+import os
+import numpy as np
 
 FLOAT = Word(nums + '.-').setParseAction(lambda x: float(x[0]))
 INT = Word(nums).setParseAction(lambda x: int(x[0]))
@@ -132,6 +134,9 @@ class RaxmlParser(object):
         TREELENGTH_LEADIN = Literal('Tree-Length:')
         RATES_LABEL = Regex(r'rate \w <-> \w:')
         FREQS_LABEL = Regex(r'freq pi\(\w\):')
+        BEST_LEADIN = Literal('Starting final GAMMA-based thorough Optimization on tree ')
+        PARTITION_LEADIN = Literal('Partition:')
+        INFERENCE_LEADIN = Literal('Inference[')
 
         model = Suppress(SkipTo(MODEL_LABEL)) + Suppress(MODEL_LABEL) + WORD
         likelihood = Suppress(SkipTo(SCORE_LABEL)) + Suppress(SCORE_LABEL) + FLOAT
@@ -144,6 +149,9 @@ class RaxmlParser(object):
         alpha = Suppress(ALPHA_LEADIN) + FLOAT
         rates = Suppress(RATES_LABEL) + FLOAT
         freqs = Suppress(FREQS_LABEL) + FLOAT
+        self.partition = OneOrMore(Suppress(SkipTo(PARTITION_LEADIN)) + Suppress(PARTITION_LEADIN) + INT)
+        self.inference = OneOrMore(Suppress(SkipTo(INFERENCE_LEADIN)) + Suppress(INFERENCE_LEADIN) + INT)
+        self.best = Suppress(SkipTo(BEST_LEADIN)) + Suppress(BEST_LEADIN) + INT
 
         self._dash_f_e_parser = (Group(OneOrMore(model)) +
                                  likelihood +
@@ -158,6 +166,24 @@ class RaxmlParser(object):
     def parse(self, filename):
         with open(filename) as fl:
             s = fl.read()
+
+        try:
+            best_index = self.best.parseString(s)[0]
+        except ParseException as err:
+            logger.error(err)
+            best_index = 0
+
+        try:
+            n_partitions = max(self.partition.parseString(s).asList()) + 1
+        except ParseException as err:
+            logger.error(err)
+            n_partitions = 1
+
+        try:
+            n_inferences = max(self.inference.parseString(s).asList()) + 1
+        except ParseException as err:
+            logger.error(err)
+            n_inferences = 1
 
         try:
             alphas = self.alpha.parseString(s).asList()
@@ -184,6 +210,13 @@ class RaxmlParser(object):
             logger.error(err)
             lnl = [0]
 
+        alphas = np.array(alphas).reshape(n_inferences, n_partitions)[best_index].tolist()
+        if n_inferences > 1 and len(freqs) == n_inferences * n_partitions:
+            logger.debug('Reshaping freqs for multiple inference result')
+            freqs = np.array(freqs).reshape(n_inferences, n_partitions, len(freqs[0]))[best_index].tolist()
+        if rates is not None and n_inferences > 1 and len(rates) == n_inferences * n_partitions:
+            logger.debug('Reshaping rates for multiple inference result')
+            rates = np.array(rates).reshape(n_inferences, n_partitions, len(rates[0]))[best_index].tolist()
         return alphas, freqs, names, rates, lnl
 
     def _dash_f_e_to_dict(self, info_filename, tree_filename):
@@ -218,6 +251,10 @@ class RaxmlParser(object):
         Option dash_f_e=True will parse the output of a raxml -f e run,
         which has different output
         """
+        logger.debug('info_filename: {} {}'
+                     .format(info_filename, '(FOUND)' if os.path.exists(info_filename) else '(NOT FOUND)'))
+        logger.debug('tree_filename: {} {}'
+                     .format(tree_filename, '(FOUND)' if os.path.exists(tree_filename) else '(NOT FOUND)'))
         if dash_f_e:
             return self._dash_f_e_to_dict(info_filename, tree_filename)
         else:
