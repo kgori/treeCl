@@ -219,3 +219,12 @@ def sample_wr(lst):
     for i, ix in enumerate(indices):
         sample[i] = arr[ix]
     return list(sample)
+
+def binom_coeff(n):
+    """
+    Calculate the binomial coefficient (n, 2), i.e. the number of distinct pairs possible
+    in a set of size n
+    :param n: size of set
+    :return: number of pairs
+    """
+    return int(n * (n-1) / 2)

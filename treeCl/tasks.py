@@ -654,8 +654,9 @@ class TreeDistanceTaskInterface(with_metaclass(ABCMeta, TaskInterface)):
     _name = 'TreeDistance'
 
     def scrape_args(self, trees, normalise, min_overlap, overlap_fail_value):
-        return [(t1, t2, normalise, min_overlap, overlap_fail_value)
-                for (t1, t2) in itertools.combinations(trees, 2)]
+        for (t1, t2) in itertools.combinations(trees, 2):
+            yield (t1, t2, normalise, min_overlap, overlap_fail_value)
+
 
     @abstractmethod
     def get_task(self):

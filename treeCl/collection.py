@@ -37,6 +37,7 @@ from .partition import Partition
 from .parutils import SequentialJobHandler
 from .utils import fileIO, setup_progressbar, model_translate, smooth_freqs, create_gamma_model, flatten_list
 from .utils.decorators import lazyprop
+from .utils.misc import binom_coeff
 
 # set up logging
 import logging
@@ -430,17 +431,18 @@ class RecordsCalculatorMixin(object):
                                  normalise=False, min_overlap=4, overlap_fail_value=0,
                                  batchsize=1, show_progress=True):
         """ Generate a distance matrix from a fully-populated Collection.
+            Can silence progressbars with show_progress=False option
         :param metric: str. Tree distance metric to use. Choice of 'euc', 'geo', 'rf', 'wrf'.
         :param jobhandler: treeCl.Jobhandler. Choice of SequentialJobHandler, ThreadpoolJobHandler, or
-        ProcesspoolJobHandler.
-        :param normalise: Bool. Whether to normalise the tree distance to the size of the leaf set.
+            ProcesspoolJobHandler.
+        :param normalise:  Bool. Whether to normalise the tree distance to the size of the leaf set.
         :param min_overlap: int. Trees with fewer leaves in common than this threshold will not have their distance
-        calculated, but instead the distance returned will be the value in `overlap_fail_value`.
+            calculated, but instead the distance returned will be the value in `overlap_fail_value`.
         :param overlap_fail_value: Any. The distance between trees with fewer leaves in common than `min_overlap`
-        is set to this value.
+            is set to this value.
         :param batchsize: int. Number of jobs to process in a batch when using a ProcesspoolJobHandler or a
-        ThreadpoolJobHandler.
-        :returns treeCl.DistanceMatrix.
+            ThreadpoolJobHandler.
+        :return: treeCl.DistanceMatrix.
         """
         metrics = {'euc': tasks.EuclideanTreeDistance,
                    'geo': tasks.GeodesicTreeDistance,
@@ -459,7 +461,7 @@ class RecordsCalculatorMixin(object):
         args = task_interface.scrape_args(trees, normalise, min_overlap, overlap_fail_value)
         logger.debug('{}'.format(args))
         msg = task_interface.name if show_progress else ''
-        array = jobhandler(task_interface.get_task(), args, msg, batchsize)
+        array = jobhandler(task_interface.get_task(), args, msg, batchsize, nargs=binom_coeff(len(trees)))
         return DistanceMatrix.from_array(squareform(array), self.names)
 
 
