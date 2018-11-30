@@ -57,10 +57,6 @@ class PartitionTests(unittest.TestCase):
         self.partition = Partition(['a', 'd', 'a', 'a', 'b', 'a', 'b', 'c', 'c', 'd', 'd', 'd', 'd', 'd'])
 
     def test_restricted_growth_notation(self):
-        """
-        Test restricted growth notation
-        :return:
-        """
         expected = (0, 1, 0, 0, 2, 0, 2, 3, 3, 1, 1, 1, 1, 1)
         self.assertEqual(self.partition.partition_vector, expected)
 
@@ -170,18 +166,24 @@ class ScorerTests(unittest.TestCase):
 
 
 class TreeTests(unittest.TestCase):
-    def test_RandomTree_defaultnames(self):
+    def test_random_tree_default_names(self):
         t = treeCl.tree.RandomTree.new(10)
         expected = ['l1', 'l10', 'l2', 'l3', 'l4', 'l5', 'l6', 'l7', 'l8', 'l9']
         self.assertEqual(sorted(t.labels), expected)
 
-    def test_RandomTree_given_names(self):
+    def test_random_tree_given_names(self):
         names = ['Jools', 'Jops', 'Stoo', 'Rj', 'Ubik', 'Cj', 'Chris', 'Pete', 'Tadger', 'Hector']
         t = treeCl.tree.RandomTree.new(10, names)
         self.assertEqual(sorted(t.labels), sorted(names))
 
-    def test_Newick_read(self):
-        n = '((((Sp1:0.0523947839547,Sp2:1.37159604411):2.36974538201,((Sp3:0.179093762783,(Sp4:0.615505083102,Sp5:0.344065892719):0.0724725996144):0.307962158157,(Sp6:1.48158479406,Sp7:3.13329090451):1.62357461752):0.62792640958):2.64647302212,(Sp8:0.145879857199,Sp9:4.33463301328):0.785221836876):0.0653625005117,((((Sp10:0.0327158596802,Sp11:0.346629825105):0.513499606131,Sp12:0.0931894502388):1.75462968872,(Sp13:0.0508398281971,Sp14:0.902409030743):0.248348229186):2.66397475192,(Sp15:0.623334704667,Sp16:0.727987265987):2.45688940891):1.00011564391):0.0;'
+    def test_newick_read(self):
+        n = ('((((Sp1:0.0523947839547,Sp2:1.37159604411):2.36974538201,((Sp3:0.179093762783,'
+             '(Sp4:0.615505083102,Sp5:0.344065892719):0.0724725996144):0.307962158157,'
+             '(Sp6:1.48158479406,Sp7:3.13329090451):1.62357461752):0.62792640958):2.64647302212,'
+             '(Sp8:0.145879857199,Sp9:4.33463301328):0.785221836876):0.0653625005117,'
+             '((((Sp10:0.0327158596802,Sp11:0.346629825105):0.513499606131,Sp12:0.0931894502388):1.75462968872,'
+             '(Sp13:0.0508398281971,Sp14:0.902409030743):0.248348229186):2.66397475192,(Sp15:0.623334704667,'
+             'Sp16:0.727987265987):2.45688940891):1.00011564391):0.0;')
         self.assertEqual(treeCl.tree.Tree(n).newick, n)
 
     def test_rnni(self):
@@ -190,7 +192,10 @@ class TreeTests(unittest.TestCase):
         (and also shadows the fn name with a bool variable). This test asserts that rnni
         doesn't throw any error on valid input.
         """
-        t = treeCl.tree.Tree(newick="((((T4:42.9474018906,T10:42.9474018906):112.903906732,(T6:14.3433500048,(T2:1.53929863217,T5:1.53929863217):12.8040513726):141.507958618):22.1730692315,T9:178.024377854):34.9689886128,(T3:190.011180702,((T1:0,T8:0):147.182729024,T7:147.182729024):42.8284516785):22.9821857647):2.44503258424;")
+        t = treeCl.tree.Tree(newick="((((T4:42.9474018906,T10:42.9474018906):112.903906732,(T6:14.3433500048,"
+                                    "(T2:1.53929863217,T5:1.53929863217):12.8040513726):141.507958618):22.1730692315,"
+                                    "T9:178.024377854):34.9689886128,(T3:190.011180702,((T1:0,T8:0):147.182729024,"
+                                    "T7:147.182729024):42.8284516785):22.9821857647):2.44503258424;")
         try:
             t.rnni(times=3)
         except:
@@ -202,7 +207,10 @@ class TreeTests(unittest.TestCase):
         (and also shadows the fn name with a bool variable). This test asserts that rspr
         also doesn't throw any error on valid input.
         """
-        t = treeCl.tree.Tree(newick="((((T4:42.9474018906,T10:42.9474018906):112.903906732,(T6:14.3433500048,(T2:1.53929863217,T5:1.53929863217):12.8040513726):141.507958618):22.1730692315,T9:178.024377854):34.9689886128,(T3:190.011180702,((T1:0,T8:0):147.182729024,T7:147.182729024):42.8284516785):22.9821857647):2.44503258424;")
+        t = treeCl.tree.Tree(newick="((((T4:42.9474018906,T10:42.9474018906):112.903906732,(T6:14.3433500048,"
+                                    "(T2:1.53929863217,T5:1.53929863217):12.8040513726):141.507958618):22.1730692315,"
+                                    "T9:178.024377854):34.9689886128,(T3:190.011180702,((T1:0,T8:0):147.182729024,"
+                                    "T7:147.182729024):42.8284516785):22.9821857647):2.44503258424;")
         try:
             t.rspr(times=3)
         except:
@@ -215,7 +223,10 @@ class TreeTests(unittest.TestCase):
         also doesn't throw any error on valid input.
         """
         t = treeCl.tree.Tree(
-            newick="((((T4:42.9474018906,T10:42.9474018906):112.903906732,(T6:14.3433500048,(T2:1.53929863217,T5:1.53929863217):12.8040513726):141.507958618):22.1730692315,T9:178.024377854):34.9689886128,(T3:190.011180702,((T1:0,T8:0):147.182729024,T7:147.182729024):42.8284516785):22.9821857647):2.44503258424;")
+            newick="((((T4:42.9474018906,T10:42.9474018906):112.903906732,(T6:14.3433500048,(T2:1.53929863217,"
+                   "T5:1.53929863217):12.8040513726):141.507958618):22.1730692315,T9:178.024377854):34.9689886128,"
+                   "(T3:190.011180702,((T1:0,T8:0):147.182729024,"
+                   "T7:147.182729024):42.8284516785):22.9821857647):2.44503258424;")
         ils = treeCl.tree.ILS(t)
         try:
             ils.rils()
@@ -401,15 +412,15 @@ class RaxmlRunnerTests(unittest.TestCase):
         self.c = treeCl.Collection(input_dir=os.path.join(thisdir, 'data', 'mini'), file_format='phylip',
                                    show_progress=False)
 
-    def test_can_run_GAMMA(self):
+    def test_can_run_gamma(self):
         self.c.calc_trees(model='PROTGAMMAWAG', show_progress=False)
         self.assertFalse(self.c[0].parameters.ml_tree is None)
 
-    def test_can_run_CAT(self):
+    def test_can_run_cat(self):
         self.c.calc_trees(model='PROTCATWAG', show_progress=False)
         self.assertFalse(self.c[0].parameters.ml_tree is None)
 
-    def test_can_run_on_DNA(self):
+    def test_can_run_on_dna(self):
         self.c = treeCl.Collection(input_dir=os.path.join(thisdir, 'data', 'dna_alignments'), file_format='phylip',
                                    show_progress=False)
         self.c.calc_trees(indices=[0], model='GTRGAMMA', show_progress=False)
@@ -417,6 +428,12 @@ class RaxmlRunnerTests(unittest.TestCase):
 
     def test_can_run_fast_tree(self):
         self.c.calc_trees(indices=[0], fast_tree=True, model='PROTGAMMALGF', show_progress=False)
+        self.assertFalse(self.c[0].parameters.ml_tree is None)
+
+    def test_can_run_multiple_starts(self):
+        self.c = treeCl.Collection(input_dir=os.path.join(thisdir, 'data', 'dna_alignments'), file_format='phylip',
+                                   show_progress=False)
+        self.c.calc_trees(indices=[0], model='GTRGAMMA', fast_tree=True, show_progress=False, n_starts=2)
         self.assertFalse(self.c[0].parameters.ml_tree is None)
 
 
@@ -429,7 +446,7 @@ class ParallelTests(unittest.TestCase):
 
     def test_sequential(self):
         handler = treeCl.parutils.SequentialJobHandler()
-        dm = self.c.get_inter_tree_distances('geo', jobhandler=handler)
+        dm = self.c.get_inter_tree_distances('geo', jobhandler=handler, show_progress=False)
         self.assertAlmostEqual(dm.df.values.sum(), 412.70677069540181)
 
     def test_processpool(self):
@@ -439,7 +456,7 @@ class ParallelTests(unittest.TestCase):
 
     def test_threadpool(self):
         handler = treeCl.parutils.ThreadpoolJobHandler(2)
-        dm = self.c.get_inter_tree_distances('geo', jobhandler=handler)
+        dm = self.c.get_inter_tree_distances('geo', jobhandler=handler, show_progress=False)
         self.assertAlmostEqual(dm.df.values.sum(), 412.70677069540181)
 
 
