@@ -72,7 +72,7 @@ def _generic_distance_calc(fn, t1, t2, normalise, min_overlap=4, overlap_fail_va
     return fn(t1.phylotree, t2.phylotree, normalise)
 
 
-def _generic_matrix_calc(fn, trees, normalise, min_overlap=4, overlap_fail_value=0):
+def _generic_matrix_calc(fn, trees, normalise, min_overlap=4, overlap_fail_value=0, show_progress=True):
     """(fn, trees, normalise)
 
     Calculates all pairwise distances between trees given in the parameter 'trees'.
@@ -99,12 +99,15 @@ def _generic_matrix_calc(fn, trees, normalise, min_overlap=4, overlap_fail_value
     """
     jobs = itertools.combinations(trees, 2)
     results = []
-    pbar = setup_progressbar('Calculating tree distances', 0.5 * len(trees) * (len(trees) - 1))
-    pbar.start()
+    if show_progress:
+        pbar = setup_progressbar('Calculating tree distances', 0.5 * len(trees) * (len(trees) - 1))
+        pbar.start()
     for i, (t1, t2) in enumerate(jobs):
         results.append(_generic_distance_calc(fn, t1, t2, normalise, min_overlap, overlap_fail_value))
-        pbar.update(i)
-    pbar.finish()
+        if show_progress:
+            pbar.update(i)
+    if show_progress:
+        pbar.finish()
     return scipy.spatial.distance.squareform(results)
 
 eucdist = functools.partial(_generic_distance_calc, getEuclideanDistance)

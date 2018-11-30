@@ -110,7 +110,7 @@ class PartitionTests(unittest.TestCase):
 class CollectionTests(unittest.TestCase):
     def setUp(self):
         self.c = treeCl.Collection(input_dir=os.path.join(thisdir, 'data'), file_format='phylip',
-                                   show_progressbars=False)
+                                   show_progress=False)
 
     def test_len(self):
         self.assertEqual(len(self.c), 15)
@@ -127,7 +127,7 @@ class CollectionTests(unittest.TestCase):
         self.c = treeCl.Collection(input_dir=os.path.join(thisdir, 'data'),
                                    param_dir=os.path.join(thisdir, 'data', 'cache'),
                                    file_format='phylip',
-                                   show_progressbars=False)
+                                   show_progress=False)
         rec = self.c[0]
         self.assertEqual(rec.parameters.nj_tree[:72],
                          '((((Sp1:1.47856,(Sp4:1.20999,((Sp8:0.00595845,Sp9:0.00469589):0.27853,Sp')
@@ -136,7 +136,7 @@ class CollectionTests(unittest.TestCase):
         self.c = treeCl.Collection(input_dir=os.path.join(thisdir, 'data'),
                                    trees_dir=os.path.join(thisdir, 'data', 'trees'),
                                    file_format='phylip',
-                                   show_progressbars=False)
+                                   show_progress=False)
         rec = self.c[0]
         self.assertEqual(rec.parameters.ml_tree[:72],
                          '((((Sp1:1.48316688535948748573,(Sp4:1.16694627918414717271,((Sp8:0.00749')
@@ -155,7 +155,7 @@ class ScorerTests(unittest.TestCase):
         c = treeCl.Collection(input_dir=os.path.join(thisdir, 'data'),
                               param_dir=os.path.join(thisdir, 'data', 'cache'),
                               file_format='phylip',
-                              show_progressbars=False)
+                              show_progress=False)
 
         raxml = treeCl.tasks.RaxmlTaskInterface()
         sc = treeCl.Scorer(c, cache_dir=self.workingdir, task_interface=raxml)
@@ -228,7 +228,7 @@ class TreeDistanceTests(unittest.TestCase):
         self.c = treeCl.Collection(input_dir=os.path.join(thisdir, 'data'),
                                    trees_dir=os.path.join(thisdir, 'data', 'trees'),
                                    file_format='phylip',
-                                   show_progressbars=False)
+                                   show_progress=False)
         self.tree1 = treeCl.Tree(self.c[0].tree)
         self.tree2 = treeCl.Tree(self.c[1].tree)
 
@@ -265,7 +265,7 @@ class TreeDistanceTests(unittest.TestCase):
         self.assertAlmostEqual(distance, 0.14285714285714285)
 
     def test_intertree(self):
-        dm = self.c.get_inter_tree_distances('rf')
+        dm = self.c.get_inter_tree_distances('rf', show_progress=False)
         self.assertAlmostEquals(dm.values[0, 1],
                           treeCl.treedist.rfdist(self.tree1, self.tree2, False))
 
@@ -274,7 +274,7 @@ class TreeDistanceTests(unittest.TestCase):
             set(['Sp1', 'Sp2', 'Sp3', 'Sp4', 'Sp5', 'Sp6', 'Sp7'])).newick
         self.c[1].parameters.ml_tree = treeCl.Tree(self.c[1].parameters.ml_tree).prune_to_subset(
             set(['Sp4', 'Sp5', 'Sp6', 'Sp7', 'Sp8', 'Sp9', 'Sp10'])).newick
-        dm = self.c.get_inter_tree_distances('geo')
+        dm = self.c.get_inter_tree_distances('geo', show_progress=False)
         self.assertAlmostEquals(dm.values[0, 1], 0.35314280333144532)
 
     def test_intertree_partial_overlap_value_replacement(self):
@@ -282,7 +282,7 @@ class TreeDistanceTests(unittest.TestCase):
             set(['Sp1', 'Sp2', 'Sp3', 'Sp4', 'Sp5', 'Sp6', 'Sp7'])).newick
         self.c[1].parameters.ml_tree = treeCl.Tree(self.c[1].parameters.ml_tree).prune_to_subset(
             set(['Sp4', 'Sp5', 'Sp6', 'Sp7', 'Sp8', 'Sp9', 'Sp10'])).newick
-        dm = self.c.get_inter_tree_distances('geo', min_overlap=5, overlap_fail_value=-1)
+        dm = self.c.get_inter_tree_distances('geo', min_overlap=5, overlap_fail_value=-1, show_progress=False)
         self.assertEquals(dm.values[0, 1], -1)
 
 
@@ -313,8 +313,8 @@ class DistanceMatrixTests(unittest.TestCase):
         c = treeCl.Collection(input_dir=os.path.join(thisdir, 'data'),
                               param_dir=os.path.join(thisdir, 'data', 'cache'),
                               file_format='phylip',
-                              show_progressbars=False)
-        dm = c.get_inter_tree_distances('geo')
+                              show_progress=False)
+        dm = c.get_inter_tree_distances('geo', show_progress=False)
         self.assertAlmostEqual(dm.df.values.sum(), 412.70677069540181)
 
     def test_embed_cmds(self):
@@ -399,24 +399,24 @@ class RaxmlParserTests(unittest.TestCase):
 class RaxmlRunnerTests(unittest.TestCase):
     def setUp(self):
         self.c = treeCl.Collection(input_dir=os.path.join(thisdir, 'data', 'mini'), file_format='phylip',
-                                   show_progressbars=False)
+                                   show_progress=False)
 
     def test_can_run_GAMMA(self):
-        self.c.calc_trees(model='PROTGAMMAWAG')
+        self.c.calc_trees(model='PROTGAMMAWAG', show_progress=False)
         self.assertFalse(self.c[0].parameters.ml_tree is None)
 
     def test_can_run_CAT(self):
-        self.c.calc_trees(model='PROTCATWAG')
+        self.c.calc_trees(model='PROTCATWAG', show_progress=False)
         self.assertFalse(self.c[0].parameters.ml_tree is None)
 
     def test_can_run_on_DNA(self):
         self.c = treeCl.Collection(input_dir=os.path.join(thisdir, 'data', 'dna_alignments'), file_format='phylip',
-                                   show_progressbars=False)
-        self.c.calc_trees(indices=[0], model='GTRGAMMA')
+                                   show_progress=False)
+        self.c.calc_trees(indices=[0], model='GTRGAMMA', show_progress=False)
         self.assertFalse(self.c[0].parameters.ml_tree is None)
 
     def test_can_run_fast_tree(self):
-        self.c.calc_trees(indices=[0], fast_tree=True, model='PROTGAMMALGF')
+        self.c.calc_trees(indices=[0], fast_tree=True, model='PROTGAMMALGF', show_progress=False)
         self.assertFalse(self.c[0].parameters.ml_tree is None)
 
 
@@ -425,7 +425,7 @@ class ParallelTests(unittest.TestCase):
         self.c = treeCl.Collection(input_dir=os.path.join(thisdir, 'data'),
                                    param_dir=os.path.join(thisdir, 'data', 'cache'),
                                    file_format='phylip',
-                                   show_progressbars=False)
+                                   show_progress=False)
 
     def test_sequential(self):
         handler = treeCl.parutils.SequentialJobHandler()
@@ -434,7 +434,7 @@ class ParallelTests(unittest.TestCase):
 
     def test_processpool(self):
         handler = treeCl.parutils.ProcesspoolJobHandler(2)
-        dm = self.c.get_inter_tree_distances('geo', jobhandler=handler)
+        dm = self.c.get_inter_tree_distances('geo', jobhandler=handler, show_progress=False)
         self.assertAlmostEqual(dm.df.values.sum(), 412.70677069540181)
 
     def test_threadpool(self):
