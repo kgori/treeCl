@@ -151,7 +151,6 @@ def threadpool_map(task, args, message, concurrency, batchsize=1, nargs=None):
     njobs = get_njobs(nargs, args)
     show_progress = bool(message)
 
-    njobs = len(args)
     batches = grouper(batchsize, tupleise(args))
     batched_task = lambda batch: [task(*job) for job in batch]
     if show_progress:
@@ -184,7 +183,6 @@ def processpool_map(task, args, message, concurrency, batchsize=1, nargs=None):
     njobs = get_njobs(nargs, args)
     show_progress = bool(message)
 
-    njobs = len(args)
     batches = grouper(batchsize, tupleise(args))
     def batched_task(*batch):
         return [task(*job) for job in batch]
