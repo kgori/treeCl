@@ -94,7 +94,6 @@ def parallel_map(client, task, args, message, batchsize=1, background=False, nar
     :return: IPython.parallel.AsyncMapResult
     """
     show_progress = bool(message)
-
     njobs = get_njobs(nargs, args)
     nproc = len(client)
     logger.debug('parallel_map: len(client) = {}'.format(len(client)))
@@ -129,7 +128,6 @@ def sequential_map(task, args, message, nargs=None):
     """
     njobs = get_njobs(nargs, args)
     show_progress = bool(message)
-
     if show_progress:
         pbar = setup_progressbar(message, njobs, simple_progress=True)
         pbar.start()
@@ -148,9 +146,9 @@ def threadpool_map(task, args, message, concurrency, batchsize=1, nargs=None):
     """
     import concurrent.futures
 
+
     njobs = get_njobs(nargs, args)
     show_progress = bool(message)
-
     batches = grouper(batchsize, tupleise(args))
     batched_task = lambda batch: [task(*job) for job in batch]
     if show_progress:
@@ -182,7 +180,6 @@ def processpool_map(task, args, message, concurrency, batchsize=1, nargs=None):
     """
     njobs = get_njobs(nargs, args)
     show_progress = bool(message)
-
     batches = grouper(batchsize, tupleise(args))
     def batched_task(*batch):
         return [task(*job) for job in batch]
