@@ -90,12 +90,12 @@ class RecordsHandler(object):
             trees_dir=None,
             file_format='phylip',
             header_grep=None,
-            show_progressbars=True,
+            show_progress=True,
     ):
 
         self._records = None
         self._input_files = None
-        self.show_progressbars=show_progressbars
+        self.show_progress=show_progress
 
         if records is not None:
             self.records = records
@@ -238,7 +238,7 @@ class RecordsHandler(object):
         self._input_files = files
         records = []
 
-        if self.show_progressbars:
+        if self.show_progress:
             pbar = setup_progressbar("Loading files", len(files), simple_progress=True)
             pbar.start()
 
@@ -282,9 +282,9 @@ class RecordsHandler(object):
 
             record.name = (fileIO.strip_extensions(f))
             records.append(record)
-            if self.show_progressbars:
+            if self.show_progress:
                 pbar.update(i)
-        if self.show_progressbars:
+        if self.show_progress:
             pbar.finish()
         return records
 
@@ -292,7 +292,7 @@ class RecordsHandler(object):
         """ Read a directory full of tree files, matching them up to the
         already loaded alignments """
 
-        if self.show_progressbars:
+        if self.show_progress:
             pbar = setup_progressbar("Loading trees", len(self.records))
             pbar.start()
 
@@ -311,17 +311,17 @@ class RecordsHandler(object):
                 continue
 
             finally:
-                if self.show_progressbars:
+                if self.show_progress:
                     pbar.update(i)
 
-        if self.show_progressbars:
+        if self.show_progress:
             pbar.finish()
 
     def read_parameters(self, input_dir):
         """ Read a directory full of json parameter files, matching them up to the
         already loaded alignments """
 
-        if self.show_progressbars:
+        if self.show_progress:
             pbar = setup_progressbar("Loading parameters", len(self.records))
             pbar.start()
         for i, rec in enumerate(self.records):
@@ -337,9 +337,9 @@ class RecordsHandler(object):
                 continue
 
             finally:
-                if self.show_progressbars:
+                if self.show_progress:
                     pbar.update(i)
-        if self.show_progressbars:
+        if self.show_progress:
             pbar.finish()
 
     def write_parameters(self, output_dir, gz=False):
@@ -357,7 +357,8 @@ class RecordsHandler(object):
 
 class RecordsCalculatorMixin(object):
 
-    def calc_distances(self, indices=None, task_interface=None, jobhandler=default_jobhandler, batchsize=1):
+    def calc_distances(self, indices=None, task_interface=None, jobhandler=default_jobhandler, batchsize=1,
+                       show_progress=True):
         """
         Calculate fast approximate intra-alignment pairwise distances and variances using
         ML (requires ML models to have been set up using `calc_trees`).
@@ -375,7 +376,7 @@ class RecordsCalculatorMixin(object):
         args, to_delete = task_interface.scrape_args(records)
 
         # Dispatch
-        msg = '{} estimation'.format(task_interface.name)
+        msg = '{} estimation'.format(task_interface.name) if show_progress else ''
         map_result = jobhandler(task_interface.get_task(), args, msg, batchsize)
 
         # Process results
@@ -392,7 +393,7 @@ class RecordsCalculatorMixin(object):
             # pbar.finish()
 
     def calc_trees(self, indices=None, task_interface=None, jobhandler=default_jobhandler, batchsize=1,
-                   **kwargs):
+                   show_progress=True, **kwargs):
         """
         Infer phylogenetic trees for the loaded Alignments
 
@@ -416,7 +417,7 @@ class RecordsCalculatorMixin(object):
         args, to_delete = task_interface.scrape_args(records, **kwargs)
 
         # Dispatch work
-        msg = '{} Tree estimation'.format(task_interface.name)
+        msg = '{} Tree estimation'.format(task_interface.name) if show_progress else ''
         map_result = jobhandler(task_interface.get_task(), args, msg, batchsize)
 
         # Process results
@@ -427,7 +428,7 @@ class RecordsCalculatorMixin(object):
 
     def get_inter_tree_distances(self, metric, jobhandler=default_jobhandler,
                                  normalise=False, min_overlap=4, overlap_fail_value=0,
-                                 batchsize=1):
+                                 batchsize=1, show_progress=True):
         """ Generate a distance matrix from a fully-populated Collection.
         :param metric: str. Tree distance metric to use. Choice of 'euc', 'geo', 'rf', 'wrf'.
         :param jobhandler: treeCl.Jobhandler. Choice of SequentialJobHandler, ThreadpoolJobHandler, or
@@ -457,7 +458,7 @@ class RecordsCalculatorMixin(object):
             trees = self.trees
         args = task_interface.scrape_args(trees, normalise, min_overlap, overlap_fail_value)
         logger.debug('{}'.format(args))
-        msg = task_interface.name
+        msg = task_interface.name if show_progress else ''
         array = jobhandler(task_interface.get_task(), args, msg, batchsize)
         return DistanceMatrix.from_array(squareform(array), self.names)
 

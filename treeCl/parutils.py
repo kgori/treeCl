@@ -78,21 +78,26 @@ def parallel_map(client, task, args, message, batchsize=1, background=False):
                       but longer execution time per job.
     :return: IPython.parallel.AsyncMapResult
     """
+    show_progress = bool(message)
+
     njobs = len(args)
     nproc = len(client)
     logger.debug('parallel_map: len(client) = {}'.format(len(client)))
     view = client.load_balanced_view()
-    message += ' (IP:{}w:{}b)'.format(nproc, batchsize)
-    pbar = setup_progressbar(message, njobs, simple_progress=True)
-    if not background:
-        pbar.start()
+    if show_progress:
+        message += ' (IP:{}w:{}b)'.format(nproc, batchsize)
+        pbar = setup_progressbar(message, njobs, simple_progress=True)
+        if not background:
+            pbar.start()
     map_result = view.map(task, *list(zip(*args)), chunksize=batchsize)
     if background:
         return map_result, client
     while not map_result.ready():
         map_result.wait(1)
-        pbar.update(min(njobs, map_result.progress * batchsize))
-    pbar.finish()
+        if show_progress:
+            pbar.update(min(njobs, map_result.progress * batchsize))
+    if show_progress:
+        pbar.finish()
     return map_result
 
 def sequential_map(task, args, message):
@@ -107,14 +112,19 @@ def sequential_map(task, args, message):
                       but longer execution time per job.
     :return: IPython.parallel.AsyncMapResult
     """
+    show_progress = bool(message)
+
     njobs = len(args)
-    pbar = setup_progressbar(message, njobs, simple_progress=True)
-    pbar.start()
+    if show_progress:
+        pbar = setup_progressbar(message, njobs, simple_progress=True)
+        pbar.start()
     map_result = []
     for (i, arglist) in enumerate(tupleise(args), start=1):
         map_result.append(task(*arglist))
-        pbar.update(i)
-    pbar.finish()
+        if show_progress:
+            pbar.update(i)
+    if show_progress:
+        pbar.finish()
     return map_result
 
 def threadpool_map(task, args, message, concurrency, batchsize=1):
@@ -123,11 +133,12 @@ def threadpool_map(task, args, message, concurrency, batchsize=1):
     """
     import concurrent.futures
 
+    show_progress = bool(message)
+
     njobs = len(args)
     batches = grouper(batchsize, tupleise(args))
     batched_task = lambda batch: [task(*job) for job in batch]
-    PROGRESS = message is not None
-    if PROGRESS:
+    if show_progress:
         message += ' (TP:{}w:{}b)'.format(concurrency, batchsize)
         pbar = setup_progressbar(message, njobs, simple_progress=True)
         pbar.start()
@@ -137,7 +148,7 @@ def threadpool_map(task, args, message, concurrency, batchsize=1):
         for batch in batches:
             futures.append(executor.submit(batched_task, batch))
 
-        if PROGRESS:
+        if show_progress:
             for i, fut in enumerate(concurrent.futures.as_completed(futures), start=1):
                 completed_count += len(fut.result())
                 pbar.update(completed_count)
@@ -145,7 +156,7 @@ def threadpool_map(task, args, message, concurrency, batchsize=1):
         else:
             concurrent.futures.wait(futures)
 
-    if PROGRESS:
+    if show_progress:
         pbar.finish()
 
     return flatten_list([fut.result() for fut in futures])
@@ -154,13 +165,14 @@ def processpool_map(task, args, message, concurrency, batchsize=1):
     """
     See http://stackoverflow.com/a/16071616
     """
+    show_progress = bool(message)
+
     njobs = len(args)
     batches = grouper(batchsize, tupleise(args))
     def batched_task(*batch):
         return [task(*job) for job in batch]
 
-    PROGRESS = message is not None
-    if PROGRESS:
+    if show_progress:
         message += ' (PP:{}w:{}b)'.format(concurrency, batchsize)
         pbar = setup_progressbar(message, len(args), simple_progress=True)
         pbar.start()
@@ -180,11 +192,11 @@ def processpool_map(task, args, message, concurrency, batchsize=1):
         result = get_from_queue(q_out)
         res.append(result)
         completed_count += len(result[1])
-        if PROGRESS:
+        if show_progress:
             pbar.update(completed_count)
 
     [p.join() for p in proc]
-    if PROGRESS:
+    if show_progress:
         pbar.finish()
 
     return flatten_list([x for (i, x) in sorted(res)])
