@@ -29,15 +29,13 @@ import pkg_resources
 sklearn_version = [int(x) for x in pkg_resources.get_distribution("scikit-learn").version.split('.')]
 USE_GAUSSIAN_MIXTURE =  tuple(sklearn_version) >= (0, 20, 0)
 if USE_GAUSSIAN_MIXTURE:
-    print("USING GAUSSIANMIXTURE!")
     from sklearn.mixture import GaussianMixture
 else:
-    print("USING GMM!")
     from sklearn.mixture import GMM
 
 # treeCl
-from .distance_matrix import DistanceMatrix, rbf, binsearch_mask, kmask, kscale, affinity, laplace, eigen, double_centre, \
-    normalise_rows, CoordinateMatrix
+from .distance_matrix import DistanceMatrix, rbf, binsearch_mask, kmask, kscale, affinity, laplace, eigen, \
+    double_centre, normalise_rows, CoordinateMatrix
 from .partition import Partition
 from .utils import enum
 from .errors import OptionError, isnumbercheck, rangecheck
