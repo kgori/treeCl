@@ -28,9 +28,21 @@ class my_build_ext(build_ext):
         if is_clang(binary):
             for e in self.extensions:
                 e.extra_compile_args.append('-stdlib=libc++')
+
                 if platform.system() == 'Darwin':
-                    e.extra_compile_args.append('-mmacosx-version-min=10.7')
-                    e.extra_link_args.append('-mmacosx-version-min=10.7')
+                    mac_version, _, _ = platform.mac_ver()
+                    major, minor, patch = [int(n) for n in mac_version.split('.')]
+
+                    # libstdc++ is deprecated in recent versions of XCode
+                    if minor >= 9:
+                        e.extra_compile_args.append('-mmacosx-version-min=10.9')
+                        e.extra_compile_args.append('-stdlib=libc++')
+                        e.extra_link_args.append('-mmacosx-version-min=10.9')
+                        e.extra_link_args.append('-stdlib=libc++')
+                    else:
+                        e.extra_compile_args.append('-mmacosx-version-min=10.7')
+                        e.extra_link_args.append('-mmacosx-version-min=10.7')
+
         build_ext.build_extensions(self)
 
 compile_args = ['-std=c++11']
