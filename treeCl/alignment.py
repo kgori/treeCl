@@ -29,7 +29,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-alphabet = enum("DNA", "PROTEIN", "UNSPECIFIED")
+sequence_alphabet = enum("DNA", "PROTEIN", "UNSPECIFIED")
 
 
 class Alignment(object):
@@ -47,7 +47,7 @@ class Alignment(object):
         self.infile = None
         self.name = None
         self.parameters = Parameters()
-        self._alphabet = alphabet.UNSPECIFIED
+        self._alphabet = sequence_alphabet.UNSPECIFIED
         if len(args) == 0:
             self._msa = None
         elif isinstance(args[0], list):
@@ -87,12 +87,12 @@ class Alignment(object):
         if 'alphabet' in kwargs and self._msa is not None:
             alphabet = kwargs['alphabet']
             if alphabet in ('dna', 'DNA'):
-                self._alphabet = alphabet.DNA
+                self._alphabet = sequence_alphabet.DNA
             elif alphabet in ('protein', 'PROTEIN'):
-                self._alphabet = alphabet.PROTEIN
+                self._alphabet = sequence_alphabet.PROTEIN
             else:
                 logger.warning('Set alphabet to "dna" or "protein", not {}'.format(alphabet))
-                self._alphabet = alphabet.UNSPECIFIED
+                self._alphabet = sequence_alphabet.UNSPECIFIED
 
     def __add__(self, other):
         return self.__class__([self, other])
@@ -127,10 +127,10 @@ class Alignment(object):
             raise AttributeError('No tree')
 
     def is_dna(self):
-        return self._alphabet == alphabet.DNA
+        return self._alphabet == sequence_alphabet.DNA
 
     def is_protein(self):
-        return self._alphabet == alphabet.PROTEIN
+        return self._alphabet == sequence_alphabet.PROTEIN
     
     def read_alignment(self, *args, **kwargs):
         filename = args[0]
@@ -156,9 +156,11 @@ class Alignment(object):
                             for char in random.sample(list(sr.seq.upper(), 1000))]
         else:
             allchars = [char for sr in msa for char in str(sr.seq.upper())]
-        probably_dna = (set(allchars) - set('-?X')).issubset(set(IUPAC.ambiguous_dna.letters))
 
-        return alphabet.DNA if probably_dna else alphabet.PROTEIN
+        dna_ambiguity_chars = 'GATCRYWSMKHBVDN'
+        probably_dna = (set(allchars) - set('-?X')).issubset(set(dna_ambiguity_chars))
+
+        return sequence_alphabet.DNA if probably_dna else sequence_alphabet.PROTEIN
 
 
     def write_alignment(self, filename, file_format, interleaved=None):
