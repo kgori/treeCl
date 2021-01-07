@@ -45,9 +45,6 @@ def concatenate(alignments):
     # (defaultdict is convenient -- asking for a missing key gives back an empty list)
     tmp = defaultdict(list)
 
-    # Assume all alignments have same alphabet
-    alphabet = alignments[0]._alphabet
-
     for aln in alignments:
         length = aln.get_alignment_length()
 
@@ -58,7 +55,7 @@ def concatenate(alignments):
         # if any are missing, create unknown data of the right length,
         # stuff the string representation into the tmp dict
         for label in missing:
-            new_seq = UnknownSeq(length, alphabet=alphabet)
+            new_seq = UnknownSeq(length)
             tmp[label].append(str(new_seq))
 
         # else stuff the string representation into the tmp dict
@@ -67,7 +64,7 @@ def concatenate(alignments):
 
     # Stitch all the substrings together using join (most efficient way),
     # and build the Biopython data structures Seq, SeqRecord and MultipleSeqAlignment
-    msa = MultipleSeqAlignment(SeqRecord(Seq(''.join(v), alphabet=alphabet), id=k, name=k, description=k)
+    msa = MultipleSeqAlignment(SeqRecord(Seq(''.join(v)), id=k, name=k, description=k)
                for (k,v) in tmp.items())
     return msa
 
