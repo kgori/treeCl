@@ -7,8 +7,6 @@ branches:
 
 python:
   - 2.7
-  - 3.4
-  - 3.5
   - 3.6
   - 3.7
   - 3.8
@@ -25,9 +23,6 @@ addons:
       - build-essential
       - gcc-4.7
       - g++-4.7
-      - liblapack-dev
-      - libblas-dev
-      - gfortran
 
 before_install:
   - wget https://github.com/stamatak/standard-RAxML/archive/v8.2.11.tar.gz
@@ -47,10 +42,8 @@ before_install:
   - export CXX=g++-4.7
 
 install:
-  - conda create -n travis --yes python=$TRAVIS_PYTHON_VERSION future nose pyparsing pyyaml six
+  - conda create -n travis --yes python=$TRAVIS_PYTHON_VERSION cython>=0.19.0 future numpy scipy matplotlib nose pandas scikit-bio==0.4.2 scikit-learn pyparsing pyyaml six biopython
   - source activate travis
-  - pip install cython>=0.19.0
-  - pip install numpy
   - pip install --no-binary ":all:" .
 
 sudo: true
@@ -66,4 +59,4 @@ deploy:
     tags: true
     repo: kgori/treeCl
     branch: master
-    python: 2.7
+    python: 3.9
