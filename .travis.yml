@@ -25,6 +25,9 @@ addons:
       - build-essential
       - gcc-4.7
       - g++-4.7
+      - liblapack-dev
+      - libblas-dev
+      - gfortran
 
 before_install:
   - wget https://github.com/stamatak/standard-RAxML/archive/v8.2.11.tar.gz
