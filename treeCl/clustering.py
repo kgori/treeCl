@@ -6,13 +6,14 @@ from builtins import range
 from builtins import object
 
 # standard library
+import logging
+logger = logging.getLogger(__name__)
 
 # third party
 import numpy as np
 from scipy.cluster.hierarchy import fcluster, dendrogram
 from scipy.spatial.distance import squareform
 import fastcluster
-import skbio
 
 try:
     from Bio.Cluster import kmedoids
@@ -535,20 +536,10 @@ class Evaluation(ClusteringManager):
     anosim and permanova seem pretty useless; silhouette is ok
     """
     def anosim(self, partition, n_permutations=999):
-        if partition.is_minimal():
-            raise ValueError("ANOSim is not defined for singleton clusters")
-        elif partition.is_maximal():
-            raise ValueError("ANOSim is not defined for maximally divided partitions")
-        result = skbio.stats.distance.ANOSIM(skbio.DistanceMatrix(self.get_dm(False)), partition.partition_vector)
-        return result(n_permutations)
+        logger.warning("Evaluation.anosim is deprecated. Use silhouette instead.")
 
     def permanova(self, partition, n_permutations=999):
-        if partition.is_minimal():
-            raise ValueError("PERMANOVA is not defined for singleton clusters")
-        elif partition.is_maximal():
-            raise ValueError("PERMANOVA is not defined for maximally divided partitions")
-        result = skbio.stats.distance.PERMANOVA(skbio.DistanceMatrix(self.get_dm(False)), partition.partition_vector)
-        return result(n_permutations)
+        logger.warning("Evaluation.permanova is deprecated. Use silhouette instead.")
 
     def silhouette(self, partition):
         pvec   = np.array(partition.partition_vector)
