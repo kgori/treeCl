@@ -47,6 +47,7 @@ install:
   - conda create -n travis --yes python=$TRAVIS_PYTHON_VERSION future nose pyparsing pyyaml six
   - source activate travis
   - pip install cython>=0.19.0
+  - pip install numpy
   - pip install --no-binary ":all:" .
 
 sudo: true
