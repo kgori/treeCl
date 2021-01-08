@@ -42,7 +42,7 @@ before_install:
   - export CXX=g++-4.7
 
 install:
-  - conda create -n travis --yes python=$TRAVIS_PYTHON_VERSION cython>=0.19.0 future numpy scipy matplotlib nose pandas scikit-bio==0.4.2 scikit-learn pyparsing pyyaml six biopython
+  - conda create -n travis --yes python=$TRAVIS_PYTHON_VERSION cython>=0.19.0 future numpy scipy matplotlib nose pandas scikit-learn pyparsing pyyaml six biopython
   - source activate travis
   - pip install --no-binary ":all:" .
 
