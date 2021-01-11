@@ -1,8 +1,3 @@
-from __future__ import print_function
-from future import standard_library
-standard_library.install_aliases()
-from builtins import bytes
-from builtins import object
 from abc import ABCMeta, abstractmethod, abstractproperty
 from locale import getpreferredencoding
 import os
@@ -11,7 +6,6 @@ from subprocess import PIPE, Popen
 import sys
 import threading
 import logging
-from future.utils import with_metaclass
 logger = logging.getLogger(__name__)
 from ..constants import ISPY3
 POSIX = 'posix' in sys.builtin_module_names
@@ -51,7 +45,7 @@ def _kwargs_to_args(kwargs, num_hyphens):
     return ' '.join(processed)
 
 
-class AbstractWrapper(with_metaclass(ABCMeta, object)):
+class AbstractWrapper(metaclass=ABCMeta):
     """
     Abstract Base Class:
     Run an external program as a subprocess with non-blocking collection of stdout.

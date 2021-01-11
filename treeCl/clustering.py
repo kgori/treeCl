@@ -1,9 +1,4 @@
 #!/usr/bin/env python
-from __future__ import print_function
-from __future__ import division
-from builtins import str
-from builtins import range
-from builtins import object
 
 # standard library
 import logging
@@ -23,7 +18,7 @@ except ImportError:
     Biopython_Unavailable = True
 
 from sklearn.cluster import AffinityPropagation, DBSCAN, KMeans
-from sklearn.manifold import spectral_embedding
+import sklearn.manifold
 
 # GMM was deprecated in scikit-learn version 0.18 and fully removed in 0.20
 import pkg_resources
@@ -289,7 +284,7 @@ class Spectral(ClusteringManager, EMMixin):
         n:      int
                 The number of dimensions
         """
-        coords = spectral_embedding(self._affinity, n)
+        coords = sklearn.manifold.spectral_embedding(self._affinity, n_components=n)
         return CoordinateMatrix(normalise_rows(coords))
 
     def spectral_embedding_(self, n):

@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-
 from .alignment import Alignment
 from .clustering import Spectral, Hierarchical, MultidimensionalScaling, Automatic, Evaluation
 from .collection import Collection, Scorer

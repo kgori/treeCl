@@ -1,5 +1,3 @@
-from __future__ import division
-from builtins import object
 import numpy as np
 from scipy.spatial.distance import pdist, squareform
 

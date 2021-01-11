@@ -1,10 +1,4 @@
 #!/usr/bin/env python
-from __future__ import print_function
-from __future__ import division
-from builtins import str
-from builtins import range
-from builtins import object
-from past.utils import old_div
 
 # standard lib
 import sys
@@ -332,7 +326,7 @@ def _embedding_spectral(matrix, dimensions=3, unit_length=True,
         aff = rbf(matrix, sigma=sigma)
     else:
         aff = affinity_matrix
-    coords = sklearn.manifold.spectral_embedding(aff, dimensions)
+    coords = sklearn.manifold.spectral_embedding(aff, n_components=dimensions)
     return normalise_rows(coords) if unit_length else coords
 
 
