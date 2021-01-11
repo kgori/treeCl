@@ -1,4 +1,3 @@
-from builtins import map
 #!/usr/bin/env python
 from UserDict import UserDict
 import re

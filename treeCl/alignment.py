@@ -1,26 +1,17 @@
-from __future__ import print_function
-from __future__ import absolute_import
-from __future__ import division
-from builtins import str
-from builtins import zip
-from builtins import range
-from builtins import object
 import collections
 import itertools
 import io, os, random
 
 import numpy as np
 import pandas as pd
-from six import string_types
 
 from .parameters import Parameters
 from .constants import ISPY3
-from .utils import fileIO, alignment_to_partials, concatenate, sample_wr
+from .utils import fileIO, alignment_to_partials, concatenate, sample_wr, enum
 from .distance_matrix import DistanceMatrix
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio.Align import MultipleSeqAlignment
-from Bio.Alphabet import IUPAC
 from Bio import AlignIO
 from phylo_utils.likcalc import discrete_gamma
 from phylo_utils.markov import TransitionMatrix
@@ -29,10 +20,13 @@ from phylo_utils.likcalc import _evolve_states, _weighted_choices
 import logging
 logger = logging.getLogger(__name__)
 
-def set_alphabet(msa, alphabet):
-    msa._alphabet = alphabet
-    for seqrec in msa:
-        seqrec.seq.alphabet = alphabet
+
+sequence_alphabet = enum("DNA", "PROTEIN", "UNSPECIFIED")
+
+if ISPY3:
+    string_types = (str,)
+else:
+    string_types = (basestring,)
 
 
 class Alignment(object):
@@ -50,6 +44,7 @@ class Alignment(object):
         self.infile = None
         self.name = None
         self.parameters = Parameters()
+        self._alphabet = sequence_alphabet.UNSPECIFIED
         if len(args) == 0:
             self._msa = None
         elif isinstance(args[0], list):
@@ -61,7 +56,8 @@ class Alignment(object):
                 # initialise from list of (name, sequence) tuples
                 msa = MultipleSeqAlignment([SeqRecord(Seq(sequence), id=key, description=key, name=key) 
                                             for (key, sequence) in args[0]])
-                self._msa = self._guess_alphabet(msa)
+                self._alphabet = guess_alphabet(msa)
+                self._msa = msa
                 if 'name' in kwargs:
                     self.name = kwargs['name']
             else:
@@ -88,11 +84,12 @@ class Alignment(object):
         if 'alphabet' in kwargs and self._msa is not None:
             alphabet = kwargs['alphabet']
             if alphabet in ('dna', 'DNA'):
-                set_alphabet(self._msa, IUPAC.ambiguous_dna)
+                self._alphabet = sequence_alphabet.DNA
             elif alphabet in ('protein', 'PROTEIN'):
-                set_alphabet(self._msa, IUPAC.extended_protein)
+                self._alphabet = sequence_alphabet.PROTEIN
             else:
                 logger.warning('Set alphabet to "dna" or "protein", not {}'.format(alphabet))
+                self._alphabet = sequence_alphabet.UNSPECIFIED
 
     def __add__(self, other):
         return self.__class__([self, other])
@@ -127,10 +124,10 @@ class Alignment(object):
             raise AttributeError('No tree')
 
     def is_dna(self):
-        return isinstance(self._msa._alphabet, (type(IUPAC.ambiguous_dna), type(IUPAC.unambiguous_dna)))
+        return self._alphabet == sequence_alphabet.DNA
 
     def is_protein(self):
-        return isinstance(self._msa._alphabet, (type(IUPAC.protein), type(IUPAC.extended_protein)))
+        return self._alphabet == sequence_alphabet.PROTEIN
     
     def read_alignment(self, *args, **kwargs):
         filename = args[0]
@@ -143,7 +140,8 @@ class Alignment(object):
                 msa = AlignIO.read(fl, *args, **kwargs)
         self.infile = filename
         # guess alphabet
-        self._msa = self._guess_alphabet(msa)
+        self._msa = msa
+        self._alphabet = self._guess_alphabet(msa)
 
     def _guess_alphabet(self, msa):
         if msa.get_alignment_length() > 1000:
@@ -155,13 +153,12 @@ class Alignment(object):
                             for char in random.sample(list(sr.seq.upper(), 1000))]
         else:
             allchars = [char for sr in msa for char in str(sr.seq.upper())]
-        probably_dna = (set(allchars) - set('-?X')).issubset(set(IUPAC.ambiguous_dna.letters))
-        if probably_dna:
-            alphabet = IUPAC.ambiguous_dna
-        else:
-            alphabet = IUPAC.extended_protein
-        set_alphabet(msa, alphabet)
-        return msa
+
+        dna_ambiguity_chars = 'GATCRYWSMKHBVDN'
+        probably_dna = (set(allchars) - set('-?X')).issubset(set(dna_ambiguity_chars))
+
+        return sequence_alphabet.DNA if probably_dna else sequence_alphabet.PROTEIN
+
 
     def write_alignment(self, filename, file_format, interleaved=None):
         """

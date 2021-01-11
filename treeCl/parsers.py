@@ -1,7 +1,3 @@
-from __future__ import absolute_import
-from builtins import zip
-from builtins import range
-from builtins import object
 from pyparsing import Suppress, SkipTo, Word, Regex, Literal, OneOrMore, Group, LineEnd, CharsNotIn, nums, alphanums, ParseException
 import logging
 logger = logging.getLogger(__name__)

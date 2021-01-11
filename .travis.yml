@@ -7,9 +7,10 @@ branches:
   - /^v.*$/ # tagged release
 
 python:
-  - 2.7
-  - 3.5
   - 3.6
+  - 3.7
+  - 3.8
+  - 3.9
 
 compiler:
   - gcc
@@ -30,19 +31,19 @@ before_install:
   - make -f Makefile.AVX.gcc
   - sudo mv raxmlHPC-AVX /usr/bin
   - cd ..
-  - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
+  - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then wget http://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O miniconda.sh; else wget http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh; fi
   - chmod +x miniconda.sh
-  - ./miniconda.sh -b
-  - if [ -d $HOME/miniconda ]; then export PATH=$HOME/miniconda/bin:$PATH; fi
-  - if [ -d $HOME/miniconda2 ]; then export PATH=$HOME/miniconda2/bin:$PATH; fi
+  - ./miniconda.sh -b -p $HOME/miniconda
+  - export PATH=$HOME/miniconda/bin:$PATH
   - echo $PATH
   - conda update --yes conda
   - export CC=gcc-4.7
   - export CXX=g++-4.7
 
 install:
-  - conda create -n travis --yes python=$TRAVIS_PYTHON_VERSION cython future numpy scipy matplotlib nose pandas scikit-bio scikit-learn pyparsing pyyaml six biopython
+  - conda create -n travis --yes python=$TRAVIS_PYTHON_VERSION cython numpy scipy matplotlib pandas scikit-learn pyyaml nose
   - source activate travis
+  - conda install -c conda-forge --yes fastcluster
   - pip install --no-binary ":all:" .
 
 sudo: true
@@ -58,4 +59,4 @@ deploy:
     tags: true
     repo: kgori/treeCl
     branch: master
-    python: 2.7
+    python: 3.9

@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-
 from .alignment import Alignment
 from .clustering import Spectral, Hierarchical, MultidimensionalScaling, Automatic, Evaluation
 from .collection import Collection, Scorer
@@ -15,7 +13,7 @@ import yaml
 from pkg_resources import resource_string
 conf = resource_string(__name__, 'logging/logging.yaml')
 
-D = yaml.load(conf)
+D = yaml.load(conf, Loader=yaml.FullLoader)
 D.setdefault('version', 1)
 logging.config.dictConfig(D)
 del D
