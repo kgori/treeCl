@@ -43,7 +43,8 @@ before_install:
 
 install:
   - conda create -n travis --yes python=$TRAVIS_PYTHON_VERSION cython future numpy scipy matplotlib nose pandas scikit-learn pyparsing pyyaml six biopython
-  - source activate travis
+  - conda activate travis
+  - conda install -c conda-forge fastcluster
   - pip install --no-binary ":all:" .
 
 sudo: true
