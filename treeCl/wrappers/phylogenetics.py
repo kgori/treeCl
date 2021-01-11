@@ -1,4 +1,3 @@
-from builtins import range
 from .abstract_wrapper import AbstractWrapper
 from ..utils import smooth_freqs
 import re

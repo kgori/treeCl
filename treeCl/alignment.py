@@ -1,17 +1,9 @@
-from __future__ import print_function
-from __future__ import absolute_import
-from __future__ import division
-from builtins import str
-from builtins import zip
-from builtins import range
-from builtins import object
 import collections
 import itertools
 import io, os, random
 
 import numpy as np
 import pandas as pd
-from six import string_types
 
 from .parameters import Parameters
 from .constants import ISPY3
@@ -30,6 +22,11 @@ logger = logging.getLogger(__name__)
 
 
 sequence_alphabet = enum("DNA", "PROTEIN", "UNSPECIFIED")
+
+if ISPY3:
+    string_types = (str,)
+else:
+    string_types = (basestring,)
 
 
 class Alignment(object):

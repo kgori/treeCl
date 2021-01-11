@@ -1,9 +1,4 @@
 #!/usr/bin/env python
-from __future__ import print_function, division
-from builtins import zip
-from builtins import str
-from builtins import range
-from builtins import object
 
 # standard library
 import numbers
