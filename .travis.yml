@@ -40,7 +40,7 @@ before_install:
   - export CXX=g++-4.7
 
 install:
-  - conda create -n travis --yes python=$TRAVIS_PYTHON_VERSION cython numpy scipy matplotlib pandas scikit-learn>=1.2 pyyaml nose
+  - conda create -n travis --yes python=$TRAVIS_PYTHON_VERSION cython numpy scipy matplotlib pandas "scikit-learn>=1" pyyaml nose
   - source activate travis
   - conda install -c conda-forge --yes fastcluster
   - pip install --no-binary ":all:" .
