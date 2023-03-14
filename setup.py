@@ -34,7 +34,7 @@ class my_build_ext(build_ext):
                     version = tuple(int(n) for n in version_string.split('.'))
 
                     # libstdc++ is deprecated in recent versions of XCode
-                    if version < (10, 9):
+                    if version < (10, 9, 0):
                         e.extra_compile_args.append('-mmacosx-version-min=10.7')
                         e.extra_link_args.append('-mmacosx-version-min=10.7')
                     else:
@@ -62,7 +62,7 @@ extensions = [
 ]
 
 # Install splash
-VERSION = '0.1.39'
+VERSION = '0.1.40'
 
 logo = """
 ═══════════ ╔═╗┬
