@@ -177,8 +177,10 @@ def processpool_map(task, args, message, concurrency, batchsize=1, nargs=None):
     njobs = get_njobs(nargs, args)
     show_progress = bool(message)
     batches = grouper(batchsize, tupleise(args))
-    def batched_task(*batch):
-        return [task(*job) for job in batch]
+
+    # batched_task and multiprocessing ForkingPickler don't play nicely together
+    # def batched_task(*batch):
+    #     return [task(*job) for job in batch]
 
     if show_progress:
         message += ' (PP:{}w:{}b)'.format(concurrency, batchsize)
@@ -188,18 +190,19 @@ def processpool_map(task, args, message, concurrency, batchsize=1, nargs=None):
     q_in   = multiprocessing.Queue()  # Should I limit either queue size? Limiting in-queue
     q_out  = multiprocessing.Queue()  # increases time taken to send jobs, makes pbar less useful
 
-    proc = [multiprocessing.Process(target=fun, args=(batched_task, q_in, q_out)) for _ in range(concurrency)]
+    # Not using batched_task here because it doesn't play nicely with ForkingPickler
+    proc = [multiprocessing.Process(target=fun, args=(task, q_in, q_out)) for _ in range(concurrency)]
     for p in proc:
         p.daemon = True
         p.start()
-    sent = [q_in.put((i, x)) for (i, x) in enumerate(batches)]
+    sent = [q_in.put((i, x)) for (i, x) in enumerate(args)]
     [q_in.put((None, None)) for _ in range(concurrency)]
     res = []
     completed_count = 0
     for _ in range(len(sent)):
         result = get_from_queue(q_out)
         res.append(result)
-        completed_count += len(result[1])
+        completed_count += 1 #len(result[1])
         if show_progress:
             pbar.update(completed_count)
 
