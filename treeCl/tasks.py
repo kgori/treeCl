@@ -645,17 +645,13 @@ class SimulatorTaskInterface(TaskInterface):
                                result['ml_tree'],
                                partition['rates'] if 'rates' in partition else None)
 
-class TreeDistanceTaskInterface(metaclass=ABCMeta):
+class TreeDistanceTaskInterface(TaskInterface):
     _name = 'TreeDistance'
 
     def scrape_args(self, trees, normalise, min_overlap, overlap_fail_value):
         for (t1, t2) in itertools.combinations(trees, 2):
             yield (t1, t2, normalise, min_overlap, overlap_fail_value)
 
-
-    @abstractmethod
-    def get_task(self):
-        pass
 
 class GeodesicTreeDistance(TreeDistanceTaskInterface):
     _name = 'GeodesicDistance'
