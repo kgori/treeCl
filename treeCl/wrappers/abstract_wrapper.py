@@ -196,7 +196,7 @@ class AbstractWrapper(metaclass=ABCMeta):
 
         # spawn
         self.process = Popen(shlex.split(self.cmd),
-                             shell=False, stdout=PIPE, stderr=PIPE, bufsize=1, close_fds=POSIX)
+                             shell=False, stdout=PIPE, stderr=PIPE, close_fds=POSIX)
         if self.verbose:
             print('Launched {} with PID {}'.format(self.exe, self.process.pid))
 
