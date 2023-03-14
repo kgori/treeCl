@@ -6,7 +6,7 @@ from phylo_utils import seq_to_partials
 from phylo_utils.markov import TransitionMatrix
 from phylo_utils.models import LG, WAG, GTR
 from phylo_utils.likelihood import GammaMixture
-from Bio.Seq import Seq, UnknownSeq
+from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio.Align import MultipleSeqAlignment
 from collections import defaultdict
@@ -30,7 +30,7 @@ def concatenate(alignments):
     """
     Concatenates a list of Bio.Align.MultipleSeqAlignment objects.
     If any sequences are missing the are padded with unknown data
-    (Bio.Seq.UnknownSeq).
+    (Bio.Seq('?' * length)).
     Returns a single Bio.Align.MultipleSeqAlignment.
     Limitations: any annotations in the sub-alignments are lost in
     the concatenated alignment.
@@ -53,7 +53,7 @@ def concatenate(alignments):
         # if any are missing, create unknown data of the right length,
         # stuff the string representation into the tmp dict
         for label in missing:
-            new_seq = UnknownSeq(length)
+            new_seq = Seq('?' * length)
             tmp[label].append(str(new_seq))
 
         # else stuff the string representation into the tmp dict
