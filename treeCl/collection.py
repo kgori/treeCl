@@ -446,7 +446,12 @@ class RecordsCalculatorMixin(object):
         optioncheck(metric, list(metrics.keys()))
         task_interface = metrics[metric]()
         if metric.startswith('fast'):
-            trees = (PhyloTree(newick, False) for newick in self.trees)
+            trees = []
+            for tree in self.trees:
+                if isinstance(tree, str):
+                    tree = tree.encode('utf8')
+                assert isinstance(tree, bytes)
+                trees.append(PhyloTree(tree, False))
         else:
             trees = self.trees
         args = task_interface.scrape_args(trees, normalise, min_overlap, overlap_fail_value)
