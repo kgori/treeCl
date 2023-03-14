@@ -331,7 +331,7 @@ def _embedding_spectral(matrix, dimensions=3, unit_length=True,
 
 
 def _embedding_tsne(matrix, dimensions=3, early_exaggeration=12.0,
-                    method='barnes_hut', perplexity=30, learning_rate=200,
+                    method='barnes_hut', perplexity=30, learning_rate="auto",
                     n_iter=1000):
     """
     Private method to perform tSNE embedding
@@ -339,13 +339,17 @@ def _embedding_tsne(matrix, dimensions=3, early_exaggeration=12.0,
     :param dimensions: Number of dimensions in which to embed points
     :return: treeCl CoordinateMatrix
     """
+    n_items = matrix.shape[0]
+    if perplexity > n_items:
+        perplexity = n_items - 1
     tsne = sklearn.manifold.TSNE(n_components=dimensions,
                                  metric="precomputed",
                                  early_exaggeration=early_exaggeration,
                                  method=method,
                                  perplexity=perplexity,
                                  learning_rate=learning_rate,
-                                 n_iter=1000)
+                                 n_iter=1000,
+                                 init="random")
     return tsne.fit_transform(matrix)
 
 
@@ -357,6 +361,7 @@ def _embedding_metric_mds(matrix, dimensions=3):
     """
     mds = sklearn.manifold.MDS(n_components=dimensions,
                                dissimilarity='precomputed',
+                               normalized_stress='auto',
                                metric=True)
     mds.fit(matrix)
     return mds.embedding_
@@ -370,6 +375,7 @@ def _embedding_nonmetric_mds(matrix, dimensions=3, initial_coords=None):
     """
     mds = sklearn.manifold.MDS(n_components=dimensions,
                                dissimilarity='precomputed',
+                               normalized_stress='auto',
                                metric=False)
     if initial_coords is not None:
         mds.fit(matrix, init=initial_coords)
