@@ -345,7 +345,8 @@ def _embedding_tsne(matrix, dimensions=3, early_exaggeration=12.0,
                                  method=method,
                                  perplexity=perplexity,
                                  learning_rate=learning_rate,
-                                 n_iter=1000)
+                                 init='random',
+                                 max_iter=1000)
     return tsne.fit_transform(matrix)
 
 

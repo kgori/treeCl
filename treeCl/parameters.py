@@ -4,7 +4,7 @@ Data structures to hold model parameters and attributes such as alignment file p
 import json
 import sys
 import logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def setter_helper(fn, value):
