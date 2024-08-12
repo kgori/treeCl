@@ -1,0 +1,21 @@
+[build-system]
+requires = [
+    "setuptools",
+    "wheel",
+    "cython",
+    "biopython",
+    "dendropy",
+    "fastcluster",
+    "futures",
+    "ipython",
+    "matplotlib",
+    "nose",
+    "numpy",
+    "pandas",
+    "phylo_utils==0.0.9",
+    "progressbar-latest==2.4",
+    "PyYaml",
+    "scipy",
+    "scikit-learn",
+    "tree_distance>=1.0.9"
+]
