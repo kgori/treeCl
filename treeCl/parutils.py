@@ -142,7 +142,6 @@ def threadpool_map(task, args, message, concurrency, batchsize=1, nargs=None):
     """
     import concurrent.futures
 
-
     njobs = get_njobs(nargs, args)
     show_progress = bool(message)
     batches = grouper(batchsize, tupleise(args))
@@ -170,6 +169,9 @@ def threadpool_map(task, args, message, concurrency, batchsize=1, nargs=None):
 
     return flatten_list([fut.result() for fut in futures])
 
+def batched_task(task, batch):
+    return [task(*job) for job in batch]
+
 def processpool_map(task, args, message, concurrency, batchsize=1, nargs=None):
     """
     See http://stackoverflow.com/a/16071616
@@ -177,8 +179,6 @@ def processpool_map(task, args, message, concurrency, batchsize=1, nargs=None):
     njobs = get_njobs(nargs, args)
     show_progress = bool(message)
     batches = grouper(batchsize, tupleise(args))
-    def batched_task(*batch):
-        return [task(*job) for job in batch]
 
     if show_progress:
         message += ' (PP:{}w:{}b)'.format(concurrency, batchsize)
@@ -192,7 +192,7 @@ def processpool_map(task, args, message, concurrency, batchsize=1, nargs=None):
     for p in proc:
         p.daemon = True
         p.start()
-    sent = [q_in.put((i, x)) for (i, x) in enumerate(batches)]
+    sent = [q_in.put((i, (task, x))) for (i, x) in enumerate(batches)]
     [q_in.put((None, None)) for _ in range(concurrency)]
     res = []
     completed_count = 0

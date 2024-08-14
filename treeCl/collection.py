@@ -950,7 +950,7 @@ class Optimiser(object):
         return lktable
 
     def likelihood_table_to_probs(self, lktable):
-        """
+        r"""
         Calculates this formula (1), given the log of the numerator as input
                      
                      p_k * f(x_i, a_k)

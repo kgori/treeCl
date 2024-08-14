@@ -62,7 +62,7 @@ extensions = [
 ]
 
 # Install splash
-VERSION = '0.1.40'
+VERSION = '0.1.41'
 
 logo = """
 ═══════════ ╔═╗┬
@@ -103,7 +103,7 @@ setup(name="treeCl",
           'cython>=0.19.0',
           'dendropy>=4.0.0',
           'fastcluster',
-          'futures',
+          'futures; python_version == "2.7"',
           'ipython',
           'matplotlib',
           'nose',

@@ -446,15 +446,24 @@ class ParallelTests(unittest.TestCase):
         dm = self.c.get_inter_tree_distances('geo', jobhandler=handler, show_progress=False)
         self.assertAlmostEqual(dm.df.values.sum(), 412.70677069540181)
 
-    # TODO: Fix this. Something changed in python to make the processpool approach fail. Something to do with pickling.
-    # def test_processpool(self):
-    #     handler = treeCl.parutils.ProcesspoolJobHandler(2)
-    #     dm = self.c.get_inter_tree_distances('geo', jobhandler=handler, show_progress=False)
-    #     self.assertAlmostEqual(dm.df.values.sum(), 412.70677069540181)
+    def test_processpool(self):
+        handler = treeCl.parutils.ProcesspoolJobHandler(2)
+        dm = self.c.get_inter_tree_distances('geo', jobhandler=handler, show_progress=False)
+        self.assertAlmostEqual(dm.df.values.sum(), 412.70677069540181)
+
+    def test_processpool_batches(self):
+        handler = treeCl.parutils.ProcesspoolJobHandler(2)
+        dm = self.c.get_inter_tree_distances('geo', jobhandler=handler, show_progress=False, batchsize=5)
+        self.assertAlmostEqual(dm.df.values.sum(), 412.70677069540181)
 
     def test_threadpool(self):
         handler = treeCl.parutils.ThreadpoolJobHandler(2)
         dm = self.c.get_inter_tree_distances('geo', jobhandler=handler, show_progress=False)
+        self.assertAlmostEqual(dm.df.values.sum(), 412.70677069540181)
+
+    def test_threadpool_batches(self):
+        handler = treeCl.parutils.ThreadpoolJobHandler(2)
+        dm = self.c.get_inter_tree_distances('geo', jobhandler=handler, show_progress=False, batchsize=5)
         self.assertAlmostEqual(dm.df.values.sum(), 412.70677069540181)
 
 

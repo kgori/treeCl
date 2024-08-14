@@ -74,7 +74,7 @@ def double_centre(matrix, square_input=True):
     return m
 
 def _estimate_additive_constant(matrix):
-    """
+    r"""
     CMDS Additive Constant: correction for non-Euclidean distances.
     Procedure taken from R function cmdscale.
     The additive constant is given by the largest eigenvalue (real part)

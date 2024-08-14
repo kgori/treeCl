@@ -17,19 +17,6 @@ class ExternalProcessError(Exception):
     pass
 
 
-def _py2_and_3_joiner(sep, joinable):
-    """
-    Allow '\n'.join(...) statements to work in Py2 and Py3.
-    :param sep:
-    :param joinable:
-    :return:
-    """
-    if ISPY3:
-        sep = bytes(sep, DEFAULT_ENCODING)
-    joined = sep.join(joinable)
-    return joined.decode(DEFAULT_ENCODING) if ISPY3 else joined
-
-
 def _kwargs_to_args(kwargs, num_hyphens):
     processed = []
     for k, v in kwargs.items():
@@ -196,7 +183,8 @@ class AbstractWrapper(metaclass=ABCMeta):
 
         # spawn
         self.process = Popen(shlex.split(self.cmd),
-                             shell=False, stdout=PIPE, stderr=PIPE, bufsize=1, close_fds=POSIX)
+                             shell=False, stdout=PIPE, stderr=PIPE, bufsize=1,
+                             close_fds=POSIX, universal_newlines=True, encoding=DEFAULT_ENCODING)
         if self.verbose:
             print('Launched {} with PID {}'.format(self.exe, self.process.pid))
 
@@ -229,7 +217,7 @@ class AbstractWrapper(metaclass=ABCMeta):
             self.stderr_l.append(self.stderr_q.get_nowait())
         if tail is None:
             tail = len(self.stderr_l)
-        return _py2_and_3_joiner('\n', self.stderr_l[:tail])
+        return '\n'.join(self.stderr_l[:tail])
 
     def get_stdout(self, tail=None):
         """
@@ -243,7 +231,7 @@ class AbstractWrapper(metaclass=ABCMeta):
             self.stdout_l.append(self.stdout_q.get_nowait())
         if tail is None:
             tail = len(self.stdout_l)
-        return _py2_and_3_joiner('\n', self.stdout_l[:tail])
+        return '\n'.join(self.stdout_l[:tail])
 
     def finished(self):
         """

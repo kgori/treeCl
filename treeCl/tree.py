@@ -294,7 +294,7 @@ class NNI(object):
         return weighted_choice(list(zip(self.valid_nodes, weights)))
 
     def get_exchangeable_nodes(self, n):
-        """
+        r"""
             A      C    | Subtrees A, B, C and D are the exchangeable nodes
              \    /     | around the edge headed by n
               -->n      | The NNI exchanges either A or B with either C or D
@@ -644,7 +644,7 @@ class NNI2(object):
             self.rooting_info = None
 
     def get_children(self, inner_edge):
-        """ Given an edge in the tree, returns the child nodes of the head and
+        r""" Given an edge in the tree, returns the child nodes of the head and
         the tail nodes of the edge, for instance:
 
             A      C    | A, B, C and D are the children of the edge --->,
@@ -677,7 +677,7 @@ class NNI2(object):
             head_subtree,
             tail_subtree,
     ):
-        """ *Inplace* Nearest-neighbour interchange (NNI) operation.
+        r""" *Inplace* Nearest-neighbour interchange (NNI) operation.
 
         An edge in the tree has two or more subtrees at each end (ends are
         designated 'head' and 'tail'). The NNI operation exchanges one of the
@@ -1043,7 +1043,7 @@ class Tree(object):
         return t
 
     def reversible_deroot(self):
-        """ Stores info required to restore rootedness to derooted Tree. Returns
+        r""" Stores info required to restore rootedness to derooted Tree. Returns
         the edge that was originally rooted, the length of e1, and the length
         of e2.
 
@@ -1061,10 +1061,10 @@ class Tree(object):
                 /                            |
                /e1                           |e3 (length = e1+e2; e2 is deleted)
         Root--o               ===>           |
-               \e2                     Root--o _ C
-                \ _ C                        |
-                 |                           D
-                 D
+               \e2                     Root--o-- C
+                \__ C                        |
+                |                            D
+                D
 
         Reverse this with Tree.reroot_at_edge(edge, length1, length2, ...)
         """
